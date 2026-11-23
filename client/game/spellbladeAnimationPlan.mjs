@@ -102,7 +102,8 @@ function attackPlan(player, serverNow, { guarded = false, localTime = serverNow 
 //            the complete wind-up is time-mapped across the server's preparation
 //            and vortex phases, without a separate floating-idle pose;
 //   the two charges: ONLY the genuinely held Lightning aim, on ground or in air;
-//   arrivalGag: Gemini's faceplant-and-pop-up, a cosmetic stand-in for the arrival slam now and then (below).
+//   arrivalGag / arrivalGagBack: Gemini's faceplant and flat-on-his-back kip-up, cosmetic stand-ins for the arrival
+//            slam now and then (below), one or the other evenly.
 // Nothing here moves a bone: the debris goes where the blade really is.
 export const DISASTER_CLIPS = Object.freeze({
   ground: Object.freeze({ clip: 'AllNatural_Ground_DualSpin_Slam', contact: 0.983, duration: 1.44 }),
@@ -112,6 +113,7 @@ export const DISASTER_CLIPS = Object.freeze({
   chargeGround: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Ground', duration: 0.8 }),
   chargeAir: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Air', duration: 0.8 }),
   arrivalGag: Object.freeze({ clip: 'AllNatural_Lightning_Faceplant_PopUp', duration: 1.35 }),
+  arrivalGagBack: Object.freeze({ clip: 'AllNatural_Lightning_FlatDrop_PopUp', duration: 1.35 }),
 });
 const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) => entry.clip));
 
@@ -144,7 +146,75 @@ export function lightningArrivalGag(player, action) {
   const seed = `${player?.id ?? ''}:${Math.round(commitAt * 1000)}`;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const draw = (h >>> 0) / 4294967296;
+  if (!(draw < chance)) return false;
+  // which way he lands: on his face or flat on his back, evenly (the hash's low bit, independent of the odds)
+  return (h & 1) ? 'back' : 'face';
+}
+
+// The white-flag defeat (cosmetic): decided as he falls, the knight throws his sword down at once and stays on his
+// feet, stubbornly en garde with a white flag until he respawns, already on the killfeed. He is the player's no
+// longer: he faces and "fights" whichever enemy is next to him (RemotePlayers finds it: player.flagFoe), parrying
+// its swings and swishing back. The flag deals nothing and blocks nothing; the server has no body for him at all.
+// The odds are a first guess, for playtesting.
+export const WHITE_FLAG = Object.freeze({
+  chance: 0.2,
+  // the authored draw (sword down at 0.55 s, flag up by 1.6 s) played at double speed: the sword hits the ground
+  // about a quarter of a second after the blow, the flag is up well inside the usual three-second respawn
+  draw: Object.freeze({ clip: 'Death_WhiteFlag_Combat', duration: 1.6, rate: 2 }),
+  idle: Object.freeze({ clip: 'Death_WhiteFlag_Idle_Loop', duration: 1.2 }),
+  parry: Object.freeze({ clip: 'Death_WhiteFlag_Guard_Parry', duration: 1.0 }),
+  swish: Object.freeze({ clip: 'Death_WhiteFlag_Slash_Gag', duration: 1.1 }),
+  // with a foe beside him: a swish, then a beat of en garde, over and over
+  swishEvery: 2.2,
+});
+let whiteFlagOverride = null;
+/** For previews and captures: 0 never, 1 always; null returns to WHITE_FLAG.chance. */
+export function setWhiteFlagDefeatChance(chance) {
+  whiteFlagOverride = chance === null || chance === undefined ? null : Math.max(0, Math.min(1, Number(chance) || 0));
+}
+/** Whether this defeat is the white flag: from the knight and the moment he fell, so every client agrees. */
+export function whiteFlagDefeat(player, deathAt) {
+  const chance = whiteFlagOverride ?? WHITE_FLAG.chance;
+  if (!(chance > 0) || player?.restlessAsleep) return false;
+  const seed = `flag:${player?.id ?? ''}:${Math.round(finite(deathAt, 0) * 1000)}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
   return ((h >>> 0) / 4294967296) < chance;
+}
+// the white-flag defeat's foe: the nearest living enemy within reach of the fallen knight (any other knight in a
+// free-for-all; never his own team), and how far into a swing it is (for his parry). Cosmetic only.
+const WHITE_FLAG_REACH = 4;
+export function whiteFlagFoe(knight, players, serverNow) {
+  const at = knight?.position;
+  if (!at || !Array.isArray(players)) return null;
+  let best = null;
+  for (const p of players) {
+    if (!p || p.id === knight.id || !p.alive || !p.position) continue;
+    if (knight.team && p.team && p.team === knight.team) continue;
+    const dx = p.position.x - at.x, dz = p.position.z - at.z, distance = Math.hypot(dx, dz);
+    if (distance > WHITE_FLAG_REACH || (best && distance >= best.distance)) continue;
+    const swingAt = p.attackActive && Number.isFinite(p.attackStartedAt) ? p.attackStartedAt
+      : Number.isFinite(p.swordTechnique?.startedAt) ? p.swordTechnique.startedAt : null;
+    // facing it: the knight's forward is (-sin yaw, -cos yaw)
+    best = { id: p.id, distance, yaw: Math.atan2(-dx, -dz), attackAge: swingAt === null ? null : serverNow - swingAt };
+  }
+  return best;
+}
+function whiteFlagPlan(player, age) {
+  const fallback = { fallback: 'Death', fallbackTime: Math.max(0, age) };
+  const { draw, idle, parry, swish } = WHITE_FLAG;
+  const drawn = draw.duration / draw.rate;
+  if (age < drawn) return { ...fixed(draw.clip, Math.max(0, age) * draw.rate), ...fallback, whiteFlag: 'draw' };
+  const since = age - drawn, foe = player?.flagFoe;
+  // a foe's swing under way: the flag comes up to meet it
+  if (foe && Number.isFinite(foe.attackAge) && foe.attackAge >= 0 && foe.attackAge < parry.duration)
+    return { ...fixed(parry.clip, foe.attackAge), ...fallback, whiteFlag: 'parry' };
+  if (foe) {
+    const beat = since % WHITE_FLAG.swishEvery;
+    if (beat < swish.duration) return { ...fixed(swish.clip, beat), ...fallback, whiteFlag: 'swish' };
+  }
+  return { ...fixed(idle.clip, since % idle.duration, true), ...fallback, whiteFlag: 'idle' };
 }
 
 /**
@@ -239,7 +309,8 @@ function disasterPlan(player, serverNow) {
   }
   if (teleported) {
     // (the gag plays from its own first frame: the fall IS its landing; the slam is joined where its blade lands)
-    if (lightningArrivalGag(player, action)) return { ...authored(DISASTER_CLIPS.arrivalGag, elapsed, { blend: .04 }), ...follow };
+    const gag = lightningArrivalGag(player, action);
+    if (gag) return { ...authored(gag === 'back' ? DISASTER_CLIPS.arrivalGagBack : DISASTER_CLIPS.arrivalGag, elapsed, { blend: .04 }), ...follow };
     return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
   }
   const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
@@ -419,6 +490,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (state === 'dead') {
     // A staged corpse can remain indefinitely; its death clock must survive a missing respawn deadline.
     const deathAt = finite(player.deathAt, finite(player.respawnAt, serverNow + RESPAWN_SEC) - RESPAWN_SEC);
+    if (whiteFlagDefeat(player, deathAt)) return whiteFlagPlan(player, serverNow - deathAt);
     return fixed('Death', serverNow - deathAt);
   }
 

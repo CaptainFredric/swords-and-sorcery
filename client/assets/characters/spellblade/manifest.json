@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "sourceRevision": "a259c51a16935e8ef9bd9294789e30fc99d85ac3",
+  "sourceRevision": "3c7411a3f96daae337279443d6039fd5ade00fd4",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3",
-    "sha256": "a259c51a16935e8ef9bd9294789e30fc99d85ac35a1fd202479ef2ab0f3ee04e",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=3c7411a3f96daae337279443d6039fd5ade00fd4",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=3c7411a3f96daae337279443d6039fd5ade00fd4",
+    "sha256": "3c7411a3f96daae337279443d6039fd5ade00fd4d079874f883144696fe99751",
     "motionOverrides": [],
-    "bytes": 12041508,
+    "bytes": 12320208,
     "jointCount": 84,
     "meshCount": 19,
     "clips": [
@@ -117,7 +117,11 @@
       "Death_Helicopter_Ascend",
       "Death_WhiteFlag_Combat",
       "Death_Armor_Shatter_Collapse",
-      "AllNatural_Lightning_Faceplant_PopUp"
+      "AllNatural_Lightning_Faceplant_PopUp",
+      "Death_WhiteFlag_Idle_Loop",
+      "Death_WhiteFlag_Guard_Parry",
+      "Death_WhiteFlag_Slash_Gag",
+      "AllNatural_Lightning_FlatDrop_PopUp"
     ],
     "bones": [
       "root",
@@ -189,10 +193,10 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3&asset=77415f1cd674ce992c4e00a416bf582a17f8d85c",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3&asset=77415f1cd674ce992c4e00a416bf582a17f8d85c",
-    "sha256": "77415f1cd674ce992c4e00a416bf582a17f8d85cb9e8c811e0a3e7dd649f9e39",
-    "bytes": 2806244,
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=3c7411a3f96daae337279443d6039fd5ade00fd4&asset=2b69f8f744c96a6af12bdd35976154ec1cd17b6b",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=3c7411a3f96daae337279443d6039fd5ade00fd4&asset=2b69f8f744c96a6af12bdd35976154ec1cd17b6b",
+    "sha256": "2b69f8f744c96a6af12bdd35976154ec1cd17b6b2968329f87d5a3d2d7885ad5",
+    "bytes": 2789984,
     "jointCount": 41,
     "meshCount": 4,
     "clips": [

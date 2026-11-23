@@ -432,7 +432,10 @@ test('now and then a Full Lightning ground arrival is the faceplant gag: likelie
   try {
     setLightningArrivalGagChance(1);
     const gag = plan(arrived('p1', 31), 31.2);
-    assert.equal(gag.clip, DISASTER_CLIPS.arrivalGag.clip);
+    assert.ok([DISASTER_CLIPS.arrivalGag.clip, DISASTER_CLIPS.arrivalGagBack.clip].includes(gag.clip), 'on his face or flat on his back');
+    // both landings come up across arrivals
+    const landings = new Set(Array.from({ length: 40 }, (_, i) => plan(arrived('p' + i, 31 + i), 31.2 + i).clip));
+    assert.ok(landings.has(DISASTER_CLIPS.arrivalGag.clip) && landings.has(DISASTER_CLIPS.arrivalGagBack.clip));
     assert.ok(Math.abs(gag.time - 0.2) < 1e-9, 'the gag plays from its own first frame: the fall is its landing');
     assert.equal(plan(arrived('p1', 31, { lightning: 2, gale: 2 }), 31.2).clip, DISASTER_CLIPS.arrival.clip, 'never with Full Gale');
     setLightningArrivalGagChance(0);
@@ -461,4 +464,61 @@ test('now and then a Full Lightning ground arrival is the faceplant gag: likelie
   } finally {
     setLightningArrivalGagChance(null);
   }
+});
+
+test('the white-flag defeat: decided as he falls, sword thrown down at once, then en garde at the enemy beside him until respawn', async () => {
+  const { WHITE_FLAG, whiteFlagDefeat, setWhiteFlagDefeatChance } = await import('./spellbladeAnimationPlan.mjs');
+  const fallen = (extra = {}) => ({ id: 'k1', alive: false, respawnAt: 13, velocity: { x: 0, y: 0, z: 0 }, ...extra });
+  const plan = (player, now) => resolveSpellbladeAnimationPlan({ state: 'dead', player, serverNow: now });
+  try {
+    setWhiteFlagDefeatChance(0);
+    assert.equal(plan(fallen(), 10.5).clip, 'Death', 'otherwise the ordinary death');
+    setWhiteFlagDefeatChance(1);
+    // the draw at double speed: the authored sword set-down (0.55 s) is on the ground about a quarter second in
+    const drawing = plan(fallen(), 10.25);
+    assert.equal(drawing.clip, WHITE_FLAG.draw.clip);
+    assert.ok(Math.abs(drawing.time - 0.5) < 1e-9);
+    assert.equal(drawing.fallback, 'Death', 'a model without the clips keeps the ordinary death');
+    const drawn = WHITE_FLAG.draw.duration / WHITE_FLAG.draw.rate;
+    // nobody beside him: the bouncing en garde, looped
+    const alone = plan(fallen(), 10 + drawn + 0.3);
+    assert.equal(alone.clip, WHITE_FLAG.idle.clip);
+    assert.equal(alone.loop, true);
+    // an enemy beside him: he swishes at it, then a beat of en garde
+    const foe = { id: 'e', distance: 1.5, yaw: 0, attackAge: null };
+    assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + 0.2).clip, WHITE_FLAG.swish.clip);
+    assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + WHITE_FLAG.swish.duration + 0.3).clip, WHITE_FLAG.idle.clip);
+    // and its swing is met with the flag's parry, in step with the swing
+    const parry = plan(fallen({ flagFoe: { ...foe, attackAge: 0.2 } }), 10 + drawn + 1.5);
+    assert.equal(parry.clip, WHITE_FLAG.parry.clip);
+    assert.ok(Math.abs(parry.time - 0.2) < 1e-9);
+    // the same fall draws the same way everywhere; a different fall may not
+    setWhiteFlagDefeatChance(0.2);
+    let flags = 0;
+    for (let i = 0; i < 500; i++) {
+      const p = { id: 'k' + (i % 9) }, at = 20 + i * 0.731;
+      assert.equal(whiteFlagDefeat(p, at), whiteFlagDefeat(p, at));
+      if (whiteFlagDefeat(p, at)) flags++;
+    }
+    assert.ok(flags > 60 && flags < 140, `about one fall in five (${flags} of 500)`);
+  } finally {
+    setWhiteFlagDefeatChance(null);
+  }
+});
+
+test('a white-flag knight finds the nearest living enemy beside him, never a teammate, and how far into its swing it is', async () => {
+  const { whiteFlagFoe } = await import('./spellbladeAnimationPlan.mjs');
+  const knight = { id: 'k', team: 'RED', position: { x: 0, y: 0, z: 0 } };
+  const players = [
+    knight,
+    { id: 'ally', team: 'RED', alive: true, position: { x: 0.5, y: 0, z: 0 } },
+    { id: 'far', team: 'BLUE', alive: true, position: { x: 9, y: 0, z: 0 } },
+    { id: 'down', team: 'BLUE', alive: false, position: { x: 0.8, y: 0, z: 0 } },
+    { id: 'foe', team: 'BLUE', alive: true, position: { x: 0, y: 0, z: -2 }, attackActive: true, attackStartedAt: 9.8 },
+  ];
+  const foe = whiteFlagFoe(knight, players, 10);
+  assert.equal(foe.id, 'foe');
+  assert.ok(Math.abs(foe.attackAge - 0.2) < 1e-9);
+  assert.ok(Math.abs(foe.yaw) < 1e-9, 'straight ahead (-z) is yaw 0');
+  assert.equal(whiteFlagFoe(knight, players.slice(0, 4), 10), null, 'nobody within reach: nobody to fight');
 });

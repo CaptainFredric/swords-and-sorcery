@@ -45,3 +45,30 @@ All of these come from a real Castleward server and Chrome.
 - `lightning-faceplant-gag.jpg`: the gag forced on, from the left: down on his face, then pop-up, then stance.
 
 The audits match Codex's baseline exactly: chain sync, sword loop and `fp-sword-audit`. The blade path and contact accuracy are unchanged, because the patch keeps the sword socket fixed.
+
+## Round two (Gemini's fixes, 2026-11-23)
+
+The request is in `GEMINI_PROMPT_ROUND_2.md`.
+
+**What came back**
+- **First-person model:** `Arm.R` now has a capped, closed upper sleeve; nothing else in the model changed.
+- **Five clips**, every core bone keyed:
+  - the four white-flag clips;
+  - the flat-on-back gag.
+
+Checked with the skinned-mesh floor measurement in `scripts/lib/glbSkin.mjs`, for comparison with Codex's live clips. Those already sink their boots about 17 cm in the slams and 25 cm in Death:
+- **White-flag clips:** the sword rests on the ground (+2.5 cm). Only the boots dip: 12 cm while crouching to set the sword down, 3 cm in the parry. The idle loop is clean.
+- **Flat-on-back gag:** the arm and sword now stay above the floor. The breastplate dips 21 cm in the kip-up, but the arrival's dust hides it.
+- **Gemini's clips:** their key times carry no glTF `min`/`max`. `transplant-spellblade-clips.mjs` now derives the missing ranges from the key data.
+
+**Wired into the game**
+- **White-flag defeat**, cosmetic, about one defeat in five (a first guess). It's decided as he falls, from the player and the moment of the defeat, so every client agrees.
+  - He throws the sword down at once: the draw plays at double speed, sword down at about 0.27 s, flag up by 0.8 s.
+  - Then he stays on his feet until respawn. He faces the nearest living enemy within 4 m (never a teammate), swishes at it, and meets its swings with the flag's parry.
+  - Nothing is server-side: a defeated knight already has no hitbox.
+- **Lightning arrival gag:** when it fires, it is the faceplant or the flat-on-back kip-up, evenly.
+
+**Evidence**
+- `white-flag-defeat-front.jpg` / `white-flag-defeat-side.jpg`: in the yard against a MELEE dummy, through the game's own `killPlayer`. He crouches and lays the sword down, then holds the flag en garde and swishes at the dummy.
+- `lightning-flat-on-back-gag.jpg`: flat on his back in the dust, then the kip-up, then standing.
+- `fp-round2-right-arm-capped-left-arm-open.jpg`: the right arm's cap holds. The dark spikes still at the bottom belong to **Arm.L**, Codex's untouched left (magic-hand) arm. It has the same open rear end, seen when it reaches across for the two-handed heavy cut. That's a defect older than this salvage, and the next request to Gemini.

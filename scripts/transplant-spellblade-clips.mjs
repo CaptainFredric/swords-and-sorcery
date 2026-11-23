@@ -238,11 +238,22 @@ function transplantClips(baseFile, donorFile, expected, names, edits = {}, fillF
     keep.push(keys.length - 1);
     return { times: keep.map((i) => +(keys[i] - t0).toFixed(5)), values: keep.map((i) => out[i]) };
   };
+  // the donor's key-time accessors must carry min/max (glTF requires it; some exporters leave it out)
+  const inputRange = (id) => {
+    const acc = source.accessors[id];
+    if (acc.min && acc.max) return [acc.min[0], acc.max[0]];
+    const t = floats(source, donor.bin, id).map((r) => r[0]);
+    return [Math.min(...t), Math.max(...t)];
+  };
   const report = [];
   for (const a of picked) {
     const edit = edits[a.name];
     if (edit && new Set(a.channels.map((c) => c.sampler)).size !== a.channels.length) throw Error(a.name + ': shared samplers cannot be edited per bone');
-    const samplers = a.samplers.map((s) => ({ ...structuredClone(s), input: copyAccessor(s.input), output: copyAccessor(s.output) }));
+    const samplers = a.samplers.map((s) => {
+      const input = copyAccessor(s.input), [lo, hi] = inputRange(s.input);
+      target.accessors[input].min = [lo]; target.accessors[input].max = [hi];
+      return { ...structuredClone(s), input, output: copyAccessor(s.output) };
+    });
     const channels = a.channels.map((c) => {
       const name = source.nodes[c.target.node]?.name, node = to.get(name);
       if (from.get(name) === null || !Number.isInteger(node)) throw Error('Cannot safely bind ' + name + ' for ' + a.name);
@@ -251,7 +262,7 @@ function transplantClips(baseFile, donorFile, expected, names, edits = {}, fillF
       return { ...structuredClone(c), target: { ...c.target, node } };
     });
     const keyed = new Set(channels.map((c) => c.target.node + '/' + c.target.path));
-    const clipDuration = Math.max(...a.samplers.map((s) => source.accessors[s.input].max?.[0] ?? 0));
+    const clipDuration = Math.max(...a.samplers.map((s) => inputRange(s.input)[1]));
     let filled = 0;
     for (const [node, path] of fullSet) {
       if (keyed.has(node + '/' + path)) continue;
