@@ -356,7 +356,9 @@ test('Full Lightning + Full Gale arrival uses the final aerial winding frames du
   const start=plan(commitAt),mid=plan(commitAt+aimSec/2),near=plan(commitAt+aimSec-1/1000);
   assert.equal(start.clip,DISASTER_CLIPS.aerial.clip);
   assert.equal(start.loop,false,'arrival is a winding action, not a hovering loop');
-  close(start.time,Math.max(0,DISASTER_CLIPS.aerial.contact-aimSec));
+  // (only the cut's final .35 s, eased over the whole aim window: never the spin from its start)
+  close(start.time,DISASTER_CLIPS.aerial.contact-Math.min(aimSec,.35));
+  assert.ok(start.time>.4,'the arrival starts in the final winding frames, not the original charge hold');
   assert.ok(mid.time>start.time&&mid.time<near.time,'sword keeps winding while the player aims');
   assert.ok(near.time<DISASTER_CLIPS.aerial.contact,'blade cannot throw before actual wave release');
   const launched={...player,ultimateState:{...player.ultimateState,oneHit:{

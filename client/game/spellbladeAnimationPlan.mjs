@@ -143,6 +143,7 @@ export function lightningArrivalGag(player, action) {
  * immediately on arrival, ending exactly when its short aiming window ends.
  * The winding must never reach the actual cut before the server launches.
  */
+const TELEPORT_AERIAL_LEAD = 0.35;
 export function disasterAerialWindupTime(action, nowSec, { teleported = false } = {}) {
   const contact = DISASTER_CLIPS.aerial.contact;
   const commitAt = finite(action?.commitAt, nowSec);
@@ -151,9 +152,10 @@ export function disasterAerialWindupTime(action, nowSec, { teleported = false } 
   let frame;
   if (teleported) {
     const window = launchAt - commitAt;
-    const authoredLead = Math.min(window, contact);
+    // Use the LAST portion of the cut (its final .35 s: the end of the spin into the aim-lock), eased across the
+    // whole aiming window, not two full rotations: however long the window, the arrival starts there.
+    const authoredLead = Math.min(window, contact, TELEPORT_AERIAL_LEAD);
     const elapsed = Math.max(0, Math.min(window, nowSec - commitAt));
-    // Use the LAST portion of the cut, not two full rotations in .35 s.
     frame = contact - authoredLead + elapsed * (authoredLead / window);
   } else {
     const started = finite(action?.startedAt, commitAt - disasterWindupSec(action));
