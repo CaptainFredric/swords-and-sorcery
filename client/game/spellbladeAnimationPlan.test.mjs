@@ -416,3 +416,31 @@ test('a Guard or a cast on the move keeps the legs in their gait; standing, the 
     assert.equal(standing.layers, undefined, `${state}: standing, the whole body`);
   }
 });
+
+test('now and then a Full Lightning ground arrival is the faceplant gag: the same on every client, never with Full Gale', async () => {
+  const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
+  const { DISASTER_CLIPS, lightningArrivalGag, setLightningArrivalGagChance } = await import('./spellbladeAnimationPlan.mjs');
+  const plan = (player, now) => resolveSpellbladeAnimationPlan({ state: resolveSpellbladeState(player, now), player, serverNow: now });
+  const arrived = (id, commitAt, tiers = { lightning: 2 }) => ({ id, alive: true, grounded: true, velocity: { x: 0, y: 0, z: 0 }, staggerUntil: 0,
+    ultimateState: { id: 'one_hit_of_wonders', phase: 'active', commitAt, until: commitAt + 1.65, teleportHoldAt: commitAt - 2, oneHit: { form: 'ground', tiers } } });
+  try {
+    setLightningArrivalGagChance(1);
+    const gag = plan(arrived('p1', 31), 31.2);
+    assert.equal(gag.clip, DISASTER_CLIPS.arrivalGag.clip);
+    assert.ok(Math.abs(gag.time - 0.2) < 1e-9, 'the gag plays from its own first frame: the fall is its landing');
+    assert.equal(plan(arrived('p1', 31, { lightning: 2, gale: 2 }), 31.2).clip, DISASTER_CLIPS.arrival.clip, 'never with Full Gale');
+    setLightningArrivalGagChance(0);
+    assert.equal(plan(arrived('p1', 31), 31.2).clip, DISASTER_CLIPS.arrival.clip);
+    setLightningArrivalGagChance(0.15);
+    // the same player and commit always draw the same way; across many arrivals it is a minority
+    let gags = 0;
+    for (let i = 0; i < 400; i++) {
+      const action = arrived('p' + (i % 7), 40 + i * 1.37).ultimateState;
+      assert.equal(lightningArrivalGag({ id: 'p' + (i % 7) }, action), lightningArrivalGag({ id: 'p' + (i % 7) }, action));
+      if (lightningArrivalGag({ id: 'p' + (i % 7) }, action)) gags++;
+    }
+    assert.ok(gags > 20 && gags < 110, `about 15 % (${gags} of 400)`);
+  } finally {
+    setLightningArrivalGagChance(0.15);
+  }
+});

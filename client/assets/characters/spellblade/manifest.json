@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "sourceRevision": "5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151",
+  "sourceRevision": "a259c51a16935e8ef9bd9294789e30fc99d85ac3",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151",
-    "sha256": "5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151881fb376bd53ab258d126bbf",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3",
+    "sha256": "a259c51a16935e8ef9bd9294789e30fc99d85ac35a1fd202479ef2ab0f3ee04e",
     "motionOverrides": [],
-    "bytes": 11955796,
+    "bytes": 12041508,
     "jointCount": 84,
     "meshCount": 19,
     "clips": [
@@ -116,7 +116,8 @@
       "Death_Wobble_Fetal_Roll",
       "Death_Helicopter_Ascend",
       "Death_WhiteFlag_Combat",
-      "Death_Armor_Shatter_Collapse"
+      "Death_Armor_Shatter_Collapse",
+      "AllNatural_Lightning_Faceplant_PopUp"
     ],
     "bones": [
       "root",
@@ -188,10 +189,10 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151&asset=f403b6b16ca2ff3827a00137b58ff95029a5dcd7",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151&asset=f403b6b16ca2ff3827a00137b58ff95029a5dcd7",
-    "sha256": "f403b6b16ca2ff3827a00137b58ff95029a5dcd7ce414a9e1617eda10002ed55",
-    "bytes": 3477412,
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3&asset=77415f1cd674ce992c4e00a416bf582a17f8d85c",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=a259c51a16935e8ef9bd9294789e30fc99d85ac3&asset=77415f1cd674ce992c4e00a416bf582a17f8d85c",
+    "sha256": "77415f1cd674ce992c4e00a416bf582a17f8d85cb9e8c811e0a3e7dd649f9e39",
+    "bytes": 2806244,
     "jointCount": 41,
     "meshCount": 4,
     "clips": [

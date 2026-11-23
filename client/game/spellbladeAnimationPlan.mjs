@@ -89,26 +89,48 @@ function attackPlan(player, serverNow, { guarded = false, localTime = serverNow 
 
 // All-Natural Disaster's authored clips (spellblade.glb), and where in each the blow lands: the slam's low point, the
 // moment the authored blade comes down nearest the floor, measured from the shipped GLB (the test measures it again).
-// Argon's de8c8655 no longer drives the blade into the floor (the 89 went 0.6 m under): the Lightning arrival comes
-// down to 2 cm of it at 0.167 s, the dual-spin slams to 20-21 cm at 0.983 s (ground) and 0.6 s (fast):
+// Argon's de8c8655 no longer drives the blade into the floor (the 89 went 0.6 m under): the dual-spin slams come down
+// to 20-21 cm of it at 0.983 s (ground) and 0.6 s (fast). The Lightning arrival is Gemini's v15 kneeling two-handed
+// slam (shins down, blade flat ahead, 27 cm up at the tip), trimmed to start just above the floor and eased up
+// through Guard to Idle so the blade never dips under (scripts/transplant-spellblade-clips.mjs):
 //   ground:  two turns of the whole body with the sword low, a rise overhead, and the slam: the blade comes down
 //            0.983 s in (the ordinary wind-up is 0.92 s: the clip is joined a few frames in);
 //   fast:    one turn and the slam, blade down 0.6 s in, for Half Lightning's 0.36 s wind-up (joined part-way in);
 //   arrival: the slam alone, for the instant strike out of a Full Lightning teleport: joined where its blade lands;
-//   aerial:  two turns and the cut that throws the wave, 0.85 s into its AUTHORED clip;
+//   aerial:  Gemini's v12 rebuild: a 720-degree spin, a forward aim-lock, then the cut that throws the wave:
+//            the blade sweeps through the front 1.1 s into its AUTHORED clip;
 //            the complete wind-up is time-mapped across the server's preparation
 //            and vortex phases, without a separate floating-idle pose;
-//   the two charges: ONLY the genuinely held Lightning aim, on ground or in air.
-// These are Argon's clips as delivered. Nothing here moves a bone: the debris goes where the blade really is.
+//   the two charges: ONLY the genuinely held Lightning aim, on ground or in air;
+//   arrivalGag: Gemini's faceplant-and-pop-up, a cosmetic stand-in for the arrival slam now and then (below).
+// Nothing here moves a bone: the debris goes where the blade really is.
 export const DISASTER_CLIPS = Object.freeze({
   ground: Object.freeze({ clip: 'AllNatural_Ground_DualSpin_Slam', contact: 0.983, duration: 1.44 }),
   fast: Object.freeze({ clip: 'AllNatural_FastLightning_DualSpin_Slam', contact: 0.6, duration: 0.92 }),
-  arrival: Object.freeze({ clip: 'AllNatural_Lightning_Arrival_Slam', contact: 0.167, duration: 0.6 }),
-  aerial: Object.freeze({ clip: 'AllNatural_Aerial_Vortex_Wave', contact: 0.85, duration: 1.25 }),
+  arrival: Object.freeze({ clip: 'AllNatural_Lightning_Arrival_Slam', contact: 0.19, duration: 0.85 }),
+  aerial: Object.freeze({ clip: 'AllNatural_Aerial_Vortex_Wave', contact: 1.1, duration: 1.25 }),
   chargeGround: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Ground', duration: 0.8 }),
   chargeAir: Object.freeze({ clip: 'AllNatural_Lightning_Charge_Air', duration: 0.8 }),
+  arrivalGag: Object.freeze({ clip: 'AllNatural_Lightning_Faceplant_PopUp', duration: 1.35 }),
 });
 const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) => entry.clip));
+
+// PLACEHOLDER: how often a Full Lightning ground arrival lands on its face instead of the slam. Nobody has chosen
+// a rate yet. Purely cosmetic: the server's strike, its timing and its debris are the same either way.
+let arrivalGagChance = 0.15;
+/** For previews and captures: 0 never, 1 always. */
+export function setLightningArrivalGagChance(chance) { arrivalGagChance = Math.max(0, Math.min(1, Number(chance) || 0)); }
+/**
+ * Whether this arrival is the faceplant. Never with Full Gale (its infusion owns the landing). Decided from the
+ * player and the commit time alone, so every client draws the same knight on his face.
+ */
+export function lightningArrivalGag(player, action) {
+  if (!(arrivalGagChance > 0) || ((action?.oneHit?.tiers ?? action?.preparedTiers ?? {}).gale ?? 0) >= 2) return false;
+  const seed = `${player?.id ?? ''}:${Math.round(finite(action?.commitAt, 0) * 1000)}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return ((h >>> 0) / 4294967296) < arrivalGagChance;
+}
 
 /**
  * The same authored aerial cut runs from the first Gale wind-up frame to
@@ -116,7 +138,7 @@ const DISASTER_CLIP_NAMES = new Set(Object.values(DISASTER_CLIPS).map((entry) =>
  * a static airborne charge to a SECOND wind-up on commit.
  *
  * Ordinary Gale retains its existing interruptible startup and vortex time;
- * the .85-second authored cut is stretched across both as ONE continuous
+ * the authored cut (to its 1.1 s contact) is stretched across both as ONE continuous
  * motion. A Full-Lightning teleport instead enters the FINAL wind-up frames
  * immediately on arrival, ending exactly when its short aiming window ends.
  * The winding must never reach the actual cut before the server launches.
@@ -198,7 +220,11 @@ function disasterPlan(player, serverNow) {
       DISASTER_CLIPS.aerial.contact+sinceLaunch,
       teleported?{blend:.05}:{}), ...follow };
   }
-  if (teleported) return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
+  if (teleported) {
+    // (the gag plays from its own first frame: the fall IS its landing; the slam is joined where its blade lands)
+    if (lightningArrivalGag(player, action)) return { ...authored(DISASTER_CLIPS.arrivalGag, elapsed, { blend: .04 }), ...follow };
+    return { ...authored(DISASTER_CLIPS.arrival, DISASTER_CLIPS.arrival.contact + elapsed, { blend: .04 }), ...follow };
+  }
   const entry = tiers.lightning >= 1 ? DISASTER_CLIPS.fast : DISASTER_CLIPS.ground;
   return { ...authored(entry, entry.contact + elapsed), ...follow };
 }
