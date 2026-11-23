@@ -22,7 +22,20 @@ test('Mode changes use compatible arenas and team defaults',()=>{
   const r=privateRoomPreview('RESTLESS_DAY');
   assert.equal(r.ok,true);assert.equal(r.settings.worldId,'restless-day');
   assert.equal(r.settings.teamSize,5);assert.equal(r.settings.matchSeconds,780);
- for(const mode of PRIVATE_MODES)assert.equal(PRIVATE_MODE_DEFAULTS[mode].minutes>0,true);
+ for(const mode of PRIVATE_MODES)if(mode!=='SIEGE_BLADES')assert.equal(PRIVATE_MODE_DEFAULTS[mode].minutes>0,true);
+ assert.equal(PRIVATE_MODE_DEFAULTS.SIEGE_BLADES.minutes,undefined,'Siege Blades rooms choose rounds, not a match time');
+});
+test('A private Siege Blades room carries its format and rounds to the mode, not a match time',()=>{
+ const match=privateRoomPreview('SIEGE_BLADES',{teamSize:2,format:'MATCH',matchRounds:5,minutes:20});
+ assert.equal(match.ok,true);
+ assert.deepEqual({...match.settings.siegeBladesSettings},
+  {format:'MATCH',matchRounds:5,endlessRoundCap:25,clashStarts:null,teamSize:2,botDifficulty:'knight'});
+ assert.equal(match.summary,'SIEGE BLADES · 2V2 · 5 ROUNDS');
+ assert.equal(match.team,null,'sides are drawn by the mode');
+ const endless=privateRoomPreview('SIEGE_BLADES',{teamSize:1,format:'ENDLESS',endlessRoundCap:0});
+ assert.equal(endless.ok,true);assert.equal(endless.summary,'SIEGE BLADES · 1V1 · ENDLESS · NO CAP');
+ for(const bad of [{matchRounds:4},{format:'MARATHON'},{format:'ENDLESS',endlessRoundCap:99},{teamSize:4}])
+  assert.equal(privateRoomPreview('SIEGE_BLADES',bad).ok,false,JSON.stringify(bad));
 });
 test('Private host chooses real limits, world, skill and side rather than cosmetic-only controls',()=>{
  const f=privateRoomPreview('FFA',{worldId:'ruined-keep',scoreToWin:18,minutes:9});

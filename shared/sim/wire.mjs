@@ -34,6 +34,10 @@ import { requestSwordTechnique, techniqueView } from './swordTechniqueLive.mjs';
 import { modeCall, modeSnapshot } from './modeRuntime.mjs';
 import { interactRestlessLadder, ladderReach } from './restlessDayMode.mjs';
 
+function siegeLobbyRules(room) {
+  const rules = room.siegeBlades ?? room.siegeBladesSettings ?? {};
+  return { format: rules.format ?? 'MATCH', matchRounds: rules.matchRounds ?? 3, endlessRoundCap: rules.endlessRoundCap ?? 0 };
+}
 export function serializeLobby(room) {
   return {
     type: 'lobby',
@@ -51,6 +55,8 @@ export function serializeLobby(room) {
     matchSeconds: room.policy.matchSeconds,
     teamSize: room.policy.teamSize ?? null,
     botSkill: room.botSkill,
+    // (a Siege Blades room's own rules: its format and rounds, which stand in for a match time)
+    siegeRules: room.mode === GAME_MODES.SIEGE_BLADES ? siegeLobbyRules(room) : null,
     edgeOfVictory: edgeSnapshot(room),
     votes: null, // creator-hosted rules supersede majority voting
     players: [...room.players.values()].map((p) => ({

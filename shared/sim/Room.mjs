@@ -390,6 +390,8 @@ export class Room {
       if (!['WAITING', 'COUNTDOWN'].includes(this.state)) return 'A battle in progress cannot accept new competitors.';
       return this.players.size < 4 ? null : 'Room is full.';
     }
+    // (a Renown trial is one Spellblade's run for account rewards: no one joins it to share or farm the reward)
+    if (this.mode === GAME_MODES.RENOWN_TRIALS) return 'Rampage to Renown is a solo trial: start your own from Modes of Mettle.';
     if (![GAME_MODES.FFA, GAME_MODES.BREAKTHROUGH, GAME_MODES.HIGH_GROUNDS, GAME_MODES.RESTLESS_DAY, GAME_MODES.SIEGE_BLADES].includes(this.mode)
       && !(this.mode === GAME_MODES.PRACTICE && this.sharedPractice)) return 'This room is not joinable by invitation.';
     if (!['WAITING', 'COUNTDOWN', 'PLAYING'].includes(this.state)) return 'This match is no longer accepting players.';
@@ -680,6 +682,8 @@ export class Room {
       ...(settings.teamSize ? {teamSize:settings.teamSize,botCount:settings.teamSize*2-1} : {}) };
     this.scoreToWin = settings.scoreToWin;
     if (settings.botSkill) this.setBotSkill(settings.botSkill);
+    // (the mode's own rules, rebuilt from these when it initialises: Siege Blades' format, rounds and sides)
+    this.siegeBladesSettings = settings.siegeBladesSettings ?? null;
     this.worldId = settings.worldId; this.world = world;
     this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
     this.edgeOfVictory = null;

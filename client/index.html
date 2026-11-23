@@ -612,8 +612,11 @@
           </select></label>
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
-          <label>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
-          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option><option value="5">5V5</option></select></label>
+          <label data-time-field>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
+          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="1" hidden disabled>1V1</option><option value="2">2V2</option><option value="3" selected>3V3</option><option value="5" hidden disabled>5V5</option></select></label>
+          <label data-siege-field="format" hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
+          <label data-siege-field="rounds" hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
+          <label data-siege-field="cap" hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
           <label data-bot-field hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">SPELLBLADE</option></select></label>
           <button type="submit" class="join-button">RAISE PUBLIC ROOM</button>
           <button type="button" id="room-create-cancel" class="back-button">CANCEL</button>
@@ -662,8 +665,11 @@
         <form id="private-settings-form" class="private-settings-form lobby-config">
           <label>ARENA<select name="worldId" class="game-input" aria-label="Private arena"></select></label>
           <label data-private-score>FIRST TO · KILLS<input name="scoreToWin" class="game-input" type="number" inputmode="numeric" min="1" max="100" value="10" /></label>
-          <label>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="numeric" min="1" max="30" value="6" /></label>
-          <label data-private-size hidden>BATTLE SIZE<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-private-time>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="numeric" min="1" max="30" value="6" /></label>
+          <label data-private-size hidden>BATTLE SIZE<select name="teamSize" class="game-input"><option value="1" data-siege-only hidden>1V1</option><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-private-format hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
+          <label data-private-rounds hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
+          <label data-private-cap hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
           <label data-private-team hidden>YOUR SIDE<select name="team" class="game-input"><option value="AUTO" selected>AUTO</option><option value="ATTACKERS">ATTACKERS</option><option value="DEFENDERS">DEFENDERS</option></select></label>
           <label data-private-bot hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">THE SPELLBLADE</option></select></label>
         </form>
