@@ -1,6 +1,6 @@
 // Authoritative exposure to Flight to the Valkyrie's burning ground.
 // Used both by scheduled flame ticks and by every ordinary source of HP damage:
-// an ally's last-HP protection and an enemy's Prowess loss cannot depend on
+// Area of Denial's deferred death and enemy Prowess loss cannot depend on
 // which weapon happens to hit between two fire ticks.
 import {areAllies} from '../src/teams.mjs';
 import {segmentAabbHit} from '../src/collision.mjs';
