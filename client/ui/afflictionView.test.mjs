@@ -87,3 +87,14 @@ test('dead, missing, or invalid snapshots have no interactive afflictions', () =
   assert.equal(torn[0].name,'Torn Ground');
   assert.equal(torn[0].strength,1);
 });
+
+
+test('In Denial is visible at zero HP, but only while the knight remains alive',()=>{
+  const denied=player({health:0,inDenial:true});
+  const effect=find(afflictionView(denied,12),'denial');
+  assert.equal(effect.name,'In Denial');
+  assert.equal(effect.strength,1);
+  assert.match(effect.description,/Area of Denial/);
+  assert.deepEqual(afflictionView({...denied,alive:false},12),[]);
+  assert.equal(find(afflictionView(player({health:1}),12),'denial'),undefined);
+});
