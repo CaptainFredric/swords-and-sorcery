@@ -13,9 +13,13 @@
 // Its roll is exact: the chain's path (fpSlash.mjs) says which way each edge lies, continuously, so the hand is
 // turned exactly so (never whichever way happens to be nearer this frame, which can flip it between two frames)
 export const FIRST_PERSON_SWORD_ARM = Object.freeze({
-  shoulder: 'upper_arm.R', elbow: 'forearm.R', wrist: 'hand.R', grip: 'socket_sword',
+  shoulder: 'upper_arm.R', elbow: 'forearm.R', elbowCap: 'elbow.R', wrist: 'hand.R', grip: 'socket_sword',
   aim: Object.freeze([0.283, 0.767, 0.576]), roll: Object.freeze([0.959, -0.212, -0.189]),
   pole: Object.freeze([0.55, -0.8, 0.1]), exactRoll: true,
+  // Arm.R's armored cuff and hand sit ~19 cm off the forearm->hand bone line and meet cleanly at Idle's
+  // neutral wrist axial twist (~1.925 rad). Keeping forearm.R coaxially aligned with hand.R prevents
+  // candy-wrapper collapse and off-axis cuff separation across all three cuts without moving socket_sword.
+  alignForearmTwist: true, restWristTwist: 1.925315,
 });
 
 // the first-person magic arm when it joins the sword's grip (the heavy third strike): it aims the hand's fingers (its
@@ -145,6 +149,23 @@ export function solveArm(api, chain, target, weight = 1) {
       if (!chain.exactRoll && dot(lie, rollNow) < 0) lie = scale(lie, -1);
       const twist = signedAngle(rollNow, lie, axis);
       if (Math.abs(twist) > 1e-4) api.rotate(chain.wrist, axis, twist * w);
+    }
+  }
+
+  // 5. Carry axial pronation/supination along the forearm instead of dumping up to 150 deg into the wrist.
+  // Counter-rotating the hand by the exact opposite angle about the forearm axis leaves socket_sword invariant.
+  if (chain.alignForearmTwist) {
+    const forearmAxis = normalize(sub(api.position(chain.wrist), api.position(chain.elbow)));
+    const faRef = api.direction(chain.elbow, [1, 0, 0]);
+    const haRef = api.direction(chain.wrist, [1, 0, 0]);
+    let delta = signedAngle(faRef, haRef, forearmAxis) - (chain.restWristTwist ?? 0);
+    while (delta > Math.PI) delta -= 2 * Math.PI;
+    while (delta < -Math.PI) delta += 2 * Math.PI;
+    const forearmRoll = delta * w;
+    if (Math.abs(forearmRoll) > 1e-4) {
+      api.rotate(chain.elbow, forearmAxis, forearmRoll);
+      if (chain.elbowCap) api.rotate(chain.elbowCap, forearmAxis, forearmRoll);
+      api.rotate(chain.wrist, forearmAxis, -forearmRoll);
     }
   }
 }

@@ -384,7 +384,18 @@ export class SpellbladeAnimator {
     for (const { plate, arm, rest, share = pauldronFollow } of this.pauldrons) {
       // (they share a rest: how far the arm has turned from it)
       const turn = THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(rest.dot(arm.quaternion)))));
-      plate.quaternion.copy(rest).slerp(arm.quaternion, share(turn));
+      if (plate.name === 'elbow.R' || plate.name === 'elbow.L') {
+        // Split relative forearm rotation into bend (swing) and axial roll (twist around local +Y).
+        // Share bend at COP_SHARE (50%) while keeping 100% of axial twist so the elbow cop never tears off sideways.
+        const rel = rest.clone().invert().multiply(arm.quaternion);
+        const twist = new THREE.Quaternion(0, rel.y, 0, rel.w);
+        if (twist.lengthSq() > 1e-8) twist.normalize(); else twist.identity();
+        const swing = rel.clone().multiply(twist.clone().invert());
+        const halfSwing = new THREE.Quaternion().slerp(swing, share(turn));
+        plate.quaternion.copy(rest).multiply(halfSwing).multiply(twist);
+      } else {
+        plate.quaternion.copy(rest).slerp(arm.quaternion, share(turn));
+      }
       plate.position.copy(arm.position);
     }
   }

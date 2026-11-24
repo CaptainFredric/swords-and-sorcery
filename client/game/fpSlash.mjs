@@ -722,25 +722,25 @@ export const RECOVERY = Object.freeze({
 
 /** Roll the raised cuff with the third cut's grip while keeping the hand and blade on their solved path. */
 export function poseThirdCutForearm(api, time, weight) {
+  // Forearm axial alignment is now solved continuously for all cuts in solveArm (swordArmIK.mjs).
+  // Retain the exported hook as a bounded radial polish only during the raised third-cut window
+  // so callers and tests remain compatible without re-introducing the -155 deg overshoot.
   const lift = smooth((time - (C3 - 0.60)) / 0.31);
-  const drive = smooth((time - (C3 - 0.15)) / 0.19);
   const settle = 1 - smooth((time - (C3 + 0.14)) / 0.39);
-  const authoredTurn = (-116 - 39 * drive) * DEG * lift * settle * weight;
-  if (Math.abs(authoredTurn) < 1e-5) return;
+  const active = lift * settle * weight;
+  if (active < 1e-5) return;
 
   const axis = normalize(sub(api.position('hand.R'), api.position('forearm.R')));
-  // The cuff is offset from the joint line. Use the solved glove as a radial
-  // reference so a different idle sample cannot swing the sleeve around it.
-  const sleeve = turned(api.direction('forearm.R', [0.06, 0, -0.16]), axis, authoredTurn);
-  const glove = api.direction('hand.R', [0, -0.115, -0.17]);
-  const radial = sub(glove, scale(axis, dot(glove, axis)));
-  const radialWeight = smooth((Math.hypot(...radial) - 0.1) / 0.17);
-  const align = smooth((time - (C3 - 0.37)) / 0.15) * (1 - smooth((time - (C3 + 0.15)) / 0.28));
-  // Sine stays continuous even when the projected reference passes opposite the sleeve.
-  const error = dot(cross(sleeve, normalize(radial)), axis);
-  const turn = authoredTurn + Math.asin(Math.max(-1, Math.min(1, error))) * align * radialWeight * weight;
-  // The elbow cap is a sibling of the forearm. Carry it with the sleeve
-  // so the two stay joined as the sleeve rolls around the forearm.
+  const faRef = api.direction('forearm.R', [1, 0, 0]);
+  const haRef = api.direction('hand.R', [1, 0, 0]);
+  const f = normalize(sub(faRef, scale(axis, dot(faRef, axis))));
+  const h = normalize(sub(haRef, scale(axis, dot(haRef, axis))));
+  const cur = Math.atan2(dot(cross(f, h), axis), Math.max(-1, Math.min(1, dot(f, h))));
+  let turn = cur - 1.925315;
+  while (turn > Math.PI) turn -= 2 * Math.PI;
+  while (turn < -Math.PI) turn += 2 * Math.PI;
+  turn *= active;
+  if (Math.abs(turn) < 1e-5) return;
   api.rotate('forearm.R', axis, turn);
   api.rotate('elbow.R', axis, turn);
   api.rotate('hand.R', axis, -turn);

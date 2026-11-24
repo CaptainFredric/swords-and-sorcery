@@ -252,6 +252,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
   player.respawnAt = 0;
+  player.defeatedBy = null;
   player.lastDamageAt = -Infinity;
   player.coreRegenPausedUntil = -Infinity;
   player.lastAttackerId = null;
@@ -1717,6 +1718,8 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   victim.killfeedConsecutiveDeaths=sameKiller&&victim.killfeedPreviousKiller===credited
     ? (victim.killfeedConsecutiveDeaths??0)+1 : sameKiller?1:0;
   victim.killfeedPreviousKiller=sameKiller?credited:null;
+  // (who felled him, while he is down: a white-flag defeat turns to face them; presentation only)
+  victim.defeatedBy = credited && credited !== victimId ? credited : null;
   const special=killVariant||
     (source==='fight-flight-rotor'&&room.fightFlight?.operatorId===credited&&
      room.fightFlight?.offensiveRun?'rotorDash':null)||

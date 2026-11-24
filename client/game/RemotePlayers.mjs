@@ -23,7 +23,7 @@ import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { disasterBodyTurn, disasterHolding } from './oneHitCamera.mjs';
-import { DISASTER_CLIPS } from './spellbladeAnimationPlan.mjs';
+import { DISASTER_CLIPS, whiteFlagDefeat, whiteFlagFoe } from './spellbladeAnimationPlan.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 import { easeSpellHand, spellHandTurns } from './spellHand.mjs';
@@ -42,6 +42,7 @@ const REACTION_EVENTS = Object.freeze({
 function damp(value, target, amount) {
   return value + (target - value) * amount;
 }
+
 
 function dampEuler(object, x, y, z, amount = 0.22) {
   object.rotation.x = damp(object.rotation.x, x, amount);
@@ -849,6 +850,23 @@ export class RemotePlayers {
       d.vortexTurn = null;
     }
 
+    // The white-flag defeat: a fallen knight still on his feet faces the enemy beside him and "fights" it.
+    let flagFoe = null;
+    if (state === 'dead') {
+      const deathAt = Number.isFinite(pb.deathAt) ? pb.deathAt : Number.isFinite(pb.respawnAt) ? pb.respawnAt - 3 : null;
+      if (deathAt !== null && whiteFlagDefeat(pb, deathAt)) {
+        flagFoe = whiteFlagFoe(pb, this.latestSnapshot?.players, serverNow);
+        // (turned smoothly, from wherever he faced as he fell, along the shorter way round)
+        // (on the server's clock, like the rest of his pose: a stepped or slowed yard turns him at the same rate)
+        if (!Number.isFinite(d.flagYaw)) { d.flagYaw = shell.root.rotation.y; d.flagYawAt = serverNow; }
+        const step = Math.max(0, Math.min(0.25, serverNow - d.flagYawAt));
+        d.flagYawAt = serverNow;
+        if (flagFoe) d.flagYaw += Math.atan2(Math.sin(flagFoe.yaw - d.flagYaw), Math.cos(flagFoe.yaw - d.flagYaw)) * (1 - Math.exp(-step * 8));
+        shell.root.rotation.y = d.flagYaw;
+      }
+    }
+    if (state !== 'dead') d.flagYaw = null;
+
     // Dead bodies keep the ordinary authoritative position, including abyss falls.
     // Visibility ends only when the room removes this player, never on a death timer.
     shell.root.visible = true;
@@ -887,7 +905,7 @@ export class RemotePlayers {
     // The chosen collapse is stable per actor; it does not affect the authority's sleep state.
     const restlessVariant = [...String(pb.id ?? id ?? '')].reduce((sum, c) => sum * 31 + c.charCodeAt(0), 0) & 1;
     const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseReleaseAt: d.castPoseReleaseAt, castPoseUntil: d.castPoseUntil,
-      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant };
+      guardSeenAt: d.guardSeenAt, restlessSleepAt: d.restlessSleepAt, restlessVariant, flagFoe };
     const drawing = Number.isFinite(pb.tutorialDrawAt) && serverNow - pb.tutorialDrawAt >= 0 && serverNow - pb.tutorialDrawAt < .7;
     const recovering = pb.alive && pb.presentationRecovery && serverNow >= pb.presentationRecovery.at && serverNow < pb.presentationRecovery.at + pb.presentationRecovery.duration;
     // (an attack is shown a hair behind while its landed blow is held: hitstopShownAt; the rest of him is not)

@@ -30,9 +30,9 @@ function inspect(file, expected, sha, count) {
 }
 
 test('The Spellblade ships the reviewed model pair and exact inventories', () => {
-  assert.equal(manifest.thirdPerson.sha256, '5adea8b16c90a74ae4fb5629b6ac5d7ce04ca151881fb376bd53ab258d126bbf');
-  assert.equal(manifest.firstPerson.sha256, 'f403b6b16ca2ff3827a00137b58ff95029a5dcd7ce414a9e1617eda10002ed55');
-  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 107);
+  assert.equal(manifest.thirdPerson.sha256, 'a186934d36431810b496fd6129862db15d4a6f44cdd62ffb9f329a0a6ee4023b');
+  assert.equal(manifest.firstPerson.sha256, '19f161e8eb2b2388ef6c477f721f54fec2dd45b670d0880717d8141e15bd924f');
+  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 112);
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);
 });
 
