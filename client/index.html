@@ -70,12 +70,12 @@
           <label class="field-label" for="player-name">SPELLBLADE NAME</label>
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
-        <button id="seek-duel" class="menu-command primary-command"><span>SEEK A DUEL</span><small>Match with another player, one on one</small></button>
+        <button id="duel-button" class="menu-command primary-command" type="button"><span>DUEL · 1V1</span><small>Fight a bot or challenge another player</small></button>
         <button id="siege-blades-button" class="menu-command"><span>SIEGE BLADES</span><small>Machine combat in SO-FIST-ICATION, Bi-Bye-llista &amp; Flight</small></button>
         <button id="breakthrough-button" class="menu-command"><span>MODES OF METTLE</span><small>Breakthrough, High Grounds and other battles</small></button>
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Browse public matches</small></button>
-        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Bot Duel, practice and training tools</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
+        <button id="solo-button" class="menu-command"><span>PRACTICE &amp; TUTORIAL</span><small>Learn, train and experiment</small></button>
         <!-- the quieter doors -->
         <div class="command-pair">
           <button id="how-button" class="menu-command quiet-command"><span class="chronicles-command-label">CASTLE<span>CHRONICLES</span></span></button>
@@ -91,7 +91,7 @@
           <button type="button" class="foot-link" data-open-credits>CREDITS</button>
         </footer>
       </aside>
-      </div><button id="menu-more" class="menu-scroll-cue" type="button" aria-controls="menu-options" aria-label="Show more menu options" hidden>MORE OPTIONS ↓</button></div>
+      </div><button id="menu-more" class="menu-scroll-cue" type="button" aria-controls="menu-options" aria-label="Show more menu options" hidden><span>MORE OPTIONS</span><svg class="scroll-cue-chevron" aria-hidden="true" viewBox="0 0 20 12" width="18" height="12"><path d="m2 2 8 8 8-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
       <!-- the Herald's notices, pinned to the banner's edge (on a narrow screen, its foot) -->
       <button type="button" class="herald-tab" data-open-herald aria-controls="herald" aria-expanded="false"><span class="herald-seal" aria-hidden="true"></span><span>HERALD</span></button>
       <section id="herald" class="herald-notice hidden" role="dialog" aria-modal="false" aria-labelledby="herald-title">
@@ -396,44 +396,44 @@
       </div>
     </section>
 
-    <section id="solo-menu" class="side-screen hidden" data-panel="list">
+    <section id="solo-menu" class="side-screen hidden" data-panel="list" data-purpose="training">
       <div class="side-screen-inner banner-panel"><div class="banner-scroll">
         <button class="back-button" id="solo-back">← BACK</button>
-        <p class="eyebrow">SOLO</p>
-        <h2>PLAY ALONE</h2>
+        <p id="solo-eyebrow" class="eyebrow">TRAINING</p>
+        <h2 id="solo-heading">PRACTICE &amp; TUTORIAL</h2>
         <label class="field-label" for="solo-name">SPELLBLADE NAME</label>
         <input id="solo-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
-        <p class="panel-copy">Fight one rival or train at your own pace.</p>
+        <p id="solo-intro" class="panel-copy">Train at your own pace, alone or with friends.</p>
 
-        <button id="bot-duel" class="mode-choice selected-activity" aria-pressed="true">
-          <span>BOT DUEL</span>
-          <small>One Spellblade · first to 10</small>
-        </button>
-        <button id="renown-trials-mode" class="mode-choice" type="button">
+        <button id="duel-start-now" class="mode-choice primary-command" type="button" data-duel-only><span>START BOT DUEL</span><small>Fight immediately · first to 10</small></button>
+        <button id="seek-duel" class="mode-choice" type="button" data-duel-only><span>SEEK A DUEL</span><small>Match with another player online</small></button>
+        <button id="bot-duel" class="mode-choice duel-options" type="button" data-duel-only aria-pressed="true"><span>BOT DUEL SETTINGS</span><small>Choose rival difficulty and arena</small></button>
+        <button id="renown-trials-mode" class="mode-choice" type="button" hidden>
           <span>RAMPAGE TO RENOWN</span>
           <small>Timed waves · earn prestige or face the Rightful Renowner</small>
         </button>
-        <button id="edge-of-victory-mode" class="mode-choice" type="button">
+        <button id="edge-of-victory-mode" class="mode-choice" type="button" hidden>
           <span>EDGE OF VICTORY</span>
           <small>Four knights · discover spells · no retreat · one survivor</small>
-        <button id="practice-mode" class="mode-choice">
+        </button>
+        <button id="practice-mode" class="mode-choice" data-training-only>
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
         </button>
-        <button id="shared-practice-mode" class="mode-choice" type="button">
+        <button id="shared-practice-mode" class="mode-choice" type="button" data-training-only>
           <span>SHARED PRACTICE YARD</span>
           <small>Private multiplayer training · invite others with a room code</small>
         </button>
-        <button id="tutorial-mode" class="mode-choice tutorial-entry" type="button">
+        <button id="tutorial-mode" class="mode-choice tutorial-entry" type="button" data-training-only>
           <span>TUTORIAL</span>
           <small>Greener Pastures · movement, stamina and combat fundamentals</small>
         </button>
-        <button id="inspection-mode" class="mode-choice">
+        <button id="inspection-mode" class="mode-choice" data-training-only>
           <span>INSPECTION YARD</span>
           <small>Local sandbox · fly camera, dummies and frame stepping</small>
         </button>
-        <button id="solo-details" class="mode-choice solo-options" type="button">
+        <button id="solo-details" class="mode-choice solo-options" type="button" data-training-only>
           <span>REVIEW SETTINGS</span>
           <small>Choose arena and rival, or use the start button</small>
         </button>
