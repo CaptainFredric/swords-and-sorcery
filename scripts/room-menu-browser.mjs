@@ -78,7 +78,7 @@ try{
   await click('#raise-room');
   assert.ok(await check("!document.querySelector('#room-create-form').hidden"));
   await shot('03-desktop-create-room');
-  await click('#rooms-back');await click('#solo-button');await click('#bot-duel');
+  await click('#rooms-back');await click('#duel-button');
   assert.ok(await check("document.querySelector('#solo-rival-wrap') && !document.querySelector('#solo-rival-wrap').hidden"));
   await shot('04-desktop-solo');
   const desktop=await metrics();
@@ -87,7 +87,7 @@ try{
 
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:780,deviceScaleFactor:1,mobile:true});
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
-  await click('#solo-list-return');
+  await click('#solo-back');await click('#solo-button');
   await shot('05-mobile-solo-activities');
   await click('#practice-mode');
   assert.ok(await check("document.querySelector('#solo-menu').dataset.panel==='list'"),
