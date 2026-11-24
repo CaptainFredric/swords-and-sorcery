@@ -28,8 +28,8 @@ await mkdir(out, { recursive: true });
 export const LAUNCH = {
   'castleward': { solo: 'bot-duel', arena: 'castleward' },
   'ruined-keep': { solo: 'bot-duel', arena: 'ruined-keep' },
-  'edge-of-victory': { solo: 'edge-of-victory-mode', world: 'ruined-keep' },
-  'court-of-merit': { solo: 'renown-trials-mode', renown: 'court-of-merit' },
+  'edge-of-victory': { mettle: 'EDGE_OF_VICTORY', world: 'ruined-keep' },
+  'court-of-merit': { mettle: 'RENOWN_TRIALS', renown: 'court-of-merit' },
   'bastion-breach': { mettle: 'BREAKTHROUGH', arena: 'bastion-breach' },
   'outerworks': { mettle: 'BREAKTHROUGH', arena: 'outerworks' },
   'blackbell-foundry': { mettle: 'BREAKTHROUGH', arena: 'blackbell-foundry' },
@@ -117,11 +117,12 @@ try {
     await evaluate(`document.querySelector('[data-mettle-mode=${how.mettle}]').click()`);
     await sleep(300);
     await evaluate(`(()=>{document.querySelector('#breakthrough-arena [data-arena="${how.arena}"]')?.click();
+      ${how.renown ? `document.querySelector('#mettle-renown-arena [data-renown-arena="${how.renown}"]')?.click();` : ''}
       document.querySelector('#breakthrough-size [data-size="3"]')?.click();
       document.querySelector('#breakthrough-team [data-team="ATTACKERS"]')?.click();
       document.querySelector('#breakthrough-play-bots').click();return true})()`);
   } else {
-    await evaluate("document.querySelector('#solo-button').click()");
+    await evaluate("document.querySelector('#duel-button').click()");
     await until(() => evaluate("!document.querySelector('#solo-menu')?.classList.contains('hidden')"), 'solo menu');
     await evaluate(`(()=>{document.querySelector('#${how.solo}')?.click();
       ${how.arena ? `document.querySelector('#solo-arena [data-arena="${how.arena}"]')?.click();` : ''}
