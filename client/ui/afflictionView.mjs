@@ -8,6 +8,10 @@ import { blusterSeverity, ONE_HIT_BLUSTER, ONE_HIT_CONDUCT, ONE_HIT_FIELD } from
 const clamp = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 
 export const AFFLICTIONS = Object.freeze({
+  denial: Object.freeze({
+    name: 'In Denial', icon: 'afflictionDenial', steady: true,
+    description: 'You have been slain. You may dispute this fact until you leave the Area of Denial or its flames expire. Health cannot recover.',
+  }),
   frozen: Object.freeze({
     name: 'Frozen', icon: 'afflictionFrozen', steady: true,
     description: "You can't move or start new actions. Anything already in progress resumes when the ice breaks.",
@@ -60,6 +64,7 @@ const push = (output, id, strength) => {
 export function afflictionView(player, nowSec) {
   if (!player?.alive || !Number.isFinite(nowSec)) return [];
   const effects = [];
+  if(player.inDenial) push(effects, 'denial', 1);
   if ((player.oneHitFrozenUntil ?? -Infinity) > nowSec) push(effects, 'frozen', 1);
   if ((player.staggerUntil ?? -Infinity) > nowSec) push(effects, 'staggered', 1);
   const conduct = player.electricalBacklash;
