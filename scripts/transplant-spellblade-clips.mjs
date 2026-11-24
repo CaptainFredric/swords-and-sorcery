@@ -19,7 +19,9 @@
 //   node scripts/transplant-spellblade-clips.mjs --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3 [--apply]
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
-//     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes, the gauntlets' sleeves)
+//     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
+//   node scripts/transplant-spellblade-clips.mjs --add-couters [--apply]
+//     (a faceted couter over each elbow joint, rigid on the elbow bone, in the gauntlet's own steel and bronze)
 //   node scripts/transplant-spellblade-clips.mjs --first-person <file.glb> --sha <sha256> [--apply]
 //     (a whole first-person model: same joints, sockets, clips and rest pose required)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -539,6 +541,112 @@ function reweightOverruns(baseFile, { band = 0.04, margin = 0.02 } = {}) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+// A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
+// as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
+// side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
+// a bent arm showed a hole. A ball about the joint's own centre stays over the joint at any bend. It is drawn with
+// the gauntlet's own material, its faces sampling two flat texels of that atlas: a light plate steel (the vambrace's
+// darkest steel read as a black ball in the game's light) and the vambrace's bronze band, so it lights as the plates
+// beside it.
+const COUTER = Object.freeze({
+  material: 'SpellbladeLeftGauntlet1',
+  steel: [0.5518, 0.7393],
+  bronze: [0.2311, 0.9848],
+  radius: 0.072,       // across the joint (the vambrace's top is 8.7 cm, its neck 5)
+  length: 0.078,       // along the forearm, each way from the joint
+  band: 11,            // degrees either side of the equator in bronze, standing proud by `lip`
+  lip: 1.07,
+  segments: 10,
+});
+function addCouters(baseFile, spec = COUTER) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
+  if (doc.meshes.some((m) => /Couter/.test(m.name))) throw Error('The model already has couters');
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0) }; };
+  const ibm = view(skin.inverseBindMatrices);
+  const bound = (name) => { const k = skin.joints.findIndex((j) => doc.nodes[j].name === name); if (k < 0) throw Error('No joint ' + name);
+    const m = Array.from({ length: 16 }, (_, c) => base.bin.readFloatLE(ibm.o + k * 64 + c * 4));
+    return { k, at: [0, 1, 2].map((r) => -(m[r * 4] * m[12] + m[r * 4 + 1] * m[13] + m[r * 4 + 2] * m[14])) }; };
+  const material = doc.materials.findIndex((m) => m.name === spec.material);
+  if (material < 0) throw Error('No material ' + spec.material);
+  const rig = doc.nodes.findIndex((n) => n.name === 'SpellbladeRig');
+  const sub = (a, b) => a.map((x, i) => x - b[i]), unit = (a) => { const l = Math.hypot(...a); return a.map((x) => x / l); };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  let bin = Buffer.from(base.bin.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => {
+    bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, ...(target ? { target } : {}) });
+    bin = Buffer.concat([bin, data]);
+    return doc.bufferViews.length - 1;
+  };
+  const accessor = (data, componentType, type, count, extra = {}) =>
+    doc.accessors.push({ bufferView: append(Buffer.from(data.buffer, data.byteOffset, data.byteLength), extra.target), componentType, count, type,
+      ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
+  const report = [];
+  for (const side of ['L', 'R']) {
+    const elbow = bound(`elbow.${side}`), joint = bound(`forearm.${side}`).at, hand = bound(`hand.${side}`).at;
+    const along = unit(sub(hand, joint));
+    const across = unit(cross(along, Math.abs(along[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), round = cross(along, across);
+    // rings from the shoulder-side pole (-90°) to the hand-side pole (+90°), the band about the equator
+    const lats = [-90, -62, -38, -spec.band, spec.band, 38, 62, 90];
+    const point = (lat, k, lip = 1) => {
+      const t = (lat * Math.PI) / 180, f = (2 * Math.PI * k) / spec.segments;
+      const r = Math.cos(t) * spec.radius * lip, a = Math.sin(t) * spec.length;
+      return [0, 1, 2].map((c) => joint[c] + along[c] * a + (across[c] * Math.cos(f) + round[c] * Math.sin(f)) * r);
+    };
+    const pos = [], nrm = [], uv = [], tri = [];
+    const face = (pts, texel) => {
+      const n = unit(cross(sub(pts[1], pts[0]), sub(pts[pts.length - 1], pts[0])));
+      const centre = [0, 1, 2].map((c) => pts.reduce((s, p) => s + p[c], 0) / pts.length);
+      const outward = n.reduce((s, x, c) => s + x * (centre[c] - joint[c]), 0) > 0 ? n : n.map((x) => -x);
+      const first = pos.length / 3;
+      for (const p of pts) { pos.push(...p); nrm.push(...outward); uv.push(...texel); }
+      for (let i = 1; i + 1 < pts.length; i += 1) tri.push(first, first + i, first + i + 1);
+    };
+    for (let r = 0; r + 1 < lats.length; r += 1) {
+      const banded = lats[r] === -spec.band;
+      const lip = banded ? spec.lip : 1;
+      for (let k = 0; k < spec.segments; k += 1) {
+        const a = point(lats[r], k, lip), b = point(lats[r], k + 1, lip), c = point(lats[r + 1], k + 1, lip), d = point(lats[r + 1], k, lip);
+        const texel = banded ? spec.bronze : spec.steel;
+        if (Math.abs(lats[r]) === 90) face([a, c, d], texel);
+        else if (Math.abs(lats[r + 1]) === 90) face([a, b, c], texel);
+        else face([a, b, c, d], texel);
+      }
+      // the band's lip: a step from the plate up to the bronze on either edge
+      if (banded) for (const lat of [lats[r], lats[r + 1]]) for (let k = 0; k < spec.segments; k += 1) {
+        face([point(lat, k), point(lat, k + 1), point(lat, k + 1, spec.lip), point(lat, k, spec.lip)], spec.bronze);
+      }
+    }
+    const count = pos.length / 3;
+    const P = new Float32Array(pos);
+    const min = [0, 1, 2].map((c) => Math.min(...pos.filter((_, i) => i % 3 === c)));
+    const max = [0, 1, 2].map((c) => Math.max(...pos.filter((_, i) => i % 3 === c)));
+    const joints = new Uint8Array(count * 4), weights = new Float32Array(count * 4);
+    for (let i = 0; i < count; i += 1) { joints[i * 4] = elbow.k; weights[i * 4] = 1; }
+    const primitive = {
+      attributes: {
+        POSITION: accessor(P, 5126, 'VEC3', count, { min, max, target: 34962 }),
+        NORMAL: accessor(new Float32Array(nrm), 5126, 'VEC3', count, { target: 34962 }),
+        TEXCOORD_0: accessor(new Float32Array(uv), 5126, 'VEC2', count, { target: 34962 }),
+        JOINTS_0: accessor(joints, 5121, 'VEC4', count, { target: 34962 }),
+        WEIGHTS_0: accessor(weights, 5126, 'VEC4', count, { target: 34962 }),
+      },
+      indices: accessor(new Uint16Array(tri), 5123, 'SCALAR', tri.length, { target: 34963 }),
+      material,
+    };
+    const name = `Gauntlet.${side}.Couter`;
+    doc.meshes.push({ name, primitives: [primitive] });
+    doc.nodes.push({ name, mesh: doc.meshes.length - 1, skin: 0 });
+    doc.nodes[rig].children.push(doc.nodes.length - 1);
+    report.push({ mesh: name, bone: `elbow.${side}`, vertices: count, triangles: tri.length / 3 });
+  }
+  bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 function replaceFirstPerson(baseFile, donorFile, expected) {
   const base = glb(baseFile), donor = glb(donorFile);
   if (sha(donor.raw) !== expected) throw Error('Unexpected first-person GLB (sha256 ' + sha(donor.raw) + ')');
@@ -560,6 +668,9 @@ if (arg('--seat-prop')) {
   // --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3: the hand-held prop seated in the fist
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = seatHeldProp(join(dir, file), arg('--seat-prop'), arg('--clip'), Number(arg('--time') ?? 0), Number(arg('--grip-at') ?? 0.12));
+} else if (process.argv.includes('--add-couters')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = addCouters(join(dir, file));
 } else if (process.argv.includes('--reweight-overruns')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = reweightOverruns(join(dir, file));
