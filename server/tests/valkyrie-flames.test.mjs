@@ -62,6 +62,10 @@ test('denial cannot heal and expires even if a different enemy hits the slain kn
   applyDamage(room,other.id,ally.id,30,'sword',13);
   assert.equal(ally.health,0);
   assert.equal(ally.inDenial.attackerId,enemy.id);
+  ally.health=50; // a legacy heal or admin action cannot resurrect the slain
+  stepFlightBurnZones(room,19);
+  assert.equal(ally.health,0);
+  assert.equal(ally.alive,true);
   stepFlightBurnZones(room,20);
   assert.equal(ally.alive,false);
   const death=room.events.find(e=>e.type==='death'&&e.victimId===ally.id);
