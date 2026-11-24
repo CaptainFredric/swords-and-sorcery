@@ -18,6 +18,8 @@
 //     (the sword arm of production clips re-keyed from another production clip; the rest untouched)
 //   node scripts/transplant-spellblade-clips.mjs --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3 [--apply]
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
+//   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
+//     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes, the gauntlets' sleeves)
 //   node scripts/transplant-spellblade-clips.mjs --first-person <file.glb> --sha <sha256> [--apply]
 //     (a whole first-person model: same joints, sockets, clips and rest pose required)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -474,6 +476,69 @@ function seatHeldProp(baseFile, meshName, clipName, time, gripAt = 0.12) {
     report: [{ mesh: meshName, hand: handName, clip: clipName, time, shiftCm: +(Math.hypot(...delta) * 100).toFixed(1) }] };
 }
 
+// Vertices bound to a limb that lie past the joint at its end (measured along the limb from its joint to the next):
+// carried rigidly by the limb, they swing out through the next segment's armour whenever the joint bends. The chainmail
+// core's thigh tubes ran 20 cm past the knees: the "hollow tube" sticking out of a bent knee. A soft piece (the core)
+// is blended across the joint over `band` either side; a plate would be handed to the next segment outright past
+// `margin` (the gauntlets' sleeves are not: theirs only look past the elbow along the upper arm, and handing them on
+// tore them). Only the named meshes' JOINTS_0/WEIGHTS_0 bytes change.
+const REWEIGHTS = Object.freeze([
+  { mesh: 'InnerSkeletonCore', limb: 'thigh.L', next: 'shin.L', soft: true },
+  { mesh: 'InnerSkeletonCore', limb: 'thigh.R', next: 'shin.R', soft: true },
+  { mesh: 'InnerSkeletonCore', limb: 'upper_arm.L', next: 'forearm.L', soft: true },
+  { mesh: 'InnerSkeletonCore', limb: 'upper_arm.R', next: 'forearm.R', soft: true },
+]);
+function reweightOverruns(baseFile, { band = 0.04, margin = 0.02 } = {}) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
+  const bin = Buffer.from(base.bin);
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], size = { 5121: 1, 5123: 2, 5126: 4 }[a.componentType];
+    const n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }[a.type];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? size * n, size }; };
+  const get = (x, i, c) => { const at = x.o + i * x.stride + c * x.size; const v = x.a.componentType === 5126 ? bin.readFloatLE(at) : x.a.componentType === 5123 ? bin.readUInt16LE(at) : bin.readUInt8(at);
+    return x.a.normalized ? v / (x.a.componentType === 5121 ? 255 : 65535) : v; };
+  const set = (x, i, c, value) => { const at = x.o + i * x.stride + c * x.size;
+    if (x.a.componentType === 5126) bin.writeFloatLE(value, at);
+    else if (x.a.componentType === 5123) bin.writeUInt16LE(x.a.normalized ? Math.round(value * 65535) : value, at);
+    else bin.writeUInt8(x.a.normalized ? Math.round(value * 255) : value, at); };
+  // the joints where the skin was bound (each inverse bind matrix's translation, inverted)
+  const ibm = view(skin.inverseBindMatrices);
+  const bound = (name) => { const k = skin.joints.findIndex((j) => doc.nodes[j].name === name); if (k < 0) throw Error('No joint ' + name);
+    const m = Array.from({ length: 16 }, (_, c) => bin.readFloatLE(ibm.o + k * 64 + c * 4));
+    return { k, at: [0, 1, 2].map((r) => -(m[r * 4] * m[12] + m[r * 4 + 1] * m[13] + m[r * 4 + 2] * m[14])) }; };
+  const report = [];
+  for (const spec of REWEIGHTS) {
+    const mesh = doc.meshes.find((m) => m.name === spec.mesh);
+    if (!mesh) throw Error('No mesh ' + spec.mesh);
+    const limb = bound(spec.limb), next = bound(spec.next);
+    // the limb runs from its own joint to the next; for a forearm or shin, past where it starts is beyond the joint
+    const axis = next.at.map((x, i) => x - limb.at[i]), length = Math.hypot(...axis), u = axis.map((x) => x / length);
+    let moved = 0, most = 0;
+    for (const prim of mesh.primitives) {
+      const P = view(prim.attributes.POSITION), J = view(prim.attributes.JOINTS_0), W = view(prim.attributes.WEIGHTS_0);
+      for (let i = 0; i < P.a.count; i += 1) {
+        const slots = [0, 1, 2, 3].map((c) => ({ j: get(J, i, c), w: get(W, i, c) }));
+        const own = slots.reduce((t, s) => t + (s.j === limb.k ? s.w : 0), 0);
+        if (own < 0.5) continue;
+        const p = [0, 1, 2].map((c) => bin.readFloatLE(P.o + i * P.stride + c * 4));
+        const past = p.reduce((t, x, c) => t + (x - limb.at[c]) * u[c], 0) - length;
+        const share = spec.soft ? Math.max(0, Math.min(1, (past + band) / (2 * band))) : past > margin ? 1 : 0;
+        if (share <= 0) continue;
+        // the limb's weight handed (all, or the blend's share of it) to the next segment
+        const give = own * share;
+        const keep = slots.map((s) => (s.j === limb.k ? { j: s.j, w: s.w * (1 - share) } : s)).filter((s) => s.w > 1e-4 && s.j !== next.k);
+        const already = slots.reduce((t, s) => t + (s.j === next.k ? s.w : 0), 0);
+        const out = [...keep, { j: next.k, w: already + give }].sort((a, b) => b.w - a.w).slice(0, 4);
+        const sum = out.reduce((t, s) => t + s.w, 0);
+        for (let c = 0; c < 4; c += 1) { const s = out[c]; set(J, i, c, s ? s.j : 0); set(W, i, c, s ? s.w / sum : 0); }
+        moved += 1; most = Math.max(most, past);
+      }
+    }
+    report.push({ mesh: spec.mesh, from: spec.limb, to: spec.next, vertices: moved, furthestCm: +(most * 100).toFixed(1) });
+  }
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 function replaceFirstPerson(baseFile, donorFile, expected) {
   const base = glb(baseFile), donor = glb(donorFile);
   if (sha(donor.raw) !== expected) throw Error('Unexpected first-person GLB (sha256 ' + sha(donor.raw) + ')');
@@ -495,6 +560,9 @@ if (arg('--seat-prop')) {
   // --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3: the hand-held prop seated in the fist
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = seatHeldProp(join(dir, file), arg('--seat-prop'), arg('--clip'), Number(arg('--time') ?? 0), Number(arg('--grip-at') ?? 0.12));
+} else if (process.argv.includes('--reweight-overruns')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = reweightOverruns(join(dir, file));
 } else if (arg('--restage-sword-arm')) {
   // --restage-sword-arm Idle --clips A,B: the sword arm of production clips A and B, carried as in Idle
   key = 'thirdPerson'; file = 'spellblade.glb';
