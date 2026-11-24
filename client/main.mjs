@@ -1424,7 +1424,7 @@ function showBreakthroughArena() {
   if (publicBtn) {
     publicBtn.hidden = solo || mode === 'RESTLESS_DAY';
     publicBtn.querySelector('span').textContent = isSiege ? 'FIND MATCH' : 'BROWSE PUBLIC MATCHES';
-    publicBtn.querySelector('small').textContent = isSiege ? 'Match with another player in Siege Blades (Best of 3)' : 'Find a battle with other Spellblades';
+    publicBtn.querySelector('small').textContent = isSiege ? 'Match with another player in Siege Blades (3 rounds)' : 'Find a battle with other Spellblades';
   }
   showBreakthroughSize();
   showSiegeControls();
@@ -1441,7 +1441,7 @@ function showBreakthroughArena() {
   }
   if (breakthroughCopy) {
     breakthroughCopy.textContent = isSiege
-      ? 'Operate SO-FIST-ICATION, Bi-Bye-llista, or Fight-and-Flight across symmetrical battlegrounds. Match format features overtime engagement zones; Endless format features instant reset and clash starts.'
+      ? 'Operate SO-FIST-ICATION, Bi-Bye-llista, or Fight-and-Flight across symmetrical battlegrounds. Choose your siege machine before every round. Matches play all selected rounds, with overtime engagement zones. Endless exhibition supports clash starts.'
       : renown
       ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
       : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'

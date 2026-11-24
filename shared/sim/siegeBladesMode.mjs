@@ -107,8 +107,9 @@ function drive(room, m, target, ai, tuning, { ideal = 10, deadZone = 2, reverse 
 export function createSiegeBladesState(room, options = {}) {
   const settings = { ...(room.siegeBladesSettings ?? {}), ...options };
   const format = settings.format ?? (settings.practice || settings.isBotMatch ? SIEGE_BLADES_FORMATS.ENDLESS : SIEGE_BLADES_FORMATS.MATCH);
-  const matchRounds = settings.matchRounds ?? (settings.scoreToWin ? settings.scoreToWin * 2 - 1 : 3);
-  const roundsToWin = Math.ceil(matchRounds / 2);
+  // MATCH is a fixed number of completed rounds, not best-of-N.
+  const proposedRounds = Number(settings.matchRounds ?? 3);
+  const matchRounds = Number.isInteger(proposedRounds) && proposedRounds >= 1 && proposedRounds <= 99 ? proposedRounds : 3;
   const endlessRoundCap = settings.endlessRoundCap ?? 0;
   const teamSize = settings.teamSize ?? (room.policy?.teamSize ?? 1);
   const botDifficulty = settings.botDifficulty ?? (room.botSkill ?? 'knight');
@@ -118,7 +119,6 @@ export function createSiegeBladesState(room, options = {}) {
   return {
     format,
     matchRounds,
-    roundsToWin,
     endlessRoundCap,
     teamSize,
     botDifficulty,
@@ -133,6 +133,8 @@ export function createSiegeBladesState(room, options = {}) {
     },
     roundWinner: null,
     roundResetCountdown: null,
+    selectionEndsAt: null,
+    selectionChoices: new Map(),
     matchFinished: false,
     matchWinner: null,
 
@@ -151,6 +153,45 @@ export function createSiegeBladesState(room, options = {}) {
     spawnAssignments: new Map(),
     clashActiveThisRound: false,
   };
+}
+
+export const SIEGE_SELECTION_SECONDS = 8;
+const VALID_MACHINE_CLASSES = new Set(Object.values(SIEGE_MACHINE_CLASSES));
+
+/** Server-owned selection phase before EVERY round, including the first. */
+export function beginSiegeBladesSelection(room, nowSec) {
+  const state = room.siegeBlades;
+  if (!state) return false;
+  state.selectionEndsAt = nowSec + SIEGE_SELECTION_SECONDS;
+  state.selectionChoices = new Map();
+  room.resetFleet(nowSec);
+  state.spawnAssignments.clear();
+  for (const player of room.players.values()) {
+    player.operatingRamId = null;
+    player.operatingBallistaId = null;
+    player.operatingFightFlightId = null;
+    player.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: player.yaw ?? 0, pitch: 0 };
+    const previous = player.preferredSiegeMachine;
+    const configured = state.machineSelection;
+    const suggestion = VALID_MACHINE_CLASSES.has(previous) ? previous
+      : player.actorKind === 'human' && VALID_MACHINE_CLASSES.has(configured) ? configured : null;
+    if (suggestion && player.actorKind === 'human') state.selectionChoices.set(player.id, suggestion);
+  }
+  room.events?.push({ type: 'siegeBladesSelectionStarted', roundNumber: state.roundNumber,
+    endsAt: state.selectionEndsAt, at: nowSec });
+  return true;
+}
+
+/** Human choice is authoritative, validated and mutable until the timer ends. */
+export function selectSiegeBladesMachine(room, player, machine, nowSec) {
+  const s = room.siegeBlades;
+  if (!s || room.state !== 'PLAYING' || s.matchFinished ||
+    s.selectionEndsAt === null || nowSec >= s.selectionEndsAt ||
+    !player || player.actorKind !== 'human' || !s.selectionChoices ||
+    !VALID_MACHINE_CLASSES.has(machine)) return false;
+  s.selectionChoices.set(player.id, machine);
+  player.preferredSiegeMachine = machine;
+  return true;
 }
 
 export function getSiegeBladesSpawns(worldId, clash = false) {
@@ -259,15 +300,17 @@ export function provisionSiegeBladesFleet(room, nowSec) {
       'fight-and-flight': SIEGE_MACHINE_CLASSES.FLIGHT,
       'flight': SIEGE_MACHINE_CLASSES.FLIGHT,
     };
-    let chosenClass = NORM_CLASS[state.machineSelection] ?? (Object.values(SIEGE_MACHINE_CLASSES).includes(state.machineSelection) ? state.machineSelection : null);
-    if (!chosenClass) {
-      const pref = NORM_CLASS[player.preferredSiegeMachine] ?? player.preferredSiegeMachine;
-      if (pref && Object.values(SIEGE_MACHINE_CLASSES).includes(pref)) {
-        chosenClass = pref;
-      } else {
-        chosenClass = machineTypes[spawnIndex % machineTypes.length];
-      }
+    const choice = state.selectionChoices?.get(player.id);
+    const pref = player.preferredSiegeMachine;
+    let chosenClass = NORM_CLASS[choice] ?? (VALID_MACHINE_CLASSES.has(choice) ? choice : null);
+    if (!chosenClass) chosenClass = NORM_CLASS[pref] ?? (VALID_MACHINE_CLASSES.has(pref) ? pref : null);
+    if (!chosenClass && player.actorKind === 'human') {
+      const initial = state.machineSelection;
+      chosenClass = NORM_CLASS[initial] ?? (VALID_MACHINE_CLASSES.has(initial) ? initial : null);
     }
+    // Bots without a forced preference rotate their machinery across rounds,
+    // rather than always picking the same class from one spawn index.
+    if (!chosenClass) chosenClass = machineTypes[(spawnIndex + state.roundNumber - 1) % machineTypes.length];
 
     // Bots select real Armory skills. A Sharp Turn remains an innate ballista
     // attack, independent of the selected Skill.
@@ -405,23 +448,28 @@ function handleRoundWin(room, winningTeam, nowSec, reason = 'elimination') {
   }
 
   if (state.format === SIEGE_BLADES_FORMATS.MATCH) {
-    if (winningTeam && state.scores[winningTeam] >= state.roundsToWin) {
+    // Exactly N rounds are played even if one side already has a majority.
+    // A tie (possible with mutual elimination) is an actual drawn match.
+    if (state.roundNumber >= state.matchRounds) {
+      const azure = state.scores[TEAMS.ATTACKERS];
+      const crimson = state.scores[TEAMS.DEFENDERS];
       state.matchFinished = true;
-      state.matchWinner = winningTeam;
-      room.finish(winningTeam, nowSec, 'siege-blades-victory');
+      state.matchWinner = azure === crimson ? null : azure > crimson ? TEAMS.ATTACKERS : TEAMS.DEFENDERS;
+      room.finish(state.matchWinner, nowSec, state.matchWinner ? 'siege-blades-victory' : 'siege-blades-draw');
       return;
     }
-    // Match format: short 3.5s transition to next round
-    state.roundResetCountdown = 3.5;
+    state.roundResetCountdown = 2.0; // score presentation, then timed machine choice
   } else {
-    // Endless format: automatic 6-second reset countdown
-    if (winningTeam && state.endlessRoundCap > 0 && state.roundNumber >= state.endlessRoundCap) {
+    // A capped exhibition counts completed rounds, INCLUDING draws.
+    if (state.endlessRoundCap > 0 && state.roundNumber >= state.endlessRoundCap) {
+      const azure = state.scores[TEAMS.ATTACKERS];
+      const crimson = state.scores[TEAMS.DEFENDERS];
       state.matchFinished = true;
-      state.matchWinner = winningTeam;
-      room.finish(winningTeam, nowSec, 'siege-blades-endless-complete');
+      state.matchWinner = azure === crimson ? null : azure > crimson ? TEAMS.ATTACKERS : TEAMS.DEFENDERS;
+      room.finish(state.matchWinner, nowSec, 'siege-blades-endless-complete');
       return;
     }
-    state.roundResetCountdown = 6.0;
+    state.roundResetCountdown = 2.0;
   }
 }
 
@@ -484,7 +532,15 @@ export function resetSiegeBladesRound(room, nowSec) {
     player.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: player.yaw ?? 0, pitch: 0 };
   }
 
-  provisionSiegeBladesFleet(room, nowSec);
+  // A previous round's hazards may outlive its pilots; none may enter the
+  // next round or hurt someone while they are choosing a fresh machine.
+  room.projectiles?.clear();
+  room.ruptures = [];
+  room.oneHitBurnZones = [];
+  room.oneHitFields = [];
+  room.oneHitWaves = [];
+  room.flightBurnZones = [];
+  beginSiegeBladesSelection(room, nowSec);
 }
 
 function stepSiegeBladesBots(room, nowSec) {
@@ -794,6 +850,15 @@ export function stepSiegeBlades(room, dt, nowSec) {
     return;
   }
 
+  if (state.selectionEndsAt !== null) {
+    if (nowSec >= state.selectionEndsAt) {
+      state.selectionEndsAt = null;
+      provisionSiegeBladesFleet(room, nowSec);
+      state.roundStartedAt = nowSec;
+    }
+    return;
+  }
+
   if (state.roundWinner) return;
 
   // Elimination Rule:
@@ -937,10 +1002,15 @@ export const SIEGE_BLADES_HANDLER = Object.freeze({
   reset: (room, nowSec) => {
     room.siegeBlades = createSiegeBladesState(room);
     room.siegeBlades.roundStartedAt = nowSec;
-    provisionSiegeBladesFleet(room, nowSec);
+    beginSiegeBladesSelection(room, nowSec);
   },
   step: (room, dt, nowSec) => {
     stepSiegeBlades(room, dt, nowSec);
+  },
+  command: (room, player, message, nowSec) => {
+    if (message.type !== 'siegeBladesChoose') return null;
+    return selectSiegeBladesMachine(room, player, message.machine, nowSec)
+      ? {} : { rejected: 'Choose one of the three siege machines during the selection phase.' };
   },
   spawn: (room, player, spawns) => {
     const assignment = room.siegeBlades?.spawnAssignments?.get(player.id);
@@ -955,8 +1025,9 @@ export const SIEGE_BLADES_HANDLER = Object.freeze({
       roundNumber: s.roundNumber,
       roundStartedAt: s.roundStartedAt,
       matchRounds: s.matchRounds,
-      roundsToWin: s.roundsToWin,
       scores: { ...s.scores },
+      selectionEndsAt: s.selectionEndsAt,
+      selectionChoices: s.selectionEndsAt !== null ? Object.fromEntries(s.selectionChoices) : null,
       roundWinner: s.roundWinner,
       roundResetCountdown: s.roundResetCountdown != null ? Math.max(0, s.roundResetCountdown) : null,
       overtimeActive: s.overtimeActive,

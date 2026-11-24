@@ -7,7 +7,7 @@ import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
-import {SIEGE_IMPACT,recordSiegeImpact,ramReboundSpeed,recoilRamOnPistonHit,applyBallistaImpact} from './siegeImpact.mjs';
+import {SIEGE_IMPACT,recordSiegeImpact,ramReboundSpeed,recoilRamOnPistonHit,applyMachineImpact} from './siegeImpact.mjs';
 import {postureOf} from '../src/body.mjs';
 import {GAME} from '../src/combat.mjs';
 import {STEEL_DAMAGE_RANGES} from '../src/steel.mjs';
@@ -320,14 +320,15 @@ const p=room.players.get(b.operatorId);
         const kind=other.class??other.kind;
         let damaged=false;
         if(kind==='so-fist-ication'||kind==='ram'){
-          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point});
+          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
         }else if(kind==='fight-and-flight'||kind==='flight'){
-          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'chassis',point,steelMinimum:5});
+          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'main',point,steelMinimum:5});
         }else{
           damaged=damageBiByeLlista(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
-          if(damaged)applyBallistaImpact(room,other,now,{normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
+ 
         }
         if(damaged){
+          applyMachineImpact(room,other,now,{normal:{x:-Math.sin(b.heading),z:-Math.cos(b.heading)},speed:intensity,point});
           b.lastChassisBallistaAt=now;
           room.events.push({type:'soFistChassisMachineImpact',machineId:b.id,targetId:other.id,point,damage,at:now});
         }
@@ -404,14 +405,12 @@ const p=room.players.get(b.operatorId);
       struck=damageFightFlight(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
     }else{
       struck=damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
-      if(struck){
-        const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
-        applyBallistaImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint});
-      }
+ 
     }
     if(struck){
-      b.strokeMachines??=[];b.strokeMachines.push(other.id);
       const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+      applyMachineImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:hitPoint});
+      b.strokeMachines??=[];b.strokeMachines.push(other.id);
       recoilRamOnPistonHit(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine',point:hitPoint});
       const oldOffset=soFistPose(b,now-dt).offset;
       b.strokeLimit=Math.max(oldOffset,oldOffset+(stroke.offset-oldOffset)*first.t-.002);

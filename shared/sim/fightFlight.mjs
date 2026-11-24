@@ -491,6 +491,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // A fingertip hit is a one-time external collision impulse, not another
   // flight control request. Feed it into the normal collision-resolving solver
   // so aircraft cannot tunnel through walls, floor or ceilings on impact.
+  const siege=m.externalSiegeImpulse;
+  if(siege){
+    m.velocity.x=cap(m.velocity.x+siege.x,-24,24);
+    m.velocity.z=cap(m.velocity.z+siege.z,-24,24);
+    m.externalSiegeImpulse=null;
+  }
   const flick=m.externalFlickImpulse;
   if(flick){
     m.velocity.x=cap(m.velocity.x+(flick.x??0),-24,24);
