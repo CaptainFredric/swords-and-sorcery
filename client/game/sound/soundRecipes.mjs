@@ -1309,3 +1309,24 @@ export function bibyeSharpTurnRecipe(rand = Math.random) {
     reverb: 0.28,
   };
 }
+
+// Rigid Riposte, landed: a thrust, not a cut. The point punches through plate in one sharp instant (a hard, narrow
+// crack and a short metallic tick), and the whole lunging body arrives behind it (a deep, quick thud), then a brief,
+// darker ring than a cut's: the steel driven in rather than drawn across. A grazing thrust skates off the plate.
+export function riposteHitRecipe(rand = Math.random, { clean = true } = {}) {
+  const bite = clean ? 1 : 0.6;
+  const layers = [
+    // the point's punch through the plate
+    { type: 'noise', filter: 'highpass', freq: 3200 * jitter(rand, 0.08), q: 0.9, attack: 0.0008, decay: 0.022, gain: 0.7 * bite },
+    { type: 'tone', wave: 'triangle', freq: 1900 * jitter(rand, 0.05), slideTo: 900, attack: 0.001, decay: 0.03, gain: 0.22 * bite },
+    // plate and mail giving way round it (narrower and shorter than a cut's crunch)
+    { type: 'noise', filter: 'bandpass', freq: 850 * jitter(rand, 0.1), q: 2.2, sweepTo: 420, attack: 0.002, decay: 0.07, gain: 0.45 * bite },
+    // the lunging body arriving behind the point
+    { type: 'tone', wave: 'sine', freq: 120 * jitter(rand, 0.06), slideTo: 44, attack: 0.002, decay: 0.16, gain: 0.95 },
+    { type: 'noise', filter: 'lowpass', freq: 300, q: 0.6, attack: 0.002, decay: 0.1, gain: 0.4 },
+    // the steel driven in: a short, dark ring
+    ring(rand, 380 * jitter(rand, 0.04), { decay: 0.32, gain: 0.14, bright: 0.55 }),
+  ];
+  if (!clean) layers.push({ type: 'noise', filter: 'bandpass', freq: 3000 * jitter(rand, 0.1), q: 2, sweepTo: 1600, attack: 0.004, decay: 0.12, gain: 0.2 });
+  return { layers, reverb: 0.26 };
+}

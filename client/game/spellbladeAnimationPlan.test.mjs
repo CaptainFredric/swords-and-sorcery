@@ -39,12 +39,13 @@ test('a chain begun Sundering plays every strike as the heavy slam, each at its 
 test('cast timing comes from the authoritative cast window start', () => {
   const plan = resolveSpellbladeAnimationPlan({
     state: 'cast',
-    player: { castPoseStartAt: 5 },
+    player: { castPoseStartAt: 5, castPoseReleaseAt: 5.3 },
     serverNow: 5.22,
     localTime: 88,
   });
   assert.equal(plan.clip, 'Cast');
-  close(plan.time, 0.22);
+  close(plan.time, 0.44);
+  assert.equal(plan.normalized, true);
   assert.equal(plan.loop, false);
 });
 
@@ -305,7 +306,11 @@ test('All-Natural Disaster plays its authored clips, each with the blade in the 
   assert.equal(plan(airAim,30.3).clip,'AllNatural_Lightning_Charge_Air');
   assert.equal(plan({...aim,grounded:false},30.3).clip,'AllNatural_Lightning_Charge_Ground','without Full Gale there is no aerial form: knocked into the air, it is still the ground aim');
   const arrived={...base,ultimateState:{id:'one_hit_of_wonders',phase:'active',commitAt:31,until:32.65,teleportHoldAt:10,oneHit:{form:'ground',tiers:{lightning:2}}}};
+  // (the slam itself: the cosmetic faceplant that sometimes stands in for it is held off here, tested on its own)
+  const { setLightningArrivalGagChance } = await import('./spellbladeAnimationPlan.mjs');
+  setLightningArrivalGagChance(0);
   const arrival=plan(arrived,31);
+  setLightningArrivalGagChance(null);
   assert.equal(arrival.clip,'AllNatural_Lightning_Arrival_Slam');
   assert.ok(Math.abs(arrival.time-DISASTER_CLIPS.arrival.contact)<1e-9,'no second wind-up: the blade lands as the knight arrives');
   // Full Gale in the air: one uninterrupted winding clip beginning on key
@@ -355,7 +360,9 @@ test('Full Lightning + Full Gale arrival uses the final aerial winding frames du
   const start=plan(commitAt),mid=plan(commitAt+aimSec/2),near=plan(commitAt+aimSec-1/1000);
   assert.equal(start.clip,DISASTER_CLIPS.aerial.clip);
   assert.equal(start.loop,false,'arrival is a winding action, not a hovering loop');
-  close(start.time,Math.max(0,DISASTER_CLIPS.aerial.contact-aimSec));
+  // (only the cut's final .35 s, eased over the whole aim window: never the spin from its start)
+  close(start.time,DISASTER_CLIPS.aerial.contact-Math.min(aimSec,.35));
+  assert.ok(start.time>.4,'the arrival starts in the final winding frames, not the original charge hold');
   assert.ok(mid.time>start.time&&mid.time<near.time,'sword keeps winding while the player aims');
   assert.ok(near.time<DISASTER_CLIPS.aerial.contact,'blade cannot throw before actual wave release');
   const launched={...player,ultimateState:{...player.ultimateState,oneHit:{
@@ -399,4 +406,128 @@ test('the held Full Lightning aim loops its authored charge, in the air and on t
   assert.equal(plan(false,60.2).clip,'AllNatural_Lightning_Charge_Air');
   assert.equal(plan(true,10.3).clip,'AllNatural_Lightning_Charge_Ground');
   assert.equal(plan(true,10.3).fallback,'Slash_3','and a model without it keeps the raised heavy strike');
+});
+
+test('a Guard or a cast on the move keeps the legs in their gait; standing, the clip has the whole body', () => {
+  const running = { velocity: { x: 0, y: 0, z: -7.5 }, castPoseStartAt: 1 };
+  for (const state of ['guard', 'cast']) {
+    const clip = state === 'guard' ? 'Guard' : 'Cast';
+    const moving = resolveSpellbladeAnimationPlan({ state, player: running, serverNow: 1.1, localTime: 3 });
+    assert.equal(moving.layers.locomotion.clip, 'Run', `${state}: the legs run`);
+    for (const owner of ['posture', 'sword', 'sorcery']) assert.equal(moving.layers[owner].clip, clip, `${state}: ${owner}`);
+    const sprinting = resolveSpellbladeAnimationPlan({ state, player: { ...running, sprinting: true }, serverNow: 1.1, localTime: 3 });
+    assert.equal(sprinting.layers.locomotion.clip, 'Sprint');
+    const standing = resolveSpellbladeAnimationPlan({ state, player: { velocity: { x: 0.3, y: 0, z: 0 }, castPoseStartAt: 1 }, serverNow: 1.1, localTime: 3 });
+    assert.equal(standing.clip, clip);
+    assert.equal(standing.layers, undefined, `${state}: standing, the whole body`);
+  }
+});
+
+test('now and then a Full Lightning ground arrival is the faceplant gag: likelier for an instant release or a long charge, the same on every client, never with Full Gale', async () => {
+  const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
+  const { DISASTER_CLIPS, lightningArrivalGag, setLightningArrivalGagChance } = await import('./spellbladeAnimationPlan.mjs');
+  const plan = (player, now) => resolveSpellbladeAnimationPlan({ state: resolveSpellbladeState(player, now), player, serverNow: now });
+  const arrived = (id, commitAt, tiers = { lightning: 2 }) => ({ id, alive: true, grounded: true, velocity: { x: 0, y: 0, z: 0 }, staggerUntil: 0,
+    ultimateState: { id: 'one_hit_of_wonders', phase: 'active', commitAt, until: commitAt + 1.65, teleportHoldAt: commitAt - 2, oneHit: { form: 'ground', tiers } } });
+  try {
+    setLightningArrivalGagChance(1);
+    const gag = plan(arrived('p1', 31), 31.2);
+    assert.ok([DISASTER_CLIPS.arrivalGag.clip, DISASTER_CLIPS.arrivalGagBack.clip].includes(gag.clip), 'on his face or flat on his back');
+    // both landings come up across arrivals
+    const landings = new Set(Array.from({ length: 40 }, (_, i) => plan(arrived('p' + i, 31 + i), 31.2 + i).clip));
+    assert.ok(landings.has(DISASTER_CLIPS.arrivalGag.clip) && landings.has(DISASTER_CLIPS.arrivalGagBack.clip));
+    assert.ok(Math.abs(gag.time - 0.2) < 1e-9, 'the gag plays from its own first frame: the fall is its landing');
+    assert.equal(plan(arrived('p1', 31, { lightning: 2, gale: 2 }), 31.2).clip, DISASTER_CLIPS.arrival.clip, 'never with Full Gale');
+    setLightningArrivalGagChance(0);
+    assert.equal(plan(arrived('p1', 31), 31.2).clip, DISASTER_CLIPS.arrival.clip);
+    setLightningArrivalGagChance(null);
+    // the odds follow the held aim: a panicked instant release, then rare, then likelier the longer the charge
+    const { lightningArrivalGagOdds, ARRIVAL_GAG_ODDS: o } = await import('./spellbladeAnimationPlan.mjs');
+    assert.equal(lightningArrivalGagOdds(0.05), o.tap);
+    assert.ok(Math.abs(lightningArrivalGagOdds(o.tapSec) - o.base) < 1e-9);
+    assert.ok(lightningArrivalGagOdds(1) > o.base && lightningArrivalGagOdds(2) > lightningArrivalGagOdds(1));
+    assert.equal(lightningArrivalGagOdds(10), o.long);
+    // the same player and commit always draw the same way; across many arrivals it follows those odds
+    const share = (heldSec) => {
+      let gags = 0;
+      for (let i = 0; i < 600; i++) {
+        const action = { ...arrived('p' + (i % 7), 40 + i * 1.37).ultimateState };
+        action.teleportHoldAt = action.commitAt - heldSec;
+        assert.equal(lightningArrivalGag({ id: 'p' + (i % 7) }, action), lightningArrivalGag({ id: 'p' + (i % 7) }, action));
+        if (lightningArrivalGag({ id: 'p' + (i % 7) }, action)) gags++;
+      }
+      return gags / 600;
+    };
+    assert.ok(Math.abs(share(0.05) - o.tap) < 0.08, 'a near-instant release: about half');
+    assert.ok(Math.abs(share(0.6) - lightningArrivalGagOdds(0.6)) < 0.06, 'a short aim: rarely');
+    assert.ok(Math.abs(share(4) - o.long) < 0.08, 'a long charge: about half again');
+  } finally {
+    setLightningArrivalGagChance(null);
+  }
+});
+
+test('the white-flag defeat: decided as he falls, sword thrown down at once, then en garde at the enemy beside him until respawn', async () => {
+  const { WHITE_FLAG, whiteFlagDefeat, setWhiteFlagDefeatChance } = await import('./spellbladeAnimationPlan.mjs');
+  const fallen = (extra = {}) => ({ id: 'k1', alive: false, respawnAt: 13, velocity: { x: 0, y: 0, z: 0 }, ...extra });
+  const plan = (player, now) => resolveSpellbladeAnimationPlan({ state: 'dead', player, serverNow: now });
+  try {
+    setWhiteFlagDefeatChance(0);
+    assert.equal(plan(fallen(), 10.5).clip, 'Death', 'otherwise the ordinary death');
+    setWhiteFlagDefeatChance(1);
+    // the draw at double speed: the authored sword set-down (0.55 s) is on the ground about a quarter second in
+    const drawing = plan(fallen(), 10.25);
+    assert.equal(drawing.clip, WHITE_FLAG.draw.clip);
+    assert.ok(Math.abs(drawing.time - 0.5) < 1e-9);
+    assert.equal(drawing.fallback, 'Death', 'a model without the clips keeps the ordinary death');
+    const drawn = WHITE_FLAG.draw.duration / WHITE_FLAG.draw.rate;
+    // nobody beside him: the bouncing en garde, looped
+    const alone = plan(fallen(), 10 + drawn + 0.3);
+    assert.equal(alone.clip, WHITE_FLAG.idle.clip);
+    assert.equal(alone.loop, true);
+    // an enemy beside him: he swishes at it, then a beat of en garde
+    const foe = { id: 'e', distance: 1.5, near: true, yaw: 0, attackAge: null };
+    assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + 0.2).clip, WHITE_FLAG.swish.clip);
+    assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + WHITE_FLAG.swish.duration + 0.3).clip, WHITE_FLAG.idle.clip);
+    // and its swing is met with the flag's parry, in step with the swing
+    const parry = plan(fallen({ flagFoe: { ...foe, attackAge: 0.2 } }), 10 + drawn + 1.5);
+    assert.equal(parry.clip, WHITE_FLAG.parry.clip);
+    assert.ok(Math.abs(parry.time - 0.2) < 1e-9);
+    // the one who felled him, faced from out of reach: he holds en garde at them rather than swishing at the air
+    assert.equal(plan(fallen({ flagFoe: { ...foe, distance: 8, near: false, attackAge: 0.2 } }), 10 + drawn + 0.2).clip, WHITE_FLAG.idle.clip);
+    // the same fall draws the same way everywhere; a different fall may not
+    setWhiteFlagDefeatChance(0.2);
+    let flags = 0;
+    for (let i = 0; i < 500; i++) {
+      const p = { id: 'k' + (i % 9) }, at = 20 + i * 0.731;
+      assert.equal(whiteFlagDefeat(p, at), whiteFlagDefeat(p, at));
+      if (whiteFlagDefeat(p, at)) flags++;
+    }
+    assert.ok(flags > 60 && flags < 140, `about one fall in five (${flags} of 500)`);
+  } finally {
+    setWhiteFlagDefeatChance(null);
+  }
+});
+
+test('a white-flag knight finds the nearest living enemy beside him, never a teammate, and how far into its swing it is', async () => {
+  const { whiteFlagFoe } = await import('./spellbladeAnimationPlan.mjs');
+  const knight = { id: 'k', team: 'RED', position: { x: 0, y: 0, z: 0 } };
+  const players = [
+    knight,
+    { id: 'ally', team: 'RED', alive: true, position: { x: 0.5, y: 0, z: 0 } },
+    { id: 'far', team: 'BLUE', alive: true, position: { x: 9, y: 0, z: 0 } },
+    { id: 'down', team: 'BLUE', alive: false, position: { x: 0.8, y: 0, z: 0 } },
+    { id: 'foe', team: 'BLUE', alive: true, position: { x: 0, y: 0, z: -2 }, attackActive: true, attackStartedAt: 9.8 },
+  ];
+  const foe = whiteFlagFoe(knight, players, 10);
+  assert.equal(foe.id, 'foe');
+  assert.ok(Math.abs(foe.attackAge - 0.2) < 1e-9);
+  assert.ok(Math.abs(foe.yaw) < 1e-9, 'straight ahead (-z) is yaw 0');
+  assert.equal(whiteFlagFoe(knight, players.slice(0, 4), 10), null, 'nobody within reach: nobody to fight');
+  // the knight who felled him comes first, even past the nearer one, and is faced from further off
+  const victor = whiteFlagFoe({ ...knight, defeatedBy: 'far' }, players, 10);
+  assert.equal(victor.id, 'far');
+  assert.equal(victor.near, false, 'faced, but out of reach for a swish');
+  assert.ok(Math.abs(victor.yaw - Math.atan2(-9, 0)) < 1e-9);
+  // gone, or out of sight: back to whoever is beside him
+  assert.equal(whiteFlagFoe({ ...knight, defeatedBy: 'down' }, players, 10).id, 'foe');
 });

@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   bufferedServerTime,
+  castClipPhase,
   castPoseDeadlineFromEvent,
   castPoseWindowFromEvent,
+  castPoseWindowFromSnapshot,
   resolveSpellbladeState,
 } from './spellbladePose.mjs';
 
@@ -49,13 +51,27 @@ test('locomotion distinguishes air, run and idle', () => {
 
 test('cast pose is driven only by authoritative fireball cast events', () => {
   assert.equal(castPoseDeadlineFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }, 19.5), 19.5);
-  assertNear(castPoseDeadlineFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
+  assertNear(castPoseDeadlineFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.56);
 
   assert.deepEqual(castPoseWindowFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }), null);
-  assert.deepEqual(
-    castPoseWindowFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }),
-    { startAt: 20, endAt: 20.36 },
-  );
+  const window = castPoseWindowFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 });
+  assert.equal(window.startAt, 20);
+  assert.equal(window.releaseAt, 20.3);
+  assertNear(window.endAt, 20.56);
+});
+
+test('cast reaches the same pose on each spell deadline and then follows through', () => {
+  for (const gather of [.3, .45, .5]) {
+    assertNear(castClipPhase(10 + gather / 2, 10, 10 + gather), .30);
+    assertNear(castClipPhase(10 + gather, 10, 10 + gather), .60);
+    assertNear(castClipPhase(10 + gather + .13, 10, 10 + gather), .80);
+    assertNear(castClipPhase(10 + gather + .26, 10, 10 + gather), 1);
+  }
+  assertNear(castClipPhase(10, 10, 10), .60);
+  const snapshot = { castingSpell: 'gale', castStartedAt: 10, castEndsAt: 10.5 };
+  assert.deepEqual(castPoseWindowFromSnapshot(snapshot, 10.2), { startAt: 10, releaseAt: 10.5, endAt: 10.76 });
+  assert.equal(castPoseWindowFromSnapshot(snapshot, 10.5), null);
+  assert.equal(castPoseWindowFromSnapshot({ ...snapshot, castingSpell: null }, 10.2), null);
 });
 
 test('timed states use the buffered render clock instead of current wall clock', () => {

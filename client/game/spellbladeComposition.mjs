@@ -113,13 +113,59 @@ export class SpellbladeComposition {
     this.root.updateMatrixWorld(true);
   }
 
-  release(duration = 0.2) {
-    this.out = { elapsed: 0, duration, bones: new Map(), base: new Map(), corrections: new Map(), history: new Map() };
+  /**
+   * Hand the pose on screen over to whatever plays next, its difference dying away over `duration` seconds.
+   * space 'model': the turns die away in the model's own space, parent before child (each bone's shown orientation
+   * goes the short way from where it was to where the clip has it), not bone by bone in each one's own frame. For a
+   * hand-over where neighbouring bones trade a large roll between them (Candidate v3's Riposte rolls the forearm about
+   * half a turn from every ordinary clip and the hand back again): eased each in its own frame the two turns did not
+   * cancel, and the sword between them wobbled through the hand-over.
+   */
+  release(duration = 0.2, { space = 'local' } = {}) {
+    this.out = { elapsed: 0, duration, space, bones: new Map(), base: new Map(), corrections: new Map(), history: new Map() };
     for (const channel of this.channels.values()) for (const [key, value] of channel.history) this.out.history.set(key, value);
     this.root.traverse((bone) => {
       if (bone.isBone) this.out.bones.set(bone, { quaternion: bone.quaternion.clone(), position: bone.position.clone(), scale: bone.scale.clone() });
     });
+    if (space === 'model') {
+      // each bone's orientation in the model then (the bones are visited parent first)
+      this.out.fromWorld = new Map();
+      for (const [bone, from] of this.out.bones) this.out.fromWorld.set(bone, this.#parentTurn(bone, this.out.fromWorld).multiply(from.quaternion));
+      this.out.offsets = new Map();
+    }
     this.channels.clear();
+  }
+
+  // a bone's parent's orientation in the model: from `known` (bones already worked out), else its chain up to the root
+  #parentTurn(bone, known) {
+    const parent = bone.parent;
+    if (known.has(parent)) return known.get(parent).clone();
+    const turn = new THREE.Quaternion();
+    for (let node = parent; node && node !== this.root; node = node.parent) turn.premultiply(node.quaternion);
+    return turn;
+  }
+
+  #blendOutModel(step) {
+    const out = this.out;
+    out.elapsed += step;
+    const u = Math.min(1, out.elapsed / out.duration), keep = 1 - 3 * u * u + 2 * u * u * u;
+    const target = new Map(), shown = new Map(), identity = new THREE.Quaternion();
+    for (const [bone, from] of out.bones) {
+      out.base.set(bone, { quaternion: bone.quaternion.clone(), position: bone.position.clone(), scale: bone.scale.clone() });
+      const there = this.#parentTurn(bone, target).multiply(bone.quaternion);
+      let offset = out.offsets.get(bone);
+      if (!offset) {
+        offset = { turn: out.fromWorld.get(bone).clone().multiply(there.clone().invert()).normalize(), position: from.position.clone().sub(bone.position) };
+        if (offset.turn.w < 0) offset.turn.set(-offset.turn.x, -offset.turn.y, -offset.turn.z, -offset.turn.w);
+        out.offsets.set(bone, offset);
+      }
+      const here = identity.clone().slerp(offset.turn, keep).multiply(there);
+      target.set(bone, there);
+      shown.set(bone, here);
+      bone.quaternion.copy(this.#parentTurn(bone, shown).invert().multiply(here));
+      bone.position.addScaledVector(offset.position, keep);
+    }
+    if (u >= 1) this.out = null;
   }
 
   restoreBase() {
@@ -130,6 +176,7 @@ export class SpellbladeComposition {
   blendOut(dt) {
     if (!this.out) return;
     const step = Math.max(0, dt);
+    if (this.out.space === 'model') { this.#blendOutModel(step); return; }
     this.out.elapsed += step;
     for (const [bone, from] of this.out.bones) {
       this.out.base.set(bone, { quaternion: bone.quaternion.clone(), position: bone.position.clone(), scale: bone.scale.clone() });

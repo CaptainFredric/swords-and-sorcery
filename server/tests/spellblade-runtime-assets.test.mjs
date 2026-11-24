@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -50,8 +51,10 @@ test('enabled Spellblade manifest serves revisioned GLBs with all required anima
     ['firstPerson', 'spellblade-fp.glb', contract.firstPersonClips],
   ]) {
     const path = `client/assets/characters/spellblade/${file}`;
-    assert.equal(manifest[kind].url, `/${path}?v=${manifest.sourceRevision}`);
     const bytes = await readFile(new URL(`../../${path}`, import.meta.url));
+    // (the first-person model also carries its own hash, so a change to it alone still reaches every browser)
+    const asset = kind === 'firstPerson' ? `&asset=${createHash('sha256').update(bytes).digest('hex').slice(0, 40)}` : '';
+    assert.equal(manifest[kind].url, `/${path}?v=${manifest.sourceRevision}${asset}`);
     assert.equal(bytes.toString('ascii', 0, 4), 'glTF');
     assert.equal(bytes.readUInt32LE(4), 2);
     assert.equal(bytes.readUInt32LE(8), bytes.length);
