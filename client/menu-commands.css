@@ -1,0 +1,214 @@
+/* Two material treatments on the existing main banner commands. Keep the
+   stationary text and hit targets over decorative, clipped image layers. */
+#menu .thematic-command {
+  isolation: isolate;
+  min-height: 60px;
+  color: #fff4d9;
+  border-color: #ac9361;
+  background: #35454b;
+  text-shadow: 0 1px 2px #111c21;
+  box-shadow: 0 2px 4px #0007;
+  transform: none;
+  transition: border-color .17s ease, box-shadow .17s ease;
+}
+.thematic-command::before { content: none; }
+#menu .thematic-command .command-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  max-width: none;
+  pointer-events: none;
+  border-radius: inherit;
+}
+#menu .thematic-command small {
+  color: #fff4d9;
+  font-weight: 700;
+  text-shadow: 0 1px 3px #121a18, 0 1px 6px #121a18;
+}
+#menu .thematic-command:hover { border-color: var(--heraldry-brass-light); }
+
+#menu:not(.hidden, .withdrawn, [inert], [data-art-page-hidden], [data-art-quality="low"])
+  .thematic-command[data-art-visible] {
+  --art-motion: running;
+}
+
+/* Brushed plate with a shallow inset reinforcement panel behind the
+   actual ram, ballista and flight apparatus reliefs. */
+#menu .siege-command {
+  padding-inline: 13px 39%;
+  background: #35434b;
+}
+.siege-face {
+  background:
+    linear-gradient(90deg, #24313cc9 2%, #33454ed9 45%, #61707936 71%, #29394635),
+    url('./assets/menu-commands/brushed-steel.webp') center / 100% 100%,
+    linear-gradient(#a1afb6, #5c7181 42%, #495863 58%, #2e404b);
+  box-shadow: inset 0 1px #d8e0dcaf, inset 0 -3px #19212ce3, inset 2px 0 #87979b66, inset -2px 0 #1b293299;
+  transition: box-shadow .16s ease, transform .12s ease;
+}
+.siege-face::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 4px;
+  border: 1px solid #c5b99248;
+  background:
+    radial-gradient(circle at 3px 2px, #f0e7cf 4%, #b7b7a6 24%, #5d686d 44%, #293641 62%, #0d1c2660 68%, transparent 75%) 0 0 / 9px 9px,
+    radial-gradient(circle at 3px 2px, #f0e7cf 4%, #b7b7a6 24%, #5d686d 44%, #293641 62%, #0d1c2660 68%, transparent 75%) 100% 0 / 9px 9px,
+    radial-gradient(circle at 3px 2px, #f0e7cf 4%, #b7b7a6 24%, #5d686d 44%, #293641 62%, #0d1c2660 68%, transparent 75%) 0 100% / 9px 9px,
+    radial-gradient(circle at 3px 2px, #f0e7cf 4%, #b7b7a6 24%, #5d686d 44%, #293641 62%, #0d1c2660 68%, transparent 75%) 100% 100% / 9px 9px;
+  background-repeat: no-repeat;
+}
+.siege-reliefs {
+  position: absolute;
+  inset: 9px 16px 9px 63%;
+  background:
+    url('./assets/menu-commands/machine-reliefs.webp') center / 100% auto no-repeat,
+    linear-gradient(170deg, #1e2c3430, #c7d3d735 49%, #1c292d1a 50%, #19262d35);
+  box-shadow: inset 0 1px #27394185, 0 1px #d2caa74a;
+  border-radius: 1px;
+}
+.siege-gleam {
+  position: absolute;
+  inset: -10% auto -10% -45%;
+  width: 38%;
+  background: linear-gradient(105deg, transparent, #f5ebc533 45%, #e3eef91f 56%, transparent 76%);
+  animation: siege-gleam 17s -5s linear infinite;
+  animation-play-state: var(--art-motion, paused);
+}
+@keyframes siege-gleam {
+  0%, 82% { transform: translateX(0); }
+  94%, 100% { transform: translateX(420%); }
+}
+@media (hover: hover) {
+  .siege-command:hover .siege-face {
+    box-shadow: inset 0 1px #e6e6da, inset 0 -3px #263540, inset 0 16px 22px #d0e2e830;
+  }
+}
+.siege-command:active .siege-face {
+  transform: translateY(1px);
+  box-shadow: inset 0 3px 5px #17232c, inset 0 -1px #6b828b;
+}
+
+/* The stage is a static render of Castleward geometry with independently
+   composited water, trees, bridge and standards. The button owns no canvas. */
+#menu .mettle-command {
+  padding-block: 5px 16px;
+  background: #577950;
+  border-color: #bfa57b;
+}
+#menu .mettle-command small { margin-top: 1px; }
+.mettle-command::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 53% 58% at 50% 37%, #10251bd9 14%, #172c22b0 46%, #21342923 85%, transparent 100%),
+    linear-gradient(0deg, #2c3e2c3d, transparent 31%);
+  box-shadow: inset 0 1px #fcdfa699, inset 0 -2px #273a2c80;
+}
+.mettle-view {
+  background: linear-gradient(#93c1d3, #c2dce0 41%, #dbe4cf 67%, #77984f);
+  transition: transform .72s cubic-bezier(.22,.68,.22,1);
+}
+.mettle-view i {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+.mettle-clouds {
+  background-image: url('./assets/menu-commands/summer-clouds.webp');
+  animation: mettle-clouds 64s -24s ease-in-out infinite alternate;
+}
+.mettle-valley { background-image: url('./assets/menu-commands/valley.webp'); }
+.mettle-water {
+  background-image: url('./assets/menu-commands/river-light.webp');
+  animation: mettle-water 5.7s -1.9s ease-in-out infinite alternate;
+}
+.mettle-bridge {
+  background-image: url('./assets/menu-commands/bridge.webp');
+  transform-origin: 50% 61%;
+  animation: mettle-bridge 9s -2.5s ease-in-out infinite alternate;
+}
+.mettle-canopies {
+  background-image: url('./assets/menu-commands/canopies.webp');
+  transform-origin: 14% 54%;
+  animation: mettle-canopies 7s -2.3s ease-in-out infinite alternate;
+}
+.mettle-flags {
+  background-image: url('./assets/menu-commands/standards.webp');
+  transform-origin: 86% 16%;
+  animation: mettle-flags 3.1s -.5s ease-in-out infinite alternate;
+}
+.mettle-birds {
+  position: absolute;
+  inset: 10% auto auto 24%;
+  width: 7%;
+  height: 15%;
+  fill: none;
+  stroke: #233a39;
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  animation: mettle-flight 24s -3.7s linear infinite;
+}
+.mettle-birds path {
+  transform-origin: center;
+  animation: mettle-wings .63s -.14s ease-in-out infinite alternate;
+}
+.mettle-view :is(i, svg, path) { animation-play-state: var(--art-motion, paused); }
+@keyframes mettle-clouds {
+  from { transform: translateX(-3%); }
+  to { transform: translateX(3%); }
+}
+@keyframes mettle-water {
+  from { opacity: .3; transform: translateX(-.5%); }
+  to { opacity: .72; transform: translateX(.45%); }
+}
+@keyframes mettle-bridge {
+  from { transform: scaleY(.986); }
+  to { transform: scaleY(1.016); }
+}
+@keyframes mettle-canopies {
+  from { transform: rotate(-.45deg) skewX(-.72deg); }
+  to { transform: rotate(.55deg) skewX(.71deg); }
+}
+@keyframes mettle-flags {
+  from { transform: scaleX(.98) skewY(-1.6deg); }
+  to { transform: scaleX(1.02) skewY(1.2deg); }
+}
+@keyframes mettle-flight {
+  0% { opacity: 0; transform: translate(0, 20%); }
+  6%, 22% { opacity: .8; }
+  28%, 100% { opacity: 0; transform: translate(520%, -24%); }
+}
+@keyframes mettle-wings {
+  from { transform: scaleY(.55); }
+  to { transform: scaleY(1.2); }
+}
+@media (hover: hover) {
+  #menu:not([data-art-quality="low"]) .mettle-command:hover .mettle-view { transform: scale(1.035); }
+}
+.mettle-command:active::after {
+  box-shadow: inset 0 0 0 1px #e8cc91, inset 0 2px 6px #1b312cbb;
+}
+
+/* Keep the base scene on Smooth, and skip the smallest flourishes on
+   Balanced. The desktop and touch button layout is inherited. */
+#menu[data-art-quality="medium"] :is(.mettle-water, .mettle-flags, .mettle-birds, .mettle-birds path),
+#menu[data-art-quality="low"] .command-art :is(i, svg, path) { animation: none; }
+#menu:is([data-art-quality="low"], [data-art-quality="medium"]) .mettle-birds { opacity: 0; }
+@container app (max-height: 500px) {
+  #menu .thematic-command { min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #menu .command-art, #menu .thematic-command { transition: none; }
+  #menu .command-art :is(i, svg, path) { animation: none; }
+  #menu .mettle-command:hover .mettle-view { transform: none; }
+  #menu .mettle-birds { opacity: 0; }
+  #menu .siege-command:active .siege-face { transform: none; }
+}

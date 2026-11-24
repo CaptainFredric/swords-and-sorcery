@@ -68,6 +68,17 @@ try{
     if(packet.error)task.reject(Error(packet.error.message));else task.resolve(packet.result);
   };
   await send('Page.enable');await send('Runtime.enable');
+  await send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});
+  await send('Page.navigate',{url});
+  await waitFor(()=>evaluate("document.querySelector('#tutorial-onboarding')?.hidden===false"), 'first visit tutorial offer');
+  await evaluate("document.querySelector('[data-tutorial-onboarding-skip]').click()");
+  assert.ok(await evaluate(`(() => {
+    const duel=document.querySelector('#duel-button'), scroll=document.querySelector('#menu-options');
+    return document.activeElement===duel && scroll.scrollTop===0
+      && duel.getBoundingClientRect().bottom<=scroll.getBoundingClientRect().bottom+1;
+  })()`), 'first visit in landscape: skipping tutorial keeps Duel visible and focused');
+  await send('Emulation.clearDeviceMetricsOverride');
+
   await send('Page.navigate',{url:url+'/?debug'});
   await waitFor(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'main menu',180);
 

@@ -43,6 +43,7 @@ import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import {practiceSiegeCopy,practiceSiegeParagraphs} from './menu/practiceSiegeStory.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
+import { observeCommandArt } from './menu/commandArt.mjs';
 import { loadArmoryLocation, saveArmoryLocation } from './menu/armoryLocation.mjs';
 import { CLOTH } from '../shared/src/cosmetics.mjs';
 import { arenasForMode } from '../shared/src/modes.mjs';
@@ -277,6 +278,7 @@ const armoryFeedback = createArmorySelection({
 // the player's settings, saved in this browser (see settings/settingsRegistry.mjs for what exists and how to add more)
 // (a phone or tablet starts on its own defaults: Balanced quality)
 const settings = new SettingsStore({ registry, device: isTouchPrimary() ? 'touch' : 'desktop' });
+const setCommandArtQuality = observeCommandArt(menu, $('#menu-options'), settings.get('display.quality'));
 sound.setLevels(soundLevels(settings));
 // a phone app that holds its screen upright: the game can lie sideways on it (Settings › Display › Screen)
 screenTurn?.configure(turnOptions(settings));
@@ -1652,7 +1654,9 @@ function offerTutorial() {
 }
 function closeTutorialOffer() { tutorialOffer.hidden = true; }
 $('[data-tutorial-onboarding-skip]').addEventListener('click', () => {
-  tutorialProgress.recordSkipped(); closeTutorialOffer(); $('#solo-button')?.focus();
+  tutorialProgress.recordSkipped();
+  closeTutorialOffer();
+  $('#duel-button').focus({ preventScroll: true });
 });
 $('[data-tutorial-begin]').addEventListener('click', () => {
   closeTutorialOffer();
@@ -2092,6 +2096,7 @@ startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.
 $('#switch-team')?.addEventListener('click', () => socket.switchTeam());
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
+  setCommandArtQuality(settings.get('display.quality'));
   sound.setLevels(soundLevels(settings));
   if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) {
     armoryFeedback.cancel();
@@ -3010,7 +3015,7 @@ document.addEventListener('click', (event) => {
     || button.matches('[data-spell], [data-ultimate], #armory-button')) return;
   const back = button.classList.contains('back-button') || /leave|cancel|back/.test(button.id);
   const variant = back ? 'back' : button.classList.contains('primary-command') ? 'confirm' : 'press';
-  sound.play(uiClankRecipe(Math.random, { variant }), { bus: 'ui' });
+  sound.play(uiClankRecipe(Math.random, { variant }), { bus: 'ui', gain: button.id === 'siege-blades-button' ? 0.68 : 1 });
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;

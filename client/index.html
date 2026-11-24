@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="client/menu.css" />
   <link rel="stylesheet" href="client/tutorial.css" />
   <link rel="stylesheet" href="client/mobile.css" />
+  <link rel="stylesheet" href="client/menu-commands.css" />
   <link rel="stylesheet" href="client/renown.css" />
 <link rel="stylesheet" href="client/renown-trials.css" />
   <link rel="stylesheet" href="client/ui/preparedSpells.css" />
@@ -71,8 +72,26 @@
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
         <button id="duel-button" class="menu-command primary-command" type="button"><span>DUEL · 1V1</span><small>Fight a bot or challenge another player</small></button>
-        <button id="siege-blades-button" class="menu-command"><span>SIEGE BLADES</span><small>Machine combat in SO-FIST-ICATION, Bi-Bye-llista &amp; Flight</small></button>
-        <button id="breakthrough-button" class="menu-command"><span>MODES OF METTLE</span><small>Breakthrough, High Grounds and other battles</small></button>
+        <button id="siege-blades-button" class="menu-command thematic-command siege-command" type="button">
+          <span class="command-art siege-face" aria-hidden="true">
+            <i class="siege-reliefs"></i><i class="siege-gleam"></i>
+          </span>
+          <span>SIEGE BLADES</span><small>Crew the siege machines</small>
+        </button>
+        <button id="breakthrough-button" class="menu-command thematic-command mettle-command" type="button">
+          <span class="command-art mettle-view" aria-hidden="true">
+            <i class="mettle-clouds"></i>
+            <i class="mettle-valley"></i>
+            <i class="mettle-water"></i>
+            <i class="mettle-bridge"></i>
+            <i class="mettle-canopies"></i>
+            <i class="mettle-flags"></i>
+            <svg class="mettle-birds" viewBox="0 0 50 22">
+              <path d="M1 10q5-4 9 0 4-5 10-3M26 17q6-4 10 0 5-5 12-3"/>
+            </svg>
+          </span>
+          <span>MODES OF METTLE</span><small>Choose your battlefield</small>
+        </button>
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Browse public matches</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
         <button id="solo-button" class="menu-command"><span>PRACTICE &amp; TUTORIAL</span><small>Learn, train and experiment</small></button>

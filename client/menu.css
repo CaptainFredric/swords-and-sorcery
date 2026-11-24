@@ -1267,6 +1267,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   /* (the yard's own sound and subtitle switches only where there is room for them: the Settings have both) */
   .yard-toggle { display: none; }
 }
+/* Leave the yard plaque its own space below the narrow front door. */
+@container app (max-width: 520px) and (min-height: 501px) {
+  #menu > .banner-panel { max-height: calc(100% - 96px - var(--safe-b, 0px)); }
+}
 /* a short screen (a phone on its side): the controls smaller, the tab nearer the top */
 @container app (max-height: 500px) {
   .herald-tab { top: 74px; }
