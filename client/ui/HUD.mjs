@@ -467,6 +467,8 @@ export class HUD {
     const hp = Math.max(0, Math.min(100, local.health));
     this.healthValue.textContent = String(Math.ceil(hp));
     this.healthFill.style.width = `${hp}%`;
+    this.healthValue.style.color = local.inDenial ? '#ffc16d' : '';
+    this.healthValue.title = local.inDenial ? 'In Denial — leave the flames and fall' : '';
     // The invulnerable 1-HP segment is a real part of the health bar, not
     // an on-screen warning. Its state is the same pure rule as the host's.
     this.armour?.classList.toggle('steel-floor',oneHitSteelFloorActive(local,serverNow));
@@ -475,7 +477,7 @@ export class HUD {
     else this.displayedTrail = hp;
     this.healthTrail.style.width = `${this.displayedTrail}%`;
     // badly hurt: the edges of the view keep a slow pulse, stronger the lower it gets
-    const low = local.alive && hp < 35 ? (35 - hp) / 35 : 0;
+    const low = local.alive && !local.inDenial && hp < 35 ? (35 - hp) / 35 : 0;
     if (this.lowHealth) {
       this.lowHealth.classList.toggle('on', low > 0);
       this.lowHealth.style.setProperty('--low', low.toFixed(2));
