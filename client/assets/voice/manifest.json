@@ -1663,21 +1663,21 @@
     "waitIStabbedYouV1": [
       {
         "file": "wait-i-stabbed-you-v1-1",
-        "seconds": 1.08
+        "seconds": 0.58
       },
       {
         "file": "wait-i-stabbed-you-v1-2",
-        "seconds": 1.18
+        "seconds": 1.64
       }
     ],
     "waitIStabbedYouV2": [
       {
         "file": "wait-i-stabbed-you-v2-1",
-        "seconds": 1.16
+        "seconds": 0.55
       },
       {
         "file": "wait-i-stabbed-you-v2-2",
-        "seconds": 1.38
+        "seconds": 1.99
       }
     ],
     "whatNotToDo": [

@@ -716,12 +716,12 @@
     "vortex-use-1.mp3"
   ],
   "waitIStabbedYouV1": [
-    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:0.00-1.32",
-    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:1.32-2.50"
+    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:0.00-0.82",
+    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:0.82-2.50"
   ],
   "waitIStabbedYouV2": [
-    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:0.00-1.42",
-    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:1.42-2.87"
+    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:0.00-0.81",
+    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:0.81-2.87"
   ],
   "whatNotToDo": [
     "what-not-to-do-1.mp3"

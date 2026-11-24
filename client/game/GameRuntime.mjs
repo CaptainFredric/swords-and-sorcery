@@ -2515,7 +2515,7 @@ export class GameRuntime {
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
   // Returns whether anything was said.
   // (ultimate: a line said of an ultimate he is using: only the first said in each activation is said at all)
-  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false, rand = null } = {}) {
+  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false, rand = null, disruptedSpeaker = null } = {}) {
     if (!this.voice || !playerId) return false;
     // (his ultimate's one line for this activation, in turn: none other of it; that one, whatever its odds)
     if (ultimate) {
@@ -2523,13 +2523,13 @@ export class GameRuntime {
       if (verdict === 'no') return false;
       if (verdict === 'force') force = true;
     }
-    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand });
+    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker });
     if (said && ultimate) this.ultimateLines.said(playerId);
     return said;
   }
 
-  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand }) {
-    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part, rand });
+  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker }) {
+    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part, rand, disruptedSpeaker });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || (snapshotPlayer?.actorKind === 'dummy' && !this.socket.inspectionAvailable)) return false;
@@ -2544,7 +2544,7 @@ export class GameRuntime {
     }
     const place = voicePlacement(listener, listenerYaw, body, hearing);
     if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part, rand });
+    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker });
   }
 
   // another knight's line follows him while he says it (a charge begun a dozen metres off arrives with him)
@@ -3263,6 +3263,7 @@ export class GameRuntime {
       },
       practice: this.#inPractice() || Boolean(this.latestSnapshot?.tutorial),
       winStreak: (id) => getWinStreak(id),
+      speakingCheck: (id) => Boolean(this.voice?.director?.saying?.(id, this.voice?.engine?.now ?? performance.now() / 1000)),
     };
   }
 
@@ -3323,6 +3324,14 @@ export class GameRuntime {
               this.scenes.tranquilizerStarted(say.speaker, volley.targetId, at);
             }
           }
+        }
+        if (say.opens === 'waitIStabbed') {
+          const foe = this.moments.duelFoe(say.speaker) ?? this.moments.lastTarget(say.speaker);
+          if (foe) this.scenes.waitStabbedStarted(say.speaker, foe, say.line, at, (said.delay ?? 0) + (said.seconds ?? 0));
+        }
+        if (say.opens === 'dieOverThere') {
+          const foe = this.moments.duelFoe(say.speaker) ?? this.moments.lastTarget(say.speaker);
+          if (foe) this.scenes.dieOverThereStarted(say.speaker, foe, at, (said.delay ?? 0) + (said.seconds ?? 0));
         }
         break;
       }

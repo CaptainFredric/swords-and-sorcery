@@ -2797,7 +2797,7 @@ export function fileStem(id) {
  * chosen by share and always said. force: every line offered is said whatever its odds (the squire's answer), and
  * only lines of state that are sentences are offered (no grunt, no wildcard), those of one moment in a random order.
  */
-export function linesFor(speaker, tags, { facts = [], force = false, rand = null, lines = VOICE_LINE_LIST } = {}) {
+export function linesFor(speaker, tags, { facts = [], force = false, rand = null, lines = VOICE_LINE_LIST, disruptedSpeaker = null } = {}) {
   const rng = rand ?? Math.random;
   const present = Array.isArray(tags) ? Object.fromEntries(tags.map((tag) => [tag, 1])) : { ...tags };
   const known = Object.keys(present).filter((tag) => VOICE_TAGS[tag] && present[tag] > 0);
@@ -2826,7 +2826,7 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = null
       for (const fact of facts) if (chosen.boost[fact]) chanceScale *= chosen.boost[fact];
       const tag = VOICE_TAGS[through];
       offered.push({
-        say: { line: chosen.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}) },
+        say: { line: chosen.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}), ...(disruptedSpeaker ? { disruptedSpeaker } : {}) },
         rank: tag.rank, order: chosen.order, index, shuffle: force ? rng() : 0,
       });
       return;
@@ -2835,7 +2835,7 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = null
     for (const fact of facts) if (line.boost[fact]) chanceScale *= line.boost[fact];
     const tag = VOICE_TAGS[through];
     offered.push({
-      say: { line: line.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}) },
+      say: { line: line.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}), ...(disruptedSpeaker ? { disruptedSpeaker } : {}) },
       rank: tag.rank, order: line.order, index, shuffle: force ? rng() : 0,
     });
   });

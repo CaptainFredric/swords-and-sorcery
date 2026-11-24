@@ -449,7 +449,8 @@ export class VoiceDirector {
         other = null;
       }
     }
-    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus) && !(line === 'silentTreatment' && other.speaker === disruptedSpeaker)) return null;
+    const canDisruptSpeaker = line === 'silentTreatment' && Boolean(other && other.speaker === disruptedSpeaker && (other.priority ?? CONTEXT) <= CONTEXT);
+    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus) && !canDisruptSpeaker) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     let odds = rule.chance * chanceScale;
     if (!force && sentence && line !== this.frequentException) {
@@ -467,13 +468,13 @@ export class VoiceDirector {
       this.speaking.delete(other.speaker);
     }
     if (line === 'silentTreatment' && disruptedSpeaker) {
-      if (this.speaking.has(disruptedSpeaker)) {
+      const active = this.speaking.get(disruptedSpeaker);
+      if (active && (active.priority ?? CONTEXT) <= CONTEXT) {
         if (!stop.includes(disruptedSpeaker)) stop.push(disruptedSpeaker);
         this.speaking.delete(disruptedSpeaker);
-      }
-      if (this.sentence && this.sentence.speaker === disruptedSpeaker) {
-        if (!stop.includes(disruptedSpeaker)) stop.push(disruptedSpeaker);
-        this.sentence = null;
+        if (this.sentence && this.sentence.speaker === disruptedSpeaker) {
+          this.sentence = null;
+        }
       }
     }
     if (line === 'notRightNow') {
