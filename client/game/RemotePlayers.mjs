@@ -857,8 +857,11 @@ export class RemotePlayers {
       if (deathAt !== null && whiteFlagDefeat(pb, deathAt)) {
         flagFoe = whiteFlagFoe(pb, this.latestSnapshot?.players, serverNow);
         // (turned smoothly, from wherever he faced as he fell, along the shorter way round)
-        if (!Number.isFinite(d.flagYaw)) d.flagYaw = shell.root.rotation.y;
-        if (flagFoe) d.flagYaw += Math.atan2(Math.sin(flagFoe.yaw - d.flagYaw), Math.cos(flagFoe.yaw - d.flagYaw)) * (1 - Math.exp(-dt * 8));
+        // (on the server's clock, like the rest of his pose: a stepped or slowed yard turns him at the same rate)
+        if (!Number.isFinite(d.flagYaw)) { d.flagYaw = shell.root.rotation.y; d.flagYawAt = serverNow; }
+        const step = Math.max(0, Math.min(0.25, serverNow - d.flagYawAt));
+        d.flagYawAt = serverNow;
+        if (flagFoe) d.flagYaw += Math.atan2(Math.sin(flagFoe.yaw - d.flagYaw), Math.cos(flagFoe.yaw - d.flagYaw)) * (1 - Math.exp(-step * 8));
         shell.root.rotation.y = d.flagYaw;
       }
     }

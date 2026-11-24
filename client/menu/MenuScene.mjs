@@ -1,4 +1,4 @@
-import { armoryPose, mixArmoryPose, authoredArmoryClip, ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
+import { armoryPose, mixArmoryPose, authoredArmoryClip, ARMORY_PREVIEW_SEC, ARMORY_LEAN_SHARE, ARMORY_SWORD_LEAN, armoryLeanWeight } from './armoryPreview.mjs';
 import { createArmoryHand } from './armoryHand.mjs';
 import { createElementalOrb } from '../game/elementalOrb.mjs';
 import { createSteelSheen } from '../game/steelSheen.mjs';
@@ -498,6 +498,11 @@ export class MenuScene {
               actionKey: `armory-${id}-${this.armoryPreview.started}` }
           : resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
         if (!hasAuthored) plan.motion = armoryGestureMotion(gesture);
+        // (now and then he leans on the sword through the showcase instead of carrying it: chosen as it began)
+        else if (this.armoryPreview.lean) {
+          const weight = armoryLeanWeight(Math.min(elapsed, ARMORY_PREVIEW_SEC));
+          plan.motion = { solve: (bones) => solveArm(bones, THIRD_PERSON_SWORD_ARM, ARMORY_SWORD_LEAN, weight) };
+        }
         this.armoryHand ??= createArmoryHand(this.assetInstance);
         this.armoryHand.set(gesture.fist);
         if (id === 'steel') {
@@ -905,7 +910,7 @@ export class MenuScene {
     this.magicLight.intensity = look.light ?? 2.4;
   }
 
-  previewArmory(id) {
+  previewArmory(id, { lean = Math.random() < ARMORY_LEAN_SHARE } = {}) {
     this.showSpell(id);
     this.reaction=null;
     if (this.performs(id)) {
@@ -913,7 +918,7 @@ export class MenuScene {
       this.showcase.start(id, this.#showcaseView());
       return;
     }
-    this.armoryPreview = { id, started: this.clock, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
+    this.armoryPreview = { id, started: this.clock, lean, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
   }
 
   /**

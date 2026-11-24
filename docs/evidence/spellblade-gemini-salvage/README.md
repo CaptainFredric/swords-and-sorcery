@@ -87,3 +87,17 @@ Result:
 - the model is 12.39 MB, under its 12.5 MB soft target.
 
 Before (top) and after are in `armory-showcase-before-after.jpg`, for Fireball and Gale.
+
+## The flag in his hand, facing his victor, and the Armory lean
+
+**Flag grip.** The white flag is skinned rigidly to `hand.L`, but its pole ran 14 cm from his fist. `--seat-prop WhiteFlagProp` finds the pole's axis from its butt ring and moves the whole prop once, in the hand's own frame. The pole now passes through the hollow of his curled fingers, 12 cm up from the butt: 0.0 cm off the axis in every white-flag clip. See `white-flag-grip-closeup.jpg`.
+
+**Facing his victor.** The server now records who felled a knight (`defeatedBy`, set in `killPlayer`, cleared on respawn) and sends it only while he's down.
+- The white-flag knight turns to face that knight within 12 m. He only swishes and parries within 4 m; otherwise he falls back to the nearest enemy.
+- The turn is paced by the server clock, like the rest of his pose.
+- Measured in the yard with the dummy 76° to his side: 34° off at 0.13 s, 4° at 0.4 s, 0° by 0.8 s.
+
+**Armory lean.** Each spell showcase now either carries the sword at his hip (the clean clips) or, half the time, leans on it. In the lean, his hand rests on the pommel at mid-chest and the blade tips 20° forward, its point planted ahead of his right foot.
+- It's eased in as the showcase opens and out before it ends.
+- Measured in the menu: the point rests 0–4 cm above the ground, clear of the boot.
+- See `armory-carry-vs-lean.jpg`: Fireball carry, Fireball lean, Steel carry, Steel lean.

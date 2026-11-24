@@ -182,22 +182,29 @@ export function whiteFlagDefeat(player, deathAt) {
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
   return ((h >>> 0) / 4294967296) < chance;
 }
-// the white-flag defeat's foe: the nearest living enemy within reach of the fallen knight (any other knight in a
-// free-for-all; never his own team), and how far into a swing it is (for his parry). Cosmetic only.
-const WHITE_FLAG_REACH = 4;
+// the white-flag defeat's foe: the knight who felled him (player.defeatedBy) while still standing and in sight,
+// else the nearest living enemy within reach (any other knight in a free-for-all; never his own team). He faces it
+// either way; he only swishes and parries one within reach. Cosmetic only.
+const WHITE_FLAG_REACH = 4, WHITE_FLAG_SIGHT = 12;
 export function whiteFlagFoe(knight, players, serverNow) {
   const at = knight?.position;
   if (!at || !Array.isArray(players)) return null;
-  let best = null;
-  for (const p of players) {
-    if (!p || p.id === knight.id || !p.alive || !p.position) continue;
-    if (knight.team && p.team && p.team === knight.team) continue;
+  const sized = (p) => {
     const dx = p.position.x - at.x, dz = p.position.z - at.z, distance = Math.hypot(dx, dz);
-    if (distance > WHITE_FLAG_REACH || (best && distance >= best.distance)) continue;
     const swingAt = p.attackActive && Number.isFinite(p.attackStartedAt) ? p.attackStartedAt
       : Number.isFinite(p.swordTechnique?.startedAt) ? p.swordTechnique.startedAt : null;
     // facing it: the knight's forward is (-sin yaw, -cos yaw)
-    best = { id: p.id, distance, yaw: Math.atan2(-dx, -dz), attackAge: swingAt === null ? null : serverNow - swingAt };
+    return { id: p.id, distance, near: distance <= WHITE_FLAG_REACH, yaw: Math.atan2(-dx, -dz),
+      attackAge: swingAt === null ? null : serverNow - swingAt };
+  };
+  const live = (p) => p && p.id !== knight.id && p.alive && p.position;
+  const victor = knight.defeatedBy ? players.find((p) => live(p) && p.id === knight.defeatedBy) : null;
+  if (victor) { const f = sized(victor); if (f.distance <= WHITE_FLAG_SIGHT) return { ...f, victor: true }; }
+  let best = null;
+  for (const p of players) {
+    if (!live(p) || (knight.team && p.team && p.team === knight.team)) continue;
+    const f = sized(p);
+    if (f.near && (!best || f.distance < best.distance)) best = f;
   }
   return best;
 }
@@ -207,10 +214,11 @@ function whiteFlagPlan(player, age) {
   const drawn = draw.duration / draw.rate;
   if (age < drawn) return { ...fixed(draw.clip, Math.max(0, age) * draw.rate), ...fallback, whiteFlag: 'draw' };
   const since = age - drawn, foe = player?.flagFoe;
-  // a foe's swing under way: the flag comes up to meet it
-  if (foe && Number.isFinite(foe.attackAge) && foe.attackAge >= 0 && foe.attackAge < parry.duration)
+  // a foe's swing under way within reach: the flag comes up to meet it
+  const engaged = foe && foe.near !== false;
+  if (engaged && Number.isFinite(foe.attackAge) && foe.attackAge >= 0 && foe.attackAge < parry.duration)
     return { ...fixed(parry.clip, foe.attackAge), ...fallback, whiteFlag: 'parry' };
-  if (foe) {
+  if (engaged) {
     const beat = since % WHITE_FLAG.swishEvery;
     if (beat < swish.duration) return { ...fixed(swish.clip, beat), ...fallback, whiteFlag: 'swish' };
   }

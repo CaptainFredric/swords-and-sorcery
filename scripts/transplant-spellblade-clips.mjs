@@ -16,12 +16,15 @@
 //       via: pass through that production clip's first frame half-way (e.g. via=Guard)
 //   node scripts/transplant-spellblade-clips.mjs --restage-sword-arm Idle --clips A,B [--apply]
 //     (the sword arm of production clips re-keyed from another production clip; the rest untouched)
+//   node scripts/transplant-spellblade-clips.mjs --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3 [--apply]
+//     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --first-person <file.glb> --sha <sha256> [--apply]
 //     (a whole first-person model: same joints, sockets, clips and rest pose required)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
+import { loadGlb, localPose, worldMatrices, apply as applyMatrix, multiply } from './lib/glbPose.mjs';
 
 const MAGIC = 0x46546c67, JSON_TYPE = 0x4e4f534a, BIN_TYPE = 0x004e4942;
 const align = (n) => (n + 3) & ~3;
@@ -408,6 +411,69 @@ function restageSwordArm(baseFile, templateName, names) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+/**
+ * Seat a prop rigidly skinned to one hand (the white flag on hand.L) in that hand's fist: in the named clip at the
+ * named time, the prop's shaft (its lowest half-metre) is moved, as one rigid shift in the hand's own frame, so that
+ * it passes through the middle of the curled fingers, the fist closed --grip-at (0.12 m) up from its butt. Every clip then holds it there, since it moves only with the hand.
+ */
+function seatHeldProp(baseFile, meshName, clipName, time, gripAt = 0.12) {
+  const base = glb(baseFile), doc = structuredClone(base.doc);
+  const model = loadGlb(baseFile), skin = doc.skins[0];
+  const node = doc.nodes.find((n) => n.mesh !== undefined && doc.meshes[n.mesh].name === meshName);
+  if (!node) throw Error('No mesh ' + meshName);
+  const prim = doc.meshes[node.mesh].primitives[0];
+  const acc = doc.accessors[prim.attributes.POSITION], view = doc.bufferViews[acc.bufferView];
+  const off = (view.byteOffset ?? 0) + (acc.byteOffset ?? 0), stride = view.byteStride ?? 12;
+  const jAcc = doc.accessors[prim.attributes.JOINTS_0], wAcc = doc.accessors[prim.attributes.WEIGHTS_0];
+  const readAny = (a, i, c) => { const v = doc.bufferViews[a.bufferView], o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0), size = { 5121: 1, 5123: 2, 5126: 4 }[a.componentType];
+    const at = o + i * (v.byteStride ?? size * 4) + c * size;
+    const x = a.componentType === 5126 ? base.bin.readFloatLE(at) : a.componentType === 5123 ? base.bin.readUInt16LE(at) : base.bin.readUInt8(at);
+    return a.normalized ? x / (a.componentType === 5121 ? 255 : 65535) : x; };
+  const joints = new Set();
+  for (let i = 0; i < acc.count; i++) for (let c = 0; c < 4; c++) if (readAny(wAcc, i, c) > 0) joints.add(readAny(jAcc, i, c));
+  if (joints.size !== 1) throw Error(meshName + ' is not rigid to one joint');
+  const k = [...joints][0], hand = skin.joints[k], handName = doc.nodes[hand].name, side = handName.slice(-2);
+  const ibm = Array.from({ length: 16 }, (_, c) => { const a = doc.accessors[skin.inverseBindMatrices], v = doc.bufferViews[a.bufferView];
+    return base.bin.readFloatLE((v.byteOffset ?? 0) + (a.byteOffset ?? 0) + (k * 16 + c) * 4); });
+  const world = worldMatrices(model, localPose(model, [{ clip: clipName, time, weight: 1 }]));
+  const pal = multiply(world[hand], ibm);
+  const bindPos = Array.from({ length: acc.count }, (_, i) => [0, 1, 2].map((c) => base.bin.readFloatLE(off + i * stride + c * 4)));
+  const posed = bindPos.map((p) => applyMatrix(pal, p));
+  // the shaft: its butt is the lowest ring of vertices; its direction is that ring's normal, turned toward the rest
+  // of the prop (a cross-section of a pole, whatever the cloth it carries does further up)
+  const low = Math.min(...posed.map((p) => p[1]));
+  const ring = posed.filter((p) => p[1] <= low + 0.03);
+  if (ring.length < 3) throw Error(meshName + ': no butt ring to find its shaft by');
+  const p0 = [0, 1, 2].map((c) => ring.reduce((t, p) => t + p[c], 0) / ring.length);
+  const sub = (a, b) => a.map((x, i) => x - b[i]), cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const a = ring.reduce((m, p) => (Math.hypot(...sub(p, p0)) > Math.hypot(...sub(m, p0)) ? p : m));
+  const b = ring.reduce((m, p) => (Math.hypot(...cross(sub(a, p0), sub(p, p0))) > Math.hypot(...cross(sub(a, p0), sub(m, p0))) ? p : m));
+  let n = cross(sub(a, p0), sub(b, p0)); const nl = Math.hypot(...n); n = n.map((x) => x / nl);
+  const centre = [0, 1, 2].map((c) => posed.reduce((t, p) => t + p[c], 0) / posed.length);
+  const dir = n.reduce((t, x, i) => t + x * (centre[i] - p0[i]), 0) < 0 ? n.map((x) => -x) : n;
+  // the fist's hollow: the middle of the curled fingers' middle joints and the thumb's
+  const at = (n) => applyMatrix(world[model.byName.get(n)], [0, 0, 0]);
+  const pts = ['finger_index_2', 'finger_middle_2', 'finger_ring_2', 'thumb_2'].map((n) => at(n + side));
+  const grip = [0, 1, 2].map((c) => pts.reduce((t, p) => t + p[c], 0) / pts.length);
+  // the fist closes a hand's width up the shaft from its butt (gripAt metres), the shaft through its hollow
+  const held = p0.map((x, i) => x + dir[i] * gripAt), delta = grip.map((x, i) => x - held[i]);
+  // the same shift in the bind space the vertices are stored in (the palette's linear part, inverted)
+  const m = [[pal[0], pal[4], pal[8]], [pal[1], pal[5], pal[9]], [pal[2], pal[6], pal[10]]];
+  const det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const inv = [
+    [(m[1][1] * m[2][2] - m[1][2] * m[2][1]) / det, (m[0][2] * m[2][1] - m[0][1] * m[2][2]) / det, (m[0][1] * m[1][2] - m[0][2] * m[1][1]) / det],
+    [(m[1][2] * m[2][0] - m[1][0] * m[2][2]) / det, (m[0][0] * m[2][2] - m[0][2] * m[2][0]) / det, (m[0][2] * m[1][0] - m[0][0] * m[1][2]) / det],
+    [(m[1][0] * m[2][1] - m[1][1] * m[2][0]) / det, (m[0][1] * m[2][0] - m[0][0] * m[2][1]) / det, (m[0][0] * m[1][1] - m[0][1] * m[1][0]) / det]];
+  const dBind = inv.map((row) => row.reduce((t, x, i) => t + x * delta[i], 0));
+  const bin = Buffer.from(base.bin);
+  const moved = bindPos.map((p) => p.map((x, i) => x + dBind[i]));
+  moved.forEach((p, i) => p.forEach((x, c) => bin.writeFloatLE(x, off + i * stride + c * 4)));
+  acc.min = [0, 1, 2].map((c) => Math.min(...moved.map((p) => p[c]))); acc.max = [0, 1, 2].map((c) => Math.max(...moved.map((p) => p[c])));
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name),
+    report: [{ mesh: meshName, hand: handName, clip: clipName, time, shiftCm: +(Math.hypot(...delta) * 100).toFixed(1) }] };
+}
+
 function replaceFirstPerson(baseFile, donorFile, expected) {
   const base = glb(baseFile), donor = glb(donorFile);
   if (sha(donor.raw) !== expected) throw Error('Unexpected first-person GLB (sha256 ' + sha(donor.raw) + ')');
@@ -425,7 +491,11 @@ const apply = process.argv.includes('--apply');
 const manifestFile = join(dir, 'manifest.json');
 const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
 let key, file, result;
-if (arg('--restage-sword-arm')) {
+if (arg('--seat-prop')) {
+  // --seat-prop WhiteFlagProp --clip Death_WhiteFlag_Idle_Loop --time 0.3: the hand-held prop seated in the fist
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = seatHeldProp(join(dir, file), arg('--seat-prop'), arg('--clip'), Number(arg('--time') ?? 0), Number(arg('--grip-at') ?? 0.12));
+} else if (arg('--restage-sword-arm')) {
   // --restage-sword-arm Idle --clips A,B: the sword arm of production clips A and B, carried as in Idle
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = restageSwordArm(join(dir, file), arg('--restage-sword-arm'), (arg('--clips') || '').split(',').filter(Boolean));

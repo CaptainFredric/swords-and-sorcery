@@ -485,13 +485,15 @@ test('the white-flag defeat: decided as he falls, sword thrown down at once, the
     assert.equal(alone.clip, WHITE_FLAG.idle.clip);
     assert.equal(alone.loop, true);
     // an enemy beside him: he swishes at it, then a beat of en garde
-    const foe = { id: 'e', distance: 1.5, yaw: 0, attackAge: null };
+    const foe = { id: 'e', distance: 1.5, near: true, yaw: 0, attackAge: null };
     assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + 0.2).clip, WHITE_FLAG.swish.clip);
     assert.equal(plan(fallen({ flagFoe: foe }), 10 + drawn + WHITE_FLAG.swish.duration + 0.3).clip, WHITE_FLAG.idle.clip);
     // and its swing is met with the flag's parry, in step with the swing
     const parry = plan(fallen({ flagFoe: { ...foe, attackAge: 0.2 } }), 10 + drawn + 1.5);
     assert.equal(parry.clip, WHITE_FLAG.parry.clip);
     assert.ok(Math.abs(parry.time - 0.2) < 1e-9);
+    // the one who felled him, faced from out of reach: he holds en garde at them rather than swishing at the air
+    assert.equal(plan(fallen({ flagFoe: { ...foe, distance: 8, near: false, attackAge: 0.2 } }), 10 + drawn + 0.2).clip, WHITE_FLAG.idle.clip);
     // the same fall draws the same way everywhere; a different fall may not
     setWhiteFlagDefeatChance(0.2);
     let flags = 0;
@@ -521,4 +523,11 @@ test('a white-flag knight finds the nearest living enemy beside him, never a tea
   assert.ok(Math.abs(foe.attackAge - 0.2) < 1e-9);
   assert.ok(Math.abs(foe.yaw) < 1e-9, 'straight ahead (-z) is yaw 0');
   assert.equal(whiteFlagFoe(knight, players.slice(0, 4), 10), null, 'nobody within reach: nobody to fight');
+  // the knight who felled him comes first, even past the nearer one, and is faced from further off
+  const victor = whiteFlagFoe({ ...knight, defeatedBy: 'far' }, players, 10);
+  assert.equal(victor.id, 'far');
+  assert.equal(victor.near, false, 'faced, but out of reach for a swish');
+  assert.ok(Math.abs(victor.yaw - Math.atan2(-9, 0)) < 1e-9);
+  // gone, or out of sight: back to whoever is beside him
+  assert.equal(whiteFlagFoe({ ...knight, defeatedBy: 'down' }, players, 10).id, 'foe');
 });
