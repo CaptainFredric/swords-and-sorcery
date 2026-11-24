@@ -1821,3 +1821,25 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   81% {transform:translateY(0);}
 }
 @media (prefers-reduced-motion:reduce) {.scroll-cue-chevron {animation:none;}}
+
+/* On a phone turned sideways, never let the name field or ornamental
+   headings consume the entire first screen before the Duel command. */
+@container app (max-height:500px) {
+  #menu .command-rail > #duel-button { order:-1; }
+  #menu .game-brand {margin-bottom:7px;}
+  #menu .game-brand .crest {width:22px;height:27px;margin-bottom:2px;}
+  #menu .game-brand h1 {font-size:22px;}
+  #menu .command-rail > .name-block {margin-bottom:3px;}
+  #solo-menu[data-purpose="duel"] > .side-screen-inner > .banner-scroll {
+    display:flex;flex-direction:column;
+  }
+  #solo-menu[data-purpose="duel"] > .side-screen-inner > .banner-scroll > * {flex-shrink:0;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-back {margin-bottom:4px;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-eyebrow,
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-intro {display:none;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-heading {font-size:22px;margin-bottom:7px;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner [data-duel-only] {order:1;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner :is(label,#solo-name,.error-copy) {order:2;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner label {margin-top:4px;}
+}
+#solo-menu .error-copy:empty {display:none;}
