@@ -108,6 +108,7 @@
   box-shadow: inset 0 1px #fcdfa699, inset 0 -2px #273a2c80;
 }
 .mettle-view {
+  --gust: 28s -3s linear infinite;
   background: radial-gradient(ellipse at 26% 18%, #fff1c6b0 0, transparent 46%),
     linear-gradient(#83b9cf, #cadfe0 32%, #ffe9b7 59%, #d4d8aa);
   transition: transform .72s cubic-bezier(.22,.68,.22,1);
@@ -126,36 +127,62 @@
 .mettle-valley { background-image: url('./assets/menu-commands/valley.webp'); }
 .mettle-water {
   background-image: url('./assets/menu-commands/river-light.webp');
-  animation: mettle-water 4.4s -1s ease-in-out infinite alternate;
+  opacity: .53;
+}
+.mettle-current {
+  clip-path: polygon(39.8% 77%, 54.2% 77%, 58.4% 87%, 64.7% 100%, 41.5% 100%);
+}
+.mettle-current::before,
+.mettle-current::after {
+  content: "";
+  position: absolute;
+  inset: 72% 30% -8% 35%;
+  background: url('./assets/menu-commands/river-current.webp') center / 100% 100% no-repeat;
+  animation: mettle-flow 3.6s -.7s linear infinite;
+  animation-play-state: var(--art-motion, paused);
+}
+.mettle-current::after { animation-delay: -2.5s; }
+.mettle-view .mettle-wind {
+  inset: 33% auto auto -31%;
+  width: 34%;
+  height: 37%;
+  background-image: url('./assets/menu-commands/breeze.webp');
+  opacity: 0;
+  animation: mettle-wind var(--gust);
+  animation-play-state: var(--art-motion, paused);
 }
 .mettle-bridge {
   background-image: url('./assets/menu-commands/bridge.webp');
   transform-origin: 50% 62%;
   animation: mettle-bridge 6.4s -2.1s ease-in-out infinite alternate,
-    mettle-bridge-gust 28s -3s ease-in-out infinite;
+    mettle-bridge-gust var(--gust);
 }
 .mettle-canopies {
   background-image: url('./assets/menu-commands/canopies.webp');
   transform-origin: 14% 55%;
   animation: mettle-canopies 5.9s -1.4s ease-in-out infinite alternate,
-    mettle-canopy-gust 28s -3s ease-in-out infinite;
+    mettle-canopy-gust var(--gust);
+}
+.mettle-bank-canopy {
+  background-image: url('./assets/menu-commands/bank-canopy.webp');
+  transform-origin: 93.7% 63.8%;
+  animation: mettle-bank-canopy 4.7s -.8s ease-in-out infinite alternate,
+    mettle-bank-gust var(--gust);
 }
 .mettle-flags {
   background-image: url('./assets/menu-commands/standards.webp');
   transform-origin: 77% 16%;
   animation: mettle-flags 2.6s -.37s ease-in-out infinite,
-    mettle-flag-gust 28s -3s ease-in-out infinite;
+    mettle-flag-gust var(--gust);
 }
 .mettle-birds {
   position: absolute;
-  inset: 9% auto auto -9%;
-  width: 9%;
-  height: 21%;
-  fill: none;
-  stroke: #33474a;
-  stroke-width: 2.45;
-  stroke-linecap: round;
-  animation: mettle-flight 23s -4s linear infinite;
+  inset: 2% auto auto -12%;
+  width: 12%;
+  height: 22%;
+  fill: #2e3d3a;
+  opacity: 0;
+  animation: mettle-flight 19s 4.6s linear infinite;
 }
 .mettle-birds path {
   transform-box: fill-box;
@@ -169,20 +196,32 @@
   from { transform: translateX(-5%); }
   to { transform: translateX(5%); }
 }
-@keyframes mettle-water {
-  0% { opacity: .24; transform: translateX(-.48%); }
-  43% { opacity: .87; }
-  69% { opacity: .50; }
-  100% { opacity: .72; transform: translateX(.44%); }
+/* Highlights follow the bend from the bridge toward the viewer. */
+@keyframes mettle-flow {
+  0% { opacity: 0; transform: translate(-9%, -31%) scale(.9); }
+  28% { opacity: .78; }
+  71% { opacity: .66; }
+  100% { opacity: 0; transform: translate(12%, 28%) scale(1.08); }
+}
+@keyframes mettle-wind {
+  0%, 19% { opacity: 0; transform: translate(0, 0); }
+  25% { opacity: .65; transform: translate(81%, 3%); }
+  33% { opacity: .66; transform: translate(166%, 0); }
+  40% { opacity: .34; transform: translate(246%, -21%); }
+  48%, 100% { opacity: 0; transform: translate(338%, -39%); }
 }
 @keyframes mettle-bridge {
   from { transform: scaleY(.93) skewX(-.9deg); }
   to { transform: scaleY(1.083) skewX(.84deg); }
 }
 @keyframes mettle-canopies {
-  from { transform: rotate(-.95deg) skewX(-1.05deg); }
-  70% { transform: rotate(.88deg) skewX(.85deg); }
-  to { transform: rotate(.54deg) skewX(.55deg); }
+  from { transform: rotate(-1.34deg) skewX(-1.24deg); }
+  70% { transform: rotate(1.22deg) skewX(1.22deg); }
+  to { transform: rotate(.74deg) skewX(.65deg); }
+}
+@keyframes mettle-bank-canopy {
+  from { transform: skewX(-1.3deg); }
+  to { transform: skewX(2.5deg); }
 }
 @keyframes mettle-flags {
   0%, 100% { transform: scaleX(.97) skewY(-1.4deg); }
@@ -194,15 +233,23 @@
    onset and decay on top of its ordinary movement. */
 @keyframes mettle-canopy-gust {
   0%, 26%, 49%, 100% { rotate: 0deg; }
-  33% { rotate: 2.1deg; }
-  39% { rotate: .68deg; }
-  43% { rotate: 1.03deg; }
+  30% { rotate: 1.3deg; animation-timing-function: ease-in-out; }
+  33% { rotate: 2.65deg; animation-timing-function: ease-out; }
+  36% { rotate: 1.48deg; }
+  39% { rotate: 2.13deg; }
+  43% { rotate: .56deg; }
 }
 @keyframes mettle-bridge-gust {
   0%, 30%, 52%, 100% { scale: 1; }
   37% { scale: 1 1.072; }
   43% { scale: 1 .982; }
   47% { scale: 1 1.023; }
+}
+@keyframes mettle-bank-gust {
+  0%, 34%, 55%, 100% { rotate: 0deg; }
+  41% { rotate: 3.1deg; }
+  46% { rotate: -1.15deg; }
+  50% { rotate: .74deg; }
 }
 @keyframes mettle-flag-gust {
   0%, 33%, 51%, 100% { rotate: 0deg; }
@@ -212,10 +259,10 @@
 }
 @keyframes mettle-flight {
   0% { opacity: 0; transform: translate(0, 28%); }
-  5% { opacity: .78; transform: translate(130%, 5%); }
-  15% { opacity: .82; transform: translate(495%, -8%); }
-  24% { opacity: .7; transform: translate(805%, -30%); }
-  30%, 100% { opacity: 0; transform: translate(1110%, -52%); }
+  5% { opacity: .86; transform: translate(149%, -4%); }
+  15% { opacity: .88; transform: translate(459%, -8%); }
+  24% { opacity: .8; transform: translate(728%, -18%); }
+  30%, 100% { opacity: 0; transform: translate(978%, -35%); }
 }
 @keyframes mettle-wings {
   0%, 100% { transform: scaleY(.85); }
@@ -233,15 +280,21 @@
 /* Balanced keeps the elements most visible on a small screen. */
 #menu[data-art-quality="medium"] .mettle-birds path { animation: none; }
 #menu:where([data-art-quality="medium"]) .mettle-bridge { animation-name: mettle-bridge; }
-#menu:where([data-art-quality="medium"]) .mettle-flags { animation-name: mettle-flags; }
-#menu[data-art-quality="low"] .command-art :is(i, svg, path) { animation: none; }
+#menu:where([data-art-quality="medium"]) .mettle-bank-canopy { animation-name: mettle-bank-canopy; }
+#menu[data-art-quality="low"] .command-art :is(i, svg, path),
+#menu[data-art-quality="low"] .mettle-current::before,
+#menu[data-art-quality="low"] .mettle-current::after { animation: none; }
+#menu[data-art-quality="low"] .mettle-current { display: none; }
 #menu[data-art-quality="low"] .mettle-birds { opacity: 0; }
 @container app (max-height: 500px) {
   #menu .thematic-command { min-height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #menu .command-art, #menu .thematic-command { transition: none; }
-  #menu .command-art :is(i, svg, path) { animation: none; }
+  #menu .command-art :is(i, svg, path),
+  #menu .mettle-current::before,
+  #menu .mettle-current::after { animation: none; }
+  #menu .mettle-current { display: none; }
   #menu .mettle-command:hover .mettle-view { transform: none; }
   #menu .mettle-birds { opacity: 0; }
   #menu .siege-command:active .siege-face { transform: none; }
