@@ -303,13 +303,13 @@ try {
   await evaluate(`(()=>{
     const nameEl = document.querySelector('#player-name');
     if (nameEl) nameEl.value = 'Merit Veteran';
-    document.querySelector('#solo-button')?.click();
+    document.querySelector('#breakthrough-button')?.click();
   })()`);
   await until(() => evaluate("!document.querySelector('#solo-menu')?.classList.contains('hidden')"), 'Solo activities menu');
   await evaluate(`(()=>{
-    document.querySelector('#renown-trials-mode')?.click();
-    document.querySelector('[data-renown-arena="court-of-merit"]')?.click();
-    document.querySelector('#solo-launch')?.click();
+    document.querySelector('[data-mettle-mode=RENOWN_TRIALS]')?.click();
+    document.querySelector('#mettle-renown-arena [data-renown-arena="court-of-merit"]')?.click();
+    document.querySelector('#breakthrough-play-bots')?.click();
   })()`);
 
   await until(async () => {
