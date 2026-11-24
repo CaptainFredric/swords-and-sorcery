@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 
-const PATCH_KEY = 'spellblade-steel-sheen-1';
+const PATCH_KEY = 'spellblade-steel-sheen-denial-2';
 // how fast the glint runs over the plate (m/s) and how long until it has faded (s)
 export const STEEL_RIPPLE = Object.freeze({ speed: 3.4, seconds: 0.95, width: 0.08 });
 
@@ -16,13 +16,13 @@ function patch(material, uniforms) {
       .replace('#include <common>', '#include <common>\nvarying vec3 vSteelPos;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSteelPos = position;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSteelPos;\nuniform float uSteel;\nuniform float uRipple;\nuniform vec3 uRippleFrom;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vSteelPos;\nuniform float uSteel;\nuniform float uRipple;\nuniform vec3 uRippleFrom;\nuniform float uDenial;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.22, uSteel * 0.8);')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         // hardened: a cool edge of polished steel, as strong as the armour is
         float steelRim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.5);
         totalEmissiveRadiance += vec3(0.62, 0.7, 0.8) * (steelRim * 0.8 + 0.05) * uSteel;
-        // the glint running out from the gauntlet as it is called
+        // In Denial: a faint warm emissive rim, not a solid ghost or a second mesh.\n        totalEmissiveRadiance += vec3(1.0, 0.34, 0.045) * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0) * 0.72 * uDenial;\n        // the glint running out from the gauntlet as it is called
         if (uRipple >= 0.0) {
           float steelFront = uRipple * ${STEEL_RIPPLE.speed.toFixed(3)};
           float steelBand = exp(-pow((distance(vSteelPos, uRippleFrom) - steelFront) / ${STEEL_RIPPLE.width.toFixed(3)}, 2.0));
@@ -44,7 +44,7 @@ function patch(material, uniforms) {
 const PLATE = /^(KitMetal|GameBody|Native supplied forearm|Hand steel)/;
 
 export function createSteelSheen(instance, { gauntlet = 'handL', ready = false } = {}) {
-  const uniforms = { uSteel: { value: 0 }, uRipple: { value: -1 }, uRippleFrom: { value: new THREE.Vector3() } };
+  const uniforms = { uSteel: { value: 0 }, uRipple: { value: -1 }, uRippleFrom: { value: new THREE.Vector3() }, uDenial: { value: 0 } };
   let clones = null;
 
   function ensure() {
@@ -79,10 +79,11 @@ export function createSteelSheen(instance, { gauntlet = 'handL', ready = false }
   if (ready) ensure();
 
   return {
-    set(strength = 0, rippleAge = null) {
+    set(strength = 0, rippleAge = null, denial = 0) {
       const rippling = Number.isFinite(rippleAge) && rippleAge >= 0 && rippleAge < STEEL_RIPPLE.seconds;
-      if (!clones && !(strength > 0.001) && !rippling) return;
+      if (!clones && !(strength > 0.001) && !rippling && !denial) return;
       ensure();
+      uniforms.uDenial.value = Math.max(0, Math.min(1, denial));
       uniforms.uSteel.value = Math.max(0, Math.min(1, strength));
       uniforms.uRipple.value = rippling ? rippleAge : -1;
     },
