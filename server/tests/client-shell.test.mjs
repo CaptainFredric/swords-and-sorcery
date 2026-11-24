@@ -30,6 +30,9 @@ test('main menu exposes multiplayer, solo and private flows without presenting a
   const html = await read('client/index.html');
   assert.match(html, /id=["']quick-play["']/);
   assert.match(html, /id=["']solo-button["']/);
+  assert.match(html, /id=["']duel-button["']/);
+  assert.match(html, /id=["']duel-start-now["']/);
+  assert.match(html, /id=["']seek-duel["']/);
   assert.match(html, /id=["']private-button["']/);
   assert.match(html, /id=["']bot-duel["']/);
   assert.match(html, /id=["']practice-mode["']/);
@@ -49,7 +52,8 @@ test('front-door copy stays player-facing instead of exposing implementation not
 
   assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
   assert.match(menuSlice, /Browse public matches/i);
-  assert.match(menuSlice, /Bot Duel, practice and training tools|Fight a bot or practice/i);
+  assert.match(menuSlice, /Fight a bot or challenge another player/i);
+  assert.match(menuSlice, /PRACTICE &amp; TUTORIAL/i);
   assert.match(menuSlice, /Invite friends with a room code/i);
 });
 
