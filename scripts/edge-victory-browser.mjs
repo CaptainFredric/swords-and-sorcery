@@ -57,12 +57,12 @@ try{
   await cdp.send('Page.enable');await cdp.send('Runtime.enable');
   await cdp.send('Page.navigate',{url:base+'/?debug'});
   await until(()=>evalPage("document.querySelector('#loading-veil')?.classList.contains('done')"),'main menu',200);
-  await evalPage("document.querySelector('#player-name').value='Edge Witness';document.querySelector('#solo-button').click()");
-  await until(()=>evalPage("!document.querySelector('#solo-menu').classList.contains('hidden')"),'solo menu');
-  await evalPage("document.querySelector('#edge-of-victory-mode').click()");
-  assert.match(await evalPage("document.querySelector('#solo-selected-title').textContent"),/EDGE OF VICTORY/);
+  await evalPage("document.querySelector('#player-name').value='Edge Witness';document.querySelector('#breakthrough-button').click()");
+  await until(()=>evalPage("!document.querySelector('#breakthrough-menu').classList.contains('hidden')"),'solo menu');
+  await evalPage("document.querySelector('[data-mettle-mode=EDGE_OF_VICTORY]').click()");
+  assert.equal(await evalPage("document.querySelector('[data-mettle-mode=EDGE_OF_VICTORY]').classList.contains('selected')"),true);
   await shot('01-desktop-mode-selection');
-  await evalPage("document.querySelector('#solo-launch').click()");
+  await evalPage("document.querySelector('#breakthrough-play-bots').click()");
   const first=await until(async()=>{const s=await probe();
     return s?.mode==='EDGE_OF_VICTORY'&&s.state==='PLAYING'&&s.ring>0&&s.visible&&s.pickups>0?s:null;
   },'real battle + visible heraldic marking + spell pickups',210);
