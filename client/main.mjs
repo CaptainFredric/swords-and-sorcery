@@ -226,18 +226,43 @@ const winnerTitle = $('#winner-title');
 const rematchButton = $('#rematch');
 const rematchCopy = $('#rematch-copy');
 
-const menuOptions = $('#menu-options');
-const menuMore = $('#menu-more');
+// Every scrollable command banner gets the same unobtrusive, actionable cue.
+// Reserve a footer only when overflow exists; never cover a command or create
+// a feedback loop where the footer itself manufactures overflow.
+const bannerScrolls=[];
 function updateMenuScrollCue() {
-  menuMore.hidden = menuOptions.clientHeight === 0 || menuOptions.scrollHeight - menuOptions.clientHeight - menuOptions.scrollTop < 12;
+  for(const {panel,scroller,cue} of bannerScrolls){
+    if(!scroller.clientHeight){cue.hidden=true;continue;}
+    const reserved=panel.classList.contains('has-scroll-cue');
+    const footer=reserved?44:0;
+    const overflow=scroller.scrollHeight-scroller.clientHeight>footer+4;
+    if(overflow!==reserved)panel.classList.toggle('has-scroll-cue',overflow);
+    const remaining=scroller.scrollHeight-scroller.clientHeight-scroller.scrollTop;
+    cue.hidden=!overflow||remaining<5;
+  }
 }
-menuOptions.addEventListener('scroll', updateMenuScrollCue, { passive: true });
 const menuScrollObserver = new ResizeObserver(updateMenuScrollCue);
-for (const element of [menuOptions, $('#menu .game-brand'), $('#menu .command-rail')]) menuScrollObserver.observe(element);
-menuMore.addEventListener('click', () => menuOptions.scrollBy({
-  top: menuOptions.clientHeight * 0.65,
-  behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-}));
+for(const [i,scroller] of [...document.querySelectorAll('#menu > .banner-panel > .banner-scroll, #solo-menu > .banner-panel > .banner-scroll, #breakthrough-menu > .banner-panel > .banner-scroll, #rooms-menu > .banner-panel > .banner-scroll, #private-menu > .banner-panel > .banner-scroll')].entries()){
+  const panel=scroller.parentElement;
+  let cue=panel.querySelector('.menu-scroll-cue');
+  if(!cue){
+    cue=document.createElement('button');cue.type='button';cue.className='menu-scroll-cue';cue.hidden=true;
+    scroller.id ||= 'banner-scroll-'+i;
+    cue.setAttribute('aria-controls',scroller.id);cue.setAttribute('aria-label','Show more options');
+    cue.innerHTML='<span>MORE OPTIONS</span><svg class="scroll-cue-chevron" aria-hidden="true" viewBox="0 0 20 12" width="18" height="12"><path d="m2 2 8 8 8-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    panel.append(cue);
+  }
+  bannerScrolls.push({panel,scroller,cue});
+  scroller.addEventListener('scroll',updateMenuScrollCue,{passive:true});
+  cue.addEventListener('click',()=>scroller.scrollBy({top:scroller.clientHeight*.65,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));
+  menuScrollObserver.observe(scroller);
+  for(const child of scroller.children)menuScrollObserver.observe(child);
+}
+const bannerChangeObserver=new MutationObserver(()=>requestAnimationFrame(updateMenuScrollCue));
+for(const el of document.querySelectorAll('#menu,#solo-menu,#breakthrough-menu,#rooms-menu,#private-menu')){
+  bannerChangeObserver.observe(el,{attributes:true,attributeFilter:['class','data-panel','data-purpose']});
+}
+requestAnimationFrame(updateMenuScrollCue);
 
 const hud = new HUD();
 // one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
@@ -438,7 +463,7 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
   noteYard();
-  if (screenId === SCREEN_IDS.MAIN_MENU) requestAnimationFrame(updateMenuScrollCue);
+  requestAnimationFrame(updateMenuScrollCue);
 }
 
 // what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
@@ -1084,7 +1109,9 @@ function showPauseSection(section) {
   setPracticeVisible(practiceVisibleWanted);
 }
 
-$('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
+$('#duel-button').addEventListener('click', () => openSoloPurpose('duel'));
+$('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#duel-start-now').addEventListener('click', () => soloActivation.run());
 $('#siege-blades-button')?.addEventListener('click', () => {
   showMenuError('');
   mettleActivation.choose('SIEGE_BLADES');
@@ -1101,7 +1128,21 @@ $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(
   menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
 seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#solo-button').addEventListener('click', () => { soloActivation.reset(); showMenuError(''); soloMenu.dataset.panel='list'; route(SCREEN_IDS.SOLO_MENU); });
+$('#solo-button').addEventListener('click', () => openSoloPurpose('training'));
+function openSoloPurpose(purpose) {
+  soloActivation.reset(); showMenuError('');
+  const duel=purpose==='duel';
+  soloMenu.dataset.purpose=duel?'duel':'training';
+  $('#solo-eyebrow').textContent=duel?'THE CHALLENGE':'TRAINING';
+  $('#solo-heading').textContent=duel?'CHOOSE YOUR RIVAL':'PRACTICE & TUTORIAL';
+  $('#solo-intro').textContent=duel?'One on one. Fight a bot now or seek another player.':'Train at your own pace, alone or with friends.';
+  $('#solo-list-return').textContent=duel?'← DUEL OPTIONS':'← ACTIVITIES';
+  chooseSoloActivity(duel?'bot-duel':'practice-mode');
+  soloMenu.dataset.panel='list';
+  soloMenu.querySelector('.side-screen-inner .banner-scroll').scrollTop=0;
+  resetCompanionCrown(soloMenu);
+  route(SCREEN_IDS.SOLO_MENU);
+}
 $('#private-button').addEventListener('click', () => {
   privateActivation.reset(); showMenuError(''); privateMenu.dataset.panel='list';
   route(SCREEN_IDS.PRIVATE_MENU);
@@ -1173,14 +1214,14 @@ $('#how-button').addEventListener('click', () => {
 });
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
-const MENU_REACTIONS = { 'solo-button': 'salute', 'siege-blades-button': 'rally', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
+const MENU_REACTIONS = { 'solo-button': 'salute', 'siege-blades-button': 'rally', 'breakthrough-button': 'rally', 'duel-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
 for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEventListener('click', () => menuScene?.react(reaction));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 // the solo arena: a chip each, the chosen one lit
 const soloArena = $('#solo-arena');
-let soloActivity = 'bot-duel';
+let soloActivity = 'practice-mode';
 const soloArenaMode = () => soloActivity === 'bot-duel' ? 'BOT_DUEL' : 'PRACTICE';
 function showSoloArena() {
   const mode = soloArenaMode();
@@ -1674,7 +1715,7 @@ const tutorialView = new TutorialView($('#tutorial-lesson'), {
   onRestart: () => restartTutorialFrom(),
   onSkip: () => { tutorialProgress.recordSkipped(); runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
   onPractice: () => returnToMenu({then:() => runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU)}),
-  onLeave: () => returnToMenu({then:() => route(SCREEN_IDS.SOLO_MENU)}),
+  onLeave: () => returnToMenu({then:() => openSoloPurpose('training')}),
 });
 const tutorialOpening = new TutorialOpening({
   hold: () => tutorialView.holdOpening(),
@@ -1818,7 +1859,13 @@ const soloActivation = createRepeatActivation({
   select: chooseSoloActivity,
   activate: launchSoloActivity,
 });
-for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>soloActivation.choose(id));
+for(const id of Object.keys(soloChoices)) $('#'+id)?.addEventListener('click',()=>{
+  if(id==='bot-duel'&&soloMenu.dataset.purpose==='duel'){
+    chooseSoloActivity(id); soloMenu.dataset.panel='details'; resetCompanionCrown(soloMenu);
+    return;
+  }
+  soloActivation.choose(id);
+});
 $('#solo-list-return').addEventListener('click',()=>{soloMenu.dataset.panel='list';});
 $('#solo-details')?.addEventListener('click',()=>{
   soloMenu.dataset.panel='details';resetCompanionCrown(soloMenu);
@@ -3791,7 +3838,8 @@ function renderLinkStatus(status) {
   linkMark.dataset.tone = view.tone;
   linkMark.querySelector('[data-link-mark-label]').textContent = markLabel;
   linkMark.title = markLabel;
-  if (seekDuelCopy) seekDuelCopy.textContent = (view.online || view.tone === 'dormant') ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
+  if (seekDuelCopy) seekDuelCopy.textContent = (view.online || view.tone === 'dormant') ? SEEK_COPY : 'If multiplayer is unavailable, a bot steps in';
+  requestAnimationFrame(updateMenuScrollCue);
 }
 // the herald's banner, when the server answers after keeping everyone waiting
 const heraldToast = $('#herald-toast');
