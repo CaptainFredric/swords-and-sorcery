@@ -207,6 +207,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.pitch = 0;
   player.input = { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: 0 };
   player.health = 100;
+  player.inDenial = null;
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.guardHeld = false;
@@ -1563,10 +1564,12 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
 
-  // Sample the CURRENT authoritative field, not its next scheduled burn tick:
-  // allied last-HP protection and hostile Prowess loss apply to any incoming
-  // damage while actually inside the flames.
+  // Area of Denial is checked against the current authoritative position.
   const valkyrieFlames=valkyrieFlameExposure(room,victim,nowSec);
+  if(victim.inDenial&&!valkyrieFlames.allied){
+    settleInDenial(room,victim,nowSec);
+    return false;
+  }
   let finalAmount = amount;
   let finalSteel = steel;
   let finalTurned = turned;
@@ -1609,11 +1612,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
         until: state.until ?? null, at: nowSec });
     }
   }
-  // Valkyrie's sacrifice protects allies' LAST HP only while they are
-  // physically in its active ground fire. Existing Steel mitigation, damage
-  // events, knockback and other effects resolve normally before this floor.
-  if(valkyrieFlames.allied&&finalAmount>0)
-    finalAmount=Math.min(finalAmount,Math.max(0,victim.health-1));
+  // A slain knight stays combat-capable at zero HP inside friendly flames.
+  // Repeated contacts still shove and interrupt, but cannot take more HP.
+  if(victim.inDenial) finalAmount=0;
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
   if (taken > 0) {
@@ -1657,7 +1658,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   // Do not first AWARD the usual damage-taken Prowess only to subtract it:
   // the requested net penalty is exactly the HP actually lost, not .86 HP.
   // Attackers still earn their ordinary dealt-damage Prowess.
-  if (!ongoing) prowessForDamage(room,room.players.get(attackerId),victim,taken,
+  if (!ongoing && taken>0) prowessForDamage(room,room.players.get(attackerId),victim,taken,
     {ultimate,victimGains:!valkyrieFlames.hostile});
   if(valkyrieFlames.hostile&&taken>0){
     const before=victim.prowess??0;
@@ -1675,7 +1676,8 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       victim.lastKnockbackBy = attackerId;
     }
   }
-  const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec,
+    ...(victim.inDenial||victim.health<=0&&valkyrieFlames.allied?{inDenial:true}:{}) };
   if (ongoing) event.ongoing = true;
   if (finalSteel > 0.005) {
     if (source !== 'burn') event.steel = finalSteel;
@@ -1690,20 +1692,43 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
   recordPerryDamage(room, attackerId, victimId, source, nowSec, taken, healthBefore);
-  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec, killVariant, {
-    excessDamage: Math.max(0, finalAmount-healthBefore),
-    guardWouldSave: Boolean(guardWouldSave),
-    pelted: source==='fight-flight-repeater'&&victim.killfeedPelting?.hits>=3,
-    ...(infusionTiers?{infusionTiers:{...infusionTiers}}:{}),
-  });
+  if (victim.health <= 0 && !victim.inDenial) {
+    const facts={excessDamage:Math.max(0,finalAmount-healthBefore),guardWouldSave:Boolean(guardWouldSave),
+      pelted:source==='fight-flight-repeater'&&victim.killfeedPelting?.hits>=3,
+      ...(infusionTiers?{infusionTiers:{...infusionTiers}}:{})};
+    if(valkyrieFlames.allied){
+      const killer=room.players.get(attackerId);
+      const context=killVariant||
+        (source==='fight-flight-rotor'&&room.fightFlight?.operatorId===attackerId&&room.fightFlight?.offensiveRun?'rotorDash':null)||
+        (killer&&['sword','ram','gauntlet','fireball','burn','frostfire','gale','coreflagration','line_of_conduct'].includes(source)&&combatActionPolicy(killer,nowSec).concurrent?'chivalry':null)||
+        (source==='sword'&&killer&&sundering(killer,nowSec)?'sunder':null);
+      victim.inDenial={at:nowSec,attackerId:attackerId??null,source,killVariant:context,facts};
+      room.events.push({type:'inDenial',playerId:victimId,attackerId,source,at:nowSec});
+    }else killPlayer(room,victimId,attackerId,source,nowSec,killVariant,facts);
+  }
   return true;
+}
+
+// Called before objectives, after movement, and after field/vehicle updates.
+// The first lethal blow owns the eventual death; later contacts cannot steal it.
+export function settleInDenial(room,player,nowSec){
+  if(!player?.alive||!player.inDenial)return false;
+  player.health=0;
+  if(valkyrieFlameExposure(room,player,nowSec).allied)return false;
+  return killPlayer(room,player.id,null,'area-of-denial',nowSec);
 }
 
 export function killPlayer(room, victimId, attackerId, source, nowSec, killVariant = null, killFacts = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive) return false;
+  const denial=victim.inDenial;
+  if(denial){
+    ({attackerId,source,killVariant}=denial);
+    killFacts=denial.facts;
+    victim.inDenial=null;
+  }
   let credited = attackerId;
-  if (!credited && victim.lastAttackerId && nowSec - victim.lastKnockbackAt <= ABYSS_ATTRIBUTION_SEC) credited = victim.lastAttackerId;
+  if (!denial && !credited && victim.lastAttackerId && nowSec - victim.lastKnockbackAt <= ABYSS_ATTRIBUTION_SEC) credited = victim.lastAttackerId;
   // (for the voice: whether their plate was still hardened as the blow that felled them landed)
   const steeled = steelStrength(victim.steel, nowSec) > 0.005;
   // (and whether they fell spinning, or still dizzy from it)
@@ -1720,7 +1745,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   victim.killfeedPreviousKiller=sameKiller?credited:null;
   // (who felled him, while he is down: a white-flag defeat turns to face them; presentation only)
   victim.defeatedBy = credited && credited !== victimId ? credited : null;
-  const special=killVariant||
+  const special=denial?killVariant:killVariant||
     (source==='fight-flight-rotor'&&room.fightFlight?.operatorId===credited&&
      room.fightFlight?.offensiveRun?'rotorDash':null)||
     (killer&&['sword','ram','gauntlet','fireball','burn','frostfire','gale',
@@ -1802,6 +1827,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
   const death = { type: 'death', victimId, killerId: credited, source,
+    ...(denial?{deferredByDenial:true}:{}),
     ...(killFacts.infusionTiers?{infusionTiers:{...killFacts.infusionTiers}}:{}),
     ...(special?{killContext:special}:{}),
     ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
@@ -3813,6 +3839,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
   if (room.state !== 'PLAYING') return room.events;
 
+  for(const player of room.players.values())settleInDenial(room,player,nowSec);
+  if(room.state!=='PLAYING')return room.events;
   if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
   else if(!modeCall(room,'ownsTeamObjectives'))stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
@@ -3955,7 +3983,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.lastGuardDrainAt = nowSec;
     }
     // Resolve sprint before healing, using the simulation's true sprint state (not world velocity).
-    if (!player.sprinting && nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC
+    if (!player.inDenial && !player.sprinting && nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC
       && nowSec >= (player.coreRegenPausedUntil ?? -Infinity) && player.health < GAME.maxHealth) {
       player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
     }
@@ -4071,6 +4099,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
     if (room.mode === GAME_MODES.EDGE_OF_VICTORY && !player.operatingRamId && !player.operatingFightFlightId && !player.operatingBallistaId)
       edgeConstrainActor(room, player, from, nowSec, effectiveWorld);
+    if(settleInDenial(room,player,nowSec))continue;
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
       if (dashing) ramThrough(room, player, from, nowSec, world);

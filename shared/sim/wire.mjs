@@ -320,6 +320,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,
+      inDenial: Boolean(p.inDenial),
       restlessAsleep:Boolean(p.restlessAsleep),
       restlessCarrying:p.restlessCarrying??null,
       kills: p.kills,

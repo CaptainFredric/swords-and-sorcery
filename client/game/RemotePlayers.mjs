@@ -969,7 +969,7 @@ export class RemotePlayers {
       }
       // (its glint runs from the gauntlet as it is called, and again as a ram lands: the plate flashing with the blow)
       const flashed = Number.isFinite(d.steelFlashAt) && serverNow - d.steelFlashAt < STEEL_RIPPLE.seconds ? serverNow - d.steelFlashAt : null;
-      shell.steelSheen.set(steel, flashed ?? (pb.steel ? serverNow - pb.steel.calledAt : null));
+      shell.steelSheen.set(steel, flashed ?? (pb.steel ? serverNow - pb.steel.calledAt : null), pb.alive && pb.inDenial ? .82 + .18*Math.sin(nowMs*.006) : 0);
       // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
       const sunder = pb.ultimateState?.id === 'sunder' && pb.ultimateState.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
       if (sunder || shell.sunderBlade) {

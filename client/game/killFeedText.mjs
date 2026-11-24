@@ -15,7 +15,10 @@ const isVortex=source=>['vortex','ember','vortexFire','vortexBlaze'].includes(so
 export function killFeedDeath(event,killerName=null,victimName='someone',{mode=null}={}){
  const source=event?.source??'';
  const k=killerName,v=victimName||'someone';
- if(source==='fight-flight-terminal')return null; // one later Ascension summary, even on self-death
+ if(source==='fight-flight-terminal'){
+   if(event.deferredByDenial)return {text:k?`${v} succumbed to ${apostrophe(k)} Ascension`:`${v} succumbed to Ascension`,kind:'fire'};
+   return null; // one later Ascension summary, even on self-death
+ }
  if(!k||event.killerId===event.victimId){
    if(source==='abyss')return text([
      `${v} bought only a one-way ticket`,

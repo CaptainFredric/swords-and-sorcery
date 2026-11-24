@@ -25,6 +25,7 @@ export const ICONS = Object.freeze({
   // Three diverging ground shocks, not a generic impact star.
   afflictionShaken: '<path d="M3 21l5-4 3 2 4-6 3 3 4-4M5 11l3-6 3 2M14 9l3-5 4 2"/><path d="M4 14l3-2 2 2M14 20l3-1 2 2" /><path d="m8 8 1 4m7-6 1 4" stroke-width="2"/>',
   // Thin, licking flame with three separate embers.
+  afflictionDenial: '<path d="M6 19V9l6-6 6 6v10M6 14h12M9 19h6M12 3v11"/><path d="M3 20q-2-5 1-9m17 9q2-5-1-9M8 5q-1-2 1-4m6 4q1-2-1-4" stroke-opacity=".8"/>',
   afflictionBurning: '<path d="M12 2c2 5-3 7-2 11-2-1-2-4-2-6C3 13 5 21 12 22c8 0 10-9 4-15 0 4-2 6-4 8 1-5-2-8 0-13z" fill="currentColor" fill-opacity=".35"/><path d="M12 2c2 5-3 7-2 11-2-1-2-4-2-6C3 13 5 21 12 22c8 0 10-9 4-15 0 4-2 6-4 8 1-5-2-8 0-13zM12 14c-3 4-2 6 0 6s3-3 0-6z"/>',
   // Thawing snowflake; one lower arm dissolves into drops.
   afflictionChilled: '<path d="M9 2v12M3 5l12 7M15 5 3 12M6 3l3 3 3-3M3 9l3-1 1 3M14 9l-3-1-1 3"/><path d="M19 10v10m-4-4 4 4 4-4M15 22h8" stroke-width="1.8"/>',

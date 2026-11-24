@@ -137,6 +137,7 @@ export class OneHitLiveEffects {
     this.auras=new Map();
     this.zones=new Map();
     this.statuses=new Map();
+    this.denialEmbers=new Map();
     this.reticle=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()]),
       new THREE.LineBasicMaterial({color:0xffd65d,transparent:true,opacity:.86,depthWrite:false}));
     this.reticle.frustumCulled=false;
@@ -360,6 +361,41 @@ export class OneHitLiveEffects {
     }
     for(const [id,entry] of this.statuses)if(!seen.has(id)){this.#discard(entry.root);this.statuses.delete(id);}
   }
+  #stepDenial(snapshot,dt) {
+    const seen=new Set();
+    for(const p of snapshot?.players??[]){
+      if(!p.alive||!p.inDenial||!p.position)continue;
+      seen.add(p.id);
+      const shell=p.id===this.remotePlayers?.localId?this.remotePlayers.self:this.remotePlayers?.rigs?.get(p.id);
+      const pos=shell?.root?.visible?shell.root.position:p.position;
+      let entry=this.denialEmbers.get(p.id);
+      if(!entry){
+        // A fixed-size instanced pool: no lights, no per-frame allocations of geometry.
+        const material=new THREE.MeshBasicMaterial({color:0xffad49,transparent:true,opacity:.77,depthWrite:false});
+        const mesh=new THREE.InstancedMesh(EMBER,material,14);
+        mesh.name='In Denial — golden-orange embers';mesh.frustumCulled=false;
+        this.root.add(mesh);entry={mesh};this.denialEmbers.set(p.id,entry);
+        const c=new THREE.Color();
+        for(let i=0;i<14;i++)mesh.setColorAt(i,c.set(i%3===0?0xffd578:0xff8b31));
+      }
+      entry.mesh.position.copy(pos);
+      const crouch=p.crouched?.72:1;
+      for(let i=0;i<14;i++){
+        const phase=(this.visualClock*(.45+(i%4)*.07)+i*.618)%1;
+        const angle=i*2.399+phase*.7;
+        const radius=.25+.21*phase;
+        matrix.position.set(Math.cos(angle)*radius,(.22+1.72*phase)*crouch,Math.sin(angle)*radius);
+        matrix.rotation.set(phase*4,angle,phase*2);
+        const size=(.013+(i%4)*.004)*Math.sin(Math.PI*phase);
+        matrix.scale.set(size,size*1.7,size);
+        matrix.updateMatrix();entry.mesh.setMatrixAt(i,matrix.matrix);
+      }
+      entry.mesh.instanceMatrix.needsUpdate=true;
+    }
+    for(const [id,entry] of this.denialEmbers)if(!seen.has(id)){
+      entry.mesh.removeFromParent();entry.mesh.material.dispose();entry.mesh.dispose();this.denialEmbers.delete(id);
+    }
+  }
   #flash(point) {
     const center=v(point).add(new THREE.Vector3(0,.63,0));
     for(let i=0;i<5;i++){
@@ -468,6 +504,7 @@ export class OneHitLiveEffects {
     this.#stepWakeTrails(snapshot,now);
     this.#stepZones(snapshot,now);
     this.#stepStatuses(snapshot,now);
+    this.#stepDenial(snapshot,frame);
     for(const [id,mesh] of this.waves)if(!tracked.has(id)){
       this.#discard(mesh);this.waves.delete(id);
     }
@@ -513,6 +550,8 @@ export class OneHitLiveEffects {
     for(const g of this.auras.values())this.#discard(g);
     for(const g of this.zones.values())this.#discard(g);
     for(const e of this.statuses.values())this.#discard(e.root);
+    for(const e of this.denialEmbers.values()){e.mesh.removeFromParent();e.mesh.material.dispose();e.mesh.dispose();}
+    this.denialEmbers.clear();
     this.#discard(this.reticle);this.#discard(this.teleportTarget);this.zones.clear();this.statuses.clear();
     for(const entry of this.conductHands.values())entry.effect.dispose();
     this.transients=[];this.waves.clear();this.wakeTrails.clear();this.resolvedWaves.clear();this.auras.clear();this.conductHands.clear();

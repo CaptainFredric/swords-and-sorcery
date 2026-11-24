@@ -24,22 +24,65 @@ function battle(){
   return {room,pilot,ally,enemy};
 }
 
-test('an ally in Valkyrie flames survives an otherwise lethal hit at exactly 1 HP',()=>{
-  const {room,ally,enemy}=battle();
+test('Area of Denial keeps a slain ally alive at zero HP until departure, with one original kill',()=>{
+  const {room,pilot,ally,enemy}=battle();
   ally.health=35;ally.prowess=23;
   assert.equal(applyDamage(room,enemy.id,ally.id,200,'sword',12),true);
-  assert.equal(ally.health,1);
-  assert.equal(ally.alive,true);
-  assert.equal(ally.prowess,23+34*.14,
-    'ally takes its actual damage and retains ordinary prowess accounting');
-  assert.equal(room.events.filter(e=>e.type==='death'&&e.victimId===ally.id).length,0);
-  assert.equal(applyDamage(room,enemy.id,ally.id,50,'sword',12.3),true);
-  assert.equal(ally.health,1,'repeated lethal hits do not slip past the floor');
-  assert.equal(ally.alive,true);
-  // Protection is spatial, not an invulnerability state attached to the knight.
-  ally.position.x=5.1;
-  assert.equal(applyDamage(room,enemy.id,ally.id,3,'sword',12.5),true);
   assert.equal(ally.health,0);
+  assert.equal(ally.alive,true);
+  assert.ok(ally.inDenial);
+  assert.equal(ally.prowess,23+35*.14);
+  assert.equal(room.events.filter(e=>e.type==='death'&&e.victimId===ally.id).length,0);
+  const meter=enemy.prowess;
+  assert.equal(applyDamage(room,enemy.id,ally.id,50,'sword',12.3,{x:2,y:0,z:0}),true);
+  assert.equal(ally.health,0);
+  assert.equal(ally.alive,true);
+  assert.equal(enemy.prowess,meter,'no Prowess for hitting an already slain knight');
+  assert.ok(ally.impulse.x>0,'displacement still works');
+  // Still a valid combatant; can deal ordinary damage.
+  assert.equal(applyDamage(room,ally.id,enemy.id,3,'sword',12.4),true);
+  ally.position.x=5.1;
+  stepFlightBurnZones(room,12.5);
+  assert.equal(ally.health,0);
+  assert.equal(ally.alive,false);
+  assert.equal(ally.inDenial,null);
+  stepFlightBurnZones(room,13);
+  const deaths=room.events.filter(e=>e.type==='death'&&e.victimId===ally.id);
+  assert.equal(deaths.length,1);
+  assert.equal(deaths[0].killerId,enemy.id);
+  assert.equal(deaths[0].source,'sword');
+});
+
+test('denial cannot heal and expires even if a different enemy hits the slain knight',()=>{
+  const {room,ally,enemy}=battle();
+  ally.health=10;
+  applyDamage(room,enemy.id,ally.id,10,'fireball',12);
+  const other=room.addPlayer({id:'other',token:'other',name:'other'},0);
+  other.team='DEFENDERS';
+  applyDamage(room,other.id,ally.id,30,'sword',13);
+  assert.equal(ally.health,0);
+  assert.equal(ally.inDenial.attackerId,enemy.id);
+  ally.health=50; // a legacy heal or admin action cannot resurrect the slain
+  stepFlightBurnZones(room,19);
+  assert.equal(ally.health,0);
+  assert.equal(ally.alive,true);
+  stepFlightBurnZones(room,20);
+  assert.equal(ally.alive,false);
+  const death=room.events.find(e=>e.type==='death'&&e.victimId===ally.id);
+  assert.equal(death.killerId,enemy.id);
+  assert.equal(death.source,'fireball');
+});
+
+test('overlapping allied Areas of Denial preserve the same borrowed life',()=>{
+  const {room,ally,enemy}=battle();
+  const first=room.flightBurnZones[0];
+  room.flightBurnZones.push({...first,id:'second-burn',startedAt:11,expiresAt:22});
+  ally.health=1;
+  applyDamage(room,enemy.id,ally.id,1,'sword',12);
+  stepFlightBurnZones(room,20);
+  assert.equal(ally.alive,true);
+  assert.equal(ally.health,0);
+  stepFlightBurnZones(room,22);
   assert.equal(ally.alive,false);
 });
 
@@ -109,6 +152,7 @@ test('the halo protects the sacrificed pilot’s team even after the pilot leave
   room.players.delete(pilot.id);
   ally.health=12;
   applyDamage(room,enemy.id,ally.id,50,'sword',12);
-  assert.equal(ally.health,1,'the team belongs to the fire, not its living owner');
+  assert.equal(ally.health,0,'the team belongs to the fire, not its living owner');
+  assert.ok(ally.inDenial);
   assert.equal(ally.alive,true);
 });
