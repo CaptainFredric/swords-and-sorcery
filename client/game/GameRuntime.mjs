@@ -2004,7 +2004,7 @@ export class GameRuntime {
       if (event.type === 'damage') {
         // the killing blow's weight against the health it took, for the fallen's line (an overkill: voiceRules)
         const before = this.healthAfterBlow?.get(event.victimId) ?? this.latestSnapshot?.players.find((p) => p.id === event.victimId)?.health ?? 100;
-        if (event.health <= 0) {
+        if (event.health <= 0 && (!event.inDenial || before > 0)) {
           (this.killingBlow ??= new Map()).set(event.victimId, {
             amount: event.amount, healthBefore: before, level: event.level ?? null, ultimate: Boolean(event.ultimate), clean: Boolean(event.clean),
           });
