@@ -99,6 +99,55 @@ try{
   await send('Emulation.clearDeviceMetricsOverride');
   await evaluate("document.querySelector('#loading-veil').classList.add('done')");
 
+  // Review the actual front-door hierarchy and both Duel routes before
+  // creating any room. These are full-browser screenshots, not a mockup.
+  await evaluate("document.querySelector('#player-name').value='Banner Observer'");
+  await capture('00a-desktop-front-door');
+  await evaluate("document.querySelector('#duel-button').click()");
+  await waitFor(()=>evaluate("document.querySelector('#solo-menu').dataset.purpose==='duel' && !document.querySelector('#solo-menu').classList.contains('hidden')"),'Duel desktop');
+  await inspect('#solo-menu','duel-desktop');
+  assert.ok(await evaluate("document.querySelector('#solo-selected-title').textContent==='BOT DUEL' && !document.querySelector('#solo-rival-wrap').hidden"),'Bot Duel is preselected with its real rival settings');
+  assert.ok(await evaluate("document.querySelector('#duel-start-now').getBoundingClientRect().width>0 && document.querySelector('#seek-duel').getBoundingClientRect().width>0 && getComputedStyle(document.querySelector('#practice-mode')).display==='none'"),'Both opponents offered without mixing in training');
+  await capture('00b-desktop-duel');
+  await evaluate("document.querySelector('#solo-back').click()");
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true,screenWidth:390,screenHeight:844});
+  await sleep(500);
+  await capture('00c-mobile-front-door');
+  await evaluate("document.querySelector('#duel-button').click()");
+  await sleep(300);
+  await inspect('#solo-menu','duel-mobile-list');
+  assert.ok(await evaluate("document.querySelector('#solo-menu').dataset.panel==='list' && document.querySelector('#duel-start-now').getBoundingClientRect().width>0 && document.querySelector('#seek-duel').getBoundingClientRect().width>0"),'Both duel choices appear on the first narrow banner');
+  await capture('00d-mobile-duel');
+  await evaluate("document.querySelector('#bot-duel').click()");
+  await waitFor(()=>evaluate("document.querySelector('#solo-menu').dataset.panel==='details'"),'mobile bot settings');
+  await inspect('#solo-menu','duel-mobile-settings');
+  await capture('00e-mobile-duel-settings');
+  await evaluate("document.querySelector('#solo-list-return').click();document.querySelector('#solo-back').click()");
+  await send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true,screenWidth:844,screenHeight:390});
+  await sleep(500);
+  const cue=await evaluate(`(()=>{
+    const scroll=document.querySelector('#menu-options'),cue=document.querySelector('#menu-more');
+    const sr=scroll.getBoundingClientRect(),cr=cue.getBoundingClientRect(),duel=document.querySelector('#duel-button').getBoundingClientRect();
+    return {remaining:scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop,visible:!cue.hidden,
+      footerOutside:cr.top>=sr.bottom-1,duelVisible:duel.top>=sr.top-1&&duel.bottom<=sr.bottom+1};
+  })()`);
+  assert.ok(cue.duelVisible,'short landscape: the first Duel command is wholly visible');
+  if(cue.remaining>6)assert.ok(cue.visible&&cue.footerOutside,'overflow cue has its own footer and does not cover commands');
+  evidence['duel-landscape-front-door']=cue;
+  await capture('00f-landscape-front-door');
+  if(cue.visible){
+    await evaluate("document.querySelector('#menu-more').click()");
+    await sleep(650);
+    assert.ok(await evaluate("document.querySelector('#menu-options').scrollTop>0"),'chevron actually scrolls');
+    await evaluate("document.querySelector('#menu-options').scrollTop=document.querySelector('#menu-options').scrollHeight");
+    await waitFor(()=>evaluate("document.querySelector('#menu-more').hidden"),'chevron disappears at end');
+  }
+  await evaluate("document.querySelector('#menu-options').scrollTop=0;document.querySelector('#duel-button').click()");
+  await sleep(300);
+  await capture('00g-landscape-duel');
+  await evaluate("document.querySelector('#solo-back').click()");
+  await send('Emulation.clearDeviceMetricsOverride');
+
   // A real public room, created through the authoritative protocol, populates the room browser.
   const host=new WebSocket(url.replace(/^http/,'ws')+'/ws');
   await new Promise((resolve,reject)=>{host.onopen=resolve;host.onerror=reject;});
