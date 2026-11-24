@@ -9,7 +9,7 @@ import {areAllies} from '../src/teams.mjs';
 import {valkyrieFlameAllied,valkyrieFlameContains} from './valkyrieFlames.mjs';
 import {beginSiegeWreck} from './siegeWreck.mjs';
 import {endSiegeSteel} from './siegeSteel.mjs';
-import {applyDamage,killPlayer} from './combat.mjs';
+import {applyDamage,killPlayer,settleInDenial} from './combat.mjs';
 import {blastBiByeLlista} from './biByeLlista.mjs';
 import {blastSoFistication} from './soFistication.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
@@ -308,4 +308,6 @@ export function stepFlightBurnZones(room,now){
    }
  }
  room.flightBurnZones=room.flightBurnZones.filter(z=>now<z.expiresAt);
+ // Expiry, displacement and overlapping friendly fields use the same rule.
+ for(const p of room.players.values())settleInDenial(room,p,now);
 }
