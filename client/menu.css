@@ -1781,3 +1781,43 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #chronicles-affliction-list .chronicles-affliction-icon:is(.selected,:hover) {
   background:rgba(201,156,82,.10);border-color:#ebc67d;
 }
+
+
+/* Duel and training use the established paired standards, not a new screen.
+   Desktop shows the rival setup alongside the two obvious launch choices;
+   narrow shells reveal the settings standard on demand. */
+#solo-menu[data-purpose="duel"] [data-training-only],
+#solo-menu[data-purpose="training"] [data-duel-only],
+#solo-menu [hidden] { display:none !important; }
+#solo-menu .duel-options { display:none; }
+#solo-menu[data-purpose="duel"] #solo-selected-title { color:var(--heraldry-brass-light); }
+#solo-menu[data-purpose="duel"] #duel-start-now { margin-bottom:8px; }
+@container app (max-width:640px) {
+  #solo-menu[data-purpose="duel"] .duel-options { display:block; }
+}
+@container app (max-height:500px) {
+  #solo-menu[data-purpose="duel"] .side-screen-inner .panel-copy { margin-bottom:6px; }
+  #solo-menu[data-purpose="duel"] .side-screen-inner .mode-choice { min-height:44px; padding-block:5px; margin-bottom:5px; }
+}
+
+/* A footer separate from the scroller: the cue never overlays a command.
+   Only its chevron gently dips; reduced-motion users get a static arrow. */
+.banner-panel.has-scroll-cue > .banner-scroll {
+  margin-bottom:calc(var(--hem) + 54px);
+}
+.banner-panel > .menu-scroll-cue {
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  left:18px;right:18px;bottom:calc(var(--hem) + 12px);
+  min-height:38px;padding:5px 10px;animation:none;
+  background:linear-gradient(180deg,#63271e,#471c17);
+  box-shadow:0 -4px 10px #45171155;
+  font-size:11px;letter-spacing:.09em;
+}
+.banner-panel > .menu-scroll-cue[hidden] { display:none; }
+.scroll-cue-chevron {flex:none;animation:menu-chevron-dip 2.8s ease-in-out infinite;}
+@keyframes menu-chevron-dip {
+  0%,65%,100% {transform:translateY(0);}
+  76%,87% {transform:translateY(3px);}
+  81% {transform:translateY(0);}
+}
+@media (prefers-reduced-motion:reduce) {.scroll-cue-chevron {animation:none;}}
