@@ -89,7 +89,8 @@ import { steelStrength } from '../../shared/src/steel.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
 import { STEEL_RIPPLE } from './steelSheen.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { UltimateLines, cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { UltimateLines, VOICE_LINES, cryMoment, gauntletMoment, hearingFor, isLaughingEntry, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { lightningArrivalGag, whiteFlagDefeat } from './spellbladeAnimationPlan.mjs';
 import { MOMENTS, PROJECTILES, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
 import { VoiceScenes, eventDeterministicRoll } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
@@ -1648,8 +1649,11 @@ export class GameRuntime {
       if(event.type==='oneHitCooldownsRestarted'&&event.playerId===this.playerId)this.hud.flashText('SKILLS KNOCKED BACK TO COOLDOWN','sunder',1500);
       // All-Natural Disaster impacts and Gale-wave endings use the central
       // layered soundscape, avoiding a duplicate generic fireball/ground boom.
-      if(event.type==='oneHitBacklash')this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
-        event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
+      if(event.type==='oneHitBacklash'){
+        this.#play(conductShockRecipe(Math.random,{discharge:true,share:(event.amount??6)/12}),
+          event.victimId===this.playerId?null:this.#bodyPosition(event.victimId),.9);
+        if(event.victimId)this.#sayMoments(this.moments.reversal(event.victimId,{laughing:this.#voiceWorld().isLaughing(event.victimId)}),event.at);
+      }
       if(event.type==='oneHitConduct')this.#play(conductShockRecipe(Math.random,{share:(event.initial??12)/12}),
         event.playerId===this.playerId?null:this.#bodyPosition(event.playerId),.6);
       if(event.type==='oneHitInfusion' && event.playerId===this.playerId){
@@ -1845,6 +1849,7 @@ export class GameRuntime {
       }
       if(event.type==='fightFlightTerminalCommitted'){
         if(event.trajectory){const at=event.trajectory;this.effects.sparks(at,0xe4a44c,9);}
+        if(event.operatorId)this.#sayMoments(this.moments.flightTerminalCommitted(event.operatorId),event.at);
       }
       if(event.type==='fightFlightTerminalExplosion'&&event.point){
         const radius=Math.max(2,Math.min(13,Number.isFinite(event.radius)?event.radius:8));
@@ -1938,6 +1943,7 @@ export class GameRuntime {
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
 
       const me = this.playerId;
+      if (event.type === 'inDenial') this.#sayMoments(this.moments.inDenial(event), event.at);
       if (event.playerId === me || event.victimId === me) this.weapon.chivalryEvent(event);
       if (event.type === 'spellCast') {
         const spell = spellFor(event.spell);
@@ -1981,6 +1987,11 @@ export class GameRuntime {
         // SORCERY!! now and then; when it keeps quiet, the wildcard may not
         // (or, rarely, a complaint about the thing gathering in his own palm: a spell that flies, not a gust or a ward)
         this.#sayMoment(event.playerId, ['spellCast', !spell.kind && 'projectileGather']);
+        if (!spell.kind) {
+          const casterPos = this.#bodyPosition(event.playerId);
+          const nearFoe = casterPos && (this.latestSnapshot?.players ?? []).find((p) => p.id !== event.playerId && p.alive !== false && p.position && Math.hypot(p.position.x - casterPos.x, p.position.z - casterPos.z) >= 5.5);
+          if (nearFoe) this.#sayMoments(this.moments.disasterRanged(event.playerId), event.at);
+        }
         // (during Spells & Chivalry: sorcery shown)
         this.scenes.chivalryUsed(event.playerId, 'spell');
       }
@@ -2013,6 +2024,7 @@ export class GameRuntime {
         this.scenes.damage(event);
         this.watch.damage(event);
         if (!event.ongoing) this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
+        else this.#sayMoments(this.moments.fireHazardDamage(event), event.at);
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
       if ((event.type === 'block' && !event.vortex) || event.type === 'parry') {
@@ -2138,6 +2150,35 @@ export class GameRuntime {
         this.cameraKick=Math.max(this.cameraKick??0,
           windbladeImpactKick(p,event.groundPoint??event.point));
       }
+      if(event.type==='oneHitTeleport'&&event.playerId){
+        const p=this.latestSnapshot?.players?.find((k)=>k.id===event.playerId)??(event.playerId===me?this.localAuth:null);
+        const gag=lightningArrivalGag(p,p?.ultimateState??{preparedTiers:event.tiers,commitAt:event.at,teleportHoldAt:event.teleportHoldAt});
+        const dist=event.from&&event.to?Math.hypot(event.to.x-event.from.x,(event.to.y??0)-(event.from.y??0),event.to.z-event.from.z):0;
+        if(gag==='back')this.#sayMoments(this.moments.disasterArrival(event.playerId,{flatBack:true}),event.at);
+        else if(gag==='face')this.#sayMoments(this.moments.disasterArrival(event.playerId,{faceplant:true}),event.at);
+        else if(dist>=8)this.#sayMoments(this.moments.disasterArrival(event.playerId),event.at);
+      }
+      if(event.type==='oneHitImpact'&&event.playerId){
+        if((event.tiers?.fire??0)>=2||(event.tiers?.lightning??0)>=1||(event.tiers?.frost??0)>=1){
+          this.#sayMoments(this.moments.hazardCreated(event.playerId,(event.tiers?.fire??0)>=2?'fire':'field'),event.at);
+        }
+        if((event.tiers?.frost??0)>=2&&(event.struck?.length??0)>0){
+          const anyLiving=(event.struck??[]).some((id)=>this.latestSnapshot?.players?.find((k)=>k.id===id)?.alive!==false);
+          if(anyLiving)this.#sayMoments(this.moments.targetFrozen(event.playerId),event.at);
+        }
+        const caster=this.latestSnapshot?.players?.find((k)=>k.id===event.playerId);
+        if((event.struck?.length??0)===0&&caster&&(caster.health??100)<=45){
+          this.#sayMoments(this.moments.disasterPredicament(event.playerId),event.at);
+        }
+      }
+      if(event.type==='oneHitWave'&&event.playerId){
+        const p=this.latestSnapshot?.players?.find((k)=>k.id===event.playerId);
+        const tiers=p?.ultimateState?.preparedTiers??{};
+        if((tiers.gale??0)>=1&&p?.position){
+          const farFoe=(this.latestSnapshot?.players??[]).find((k)=>k.id!==event.playerId&&k.alive!==false&&k.position&&Math.hypot(k.position.x-p.position.x,k.position.z-p.position.z)>=4.5);
+          if(farFoe)this.#sayMoments(this.moments.disasterRanged(event.playerId),event.at);
+        }
+      }
       if (event.type === 'rupture') {
         this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, width: RUPTURE.width, trailWidth: RUPTURE.trailWidth });
         const runs = Math.max(...event.fissures.map((fissure) => fissure.length)) / event.speed;
@@ -2181,6 +2222,7 @@ export class GameRuntime {
           const lift = Boolean(player?.swordTechnique?.galeLift || (gale && player?.grounded === false));
           this.#play(whirlSpinRecipe(Math.random, { revolution: 0, gale }), mine ? null : at, mine ? 1 : 0.85);
           if (at) this.effects.whirlVfx(at, player?.yaw ?? 0, { galeLift: lift });
+          this.#sayMoments(this.moments.whirlStarted(event.playerId), event.at);
         }
       }
       if (event.type === 'swordHit') this.#swordHit(event);
@@ -2193,6 +2235,7 @@ export class GameRuntime {
         if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
           this.weapon.parryReel();
         }
+        if (event.attackerId) this.#sayMoments(this.moments.reversal(event.attackerId, { laughing: this.#voiceWorld().isLaughing(event.attackerId) }), event.at);
       }
       if (event.type === 'block') {
         if (event.attackerId === me) this.hud.hit('block');
@@ -2526,7 +2569,7 @@ export class GameRuntime {
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
   // Returns whether anything was said.
   // (ultimate: a line said of an ultimate he is using: only the first said in each activation is said at all)
-  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false, rand = null, disruptedSpeaker = null } = {}) {
+  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false, rand = null, disruptedSpeaker = null, highPriority = false } = {}) {
     if (!this.voice || !playerId) return false;
     // (his ultimate's one line for this activation, in turn: none other of it; that one, whatever its odds)
     if (ultimate) {
@@ -2534,28 +2577,34 @@ export class GameRuntime {
       if (verdict === 'no') return false;
       if (verdict === 'force') force = true;
     }
-    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker });
+    const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker, highPriority });
     if (said && ultimate) this.ultimateLines.said(playerId);
     return said;
   }
 
-  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker }) {
-    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part, rand, disruptedSpeaker });
-    const body = this.#bodyPosition(playerId);
-    const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
-    if (!body || (snapshotPlayer?.actorKind === 'dummy' && !this.socket.inspectionAvailable)) return false;
-    const isDeathCam = Boolean(this.deathCam && this.localAuth?.alive === false);
-    const listener = isDeathCam
-      ? { x: this.camera.position.x, z: this.camera.position.z }
-      : (this.localState?.position ?? this.localAuth?.position);
-    const listenerYaw = isDeathCam ? this.camera.rotation.y : this.input.yaw;
-    let hearing = hearingFor(line);
-    if (isDeathCam && this.deathCam?.killerId === playerId) {
-      hearing = { ...hearing, far: Math.max(hearing.far, 50), rolloff: 0.4 };
+  #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker, highPriority }) {
+    let said = false;
+    if (playerId === this.playerId) {
+      said = this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part, rand, disruptedSpeaker, highPriority });
+    } else {
+      const body = this.#bodyPosition(playerId);
+      const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
+      if (!body || (snapshotPlayer?.actorKind === 'dummy' && !this.socket.inspectionAvailable)) return false;
+      const isDeathCam = Boolean(this.deathCam && this.localAuth?.alive === false);
+      const listener = isDeathCam
+        ? { x: this.camera.position.x, z: this.camera.position.z }
+        : (this.localState?.position ?? this.localAuth?.position);
+      const listenerYaw = isDeathCam ? this.camera.rotation.y : this.input.yaw;
+      let hearing = hearingFor(line);
+      if (isDeathCam && this.deathCam?.killerId === playerId) {
+        hearing = { ...hearing, far: Math.max(hearing.far, 50), rolloff: 0.4 };
+      }
+      const place = voicePlacement(listener, listenerYaw, body, hearing);
+      if (!place) return false;
+      said = this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker, highPriority });
     }
-    const place = voicePlacement(listener, listenerYaw, body, hearing);
-    if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part, rand, disruptedSpeaker });
+    if (said && line === 'constitution') this.moments?.constitutionSpoken?.(playerId);
+    return said;
   }
 
   // another knight's line follows him while he says it (a charge begun a dozen metres off arrives with him)
@@ -2751,7 +2800,10 @@ export class GameRuntime {
     }
     // the gale's jibe (only after a gust that really moved someone, likelier the harder it threw them), the thrown,
     // and anyone it rescued; and, a moment later, the foes it moved who are still about (voiceWatch.mjs)
-    this.#sayMoments(this.moments.galeCaught(event, this.#voiceWorld()), event.at);
+    const obj = this.latestSnapshot?.objective;
+    const objPoint = obj?.center ?? obj?.point ?? obj?.position;
+    const contestedZone = Boolean(event.contestedZone || (objPoint && event.origin && Math.hypot(event.origin.x - objPoint.x, (event.origin.z ?? 0) - (objPoint.z ?? 0)) <= (obj.radius ?? 6) + 4));
+    this.#sayMoments(this.moments.galeCaught({ ...event, contestedZone }, this.#voiceWorld()), event.at);
     this.watch.gale(event);
   }
 
@@ -3103,7 +3155,8 @@ export class GameRuntime {
       // he had charged a foe a moment ago; how he lies (the last seen of him, and where his killer stood); a threat
       // he was spelling, cut short
       charging: this.watch.charging(victimId, at),
-      pose: deathPose(players.find((p) => p.id === victimId), killerId ? this.#bodyPosition(killerId) : null, { source: event.source, world: this.activeWorld, at }),
+      pose: deathPose(victimPlayer, killerId ? this.#bodyPosition(killerId) : null, { source: event.source, world: this.activeWorld, at, whiteFlag: whiteFlagDefeat(victimPlayer, at) }),
+      whiteFlag: whiteFlagDefeat(victimPlayer, at),
       doomCut,
       // a shot from where the victor stood: at one sprinting past him; at one busy fighting someone else
       passing: Boolean(killerId) && PROJECTILES.includes(event.source) && this.watch.passing(victimId, this.#bodyPosition(killerId), at),
@@ -3123,7 +3176,7 @@ export class GameRuntime {
       let s = 0;
       return () => eventDeterministicRoll(event, 'death:' + (++s));
     })() : null;
-    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra, rand: eventRng });
+    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), world: this.activeWorld, blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra, rand: eventRng });
     const wasMarked = this.teamVoiceEvents.consumeMarkedPayoff(victimId, at);
     const candidateFallen = wasMarked
       ? this.teamVoiceEvents.biasDefeatCandidates(fallen)
@@ -3169,18 +3222,19 @@ export class GameRuntime {
 
   // moments the watch has seen ([{ speaker, tags }]), raised as any other
   #sayWatched(list) {
-    for (const moment of list) this.#sayMoment(moment.speaker, moment.tags);
+    for (const moment of list) this.#sayMoment(moment.speaker, moment.tags, moment.options);
   }
 
   // a line said, written out at the foot of the view: another knight's with his name, my own without
   // (a line with a pause that carries the joke, a beat at a time as he gets to each: never a word before it is said)
-  #subtitle({ line, speaker, delay = 0, seconds = 2, part = null, beats = null }) {
+  #subtitle({ line, speaker, delay = 0, seconds = 2, part = null, beats = null, textOverride = null }) {
     if (!this.view.subtitles) return;
     const plan = captionPlan(line, { part, beats });
-    if (!plan) return;
+    const shown = textOverride ? { text: textOverride, after: 0, cues: [] } : plan;
+    if (!shown) return;
     const mine = speaker === this.playerId;
     const name = mine ? null : (this.latestSnapshot?.players.find((p) => p.id === speaker)?.name ?? 'A Spellblade');
-    this.hud.subtitle({ text: plan.text, name, delay: delay + plan.after, seconds: Math.max(0.5, seconds - plan.after), speaker, cues: plan.cues });
+    this.hud.subtitle({ text: shown.text, name, delay: delay + shown.after, seconds: Math.max(0.5, seconds - shown.after), speaker, cues: shown.cues });
   }
 
   // a Vortex's blade clipping the world as it comes round: the ring of what it clipped and sparks off it (lighter
@@ -3274,7 +3328,16 @@ export class GameRuntime {
       },
       practice: this.#inPractice() || Boolean(this.latestSnapshot?.tutorial),
       winStreak: (id) => getWinStreak(id),
-      speakingCheck: (id) => Boolean(this.voice?.director?.saying?.(id, this.voice?.engine?.now ?? performance.now() / 1000)),
+      speakingCheck: (id) => {
+        const entry = this.voice?.director?.speaking?.get?.(id);
+        const now = this.voice?.engine?.now ?? performance.now() / 1000;
+        return Boolean(entry && now < entry.until && VOICE_LINES[entry.line]?.kind === 'sentence' && (entry.priority ?? 2) <= 2);
+      },
+      isLaughing: (id) => {
+        const entry = this.voice?.director?.speaking?.get?.(id);
+        const now = this.voice?.engine?.now ?? performance.now() / 1000;
+        return isLaughingEntry(entry, now);
+      },
     };
   }
 
@@ -4706,7 +4769,21 @@ export class GameRuntime {
       if (this.localAuth.alive) this.#checkThreatenedCircleApproach(timeSec);
       this.#checkPendingCloseMultikill(this.socket.serverNow());
       const players = this.latestSnapshot.players.map((p) => (p.id === this.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
-      this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.playerId, world: this.activeWorld, practice: this.#inPractice() }));
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), players, {
+        self: this.playerId,
+        world: this.activeWorld,
+        practice: this.#inPractice(),
+        flightBurnZones: this.latestSnapshot.flightBurnZones ?? [],
+        oneHitFields: this.latestSnapshot.oneHitFields ?? [],
+        oneHitBurnZones: this.latestSnapshot.oneHitBurnZones ?? [],
+      }));
+      const flightCrit = this.latestSnapshot.fightFlight;
+      if (flightCrit?.operatorId && !flightCrit.grounded && flightCrit.health > 0 && flightCrit.health <= (flightCrit.maxHealth ?? 100) * 0.35) {
+        if (timeSec - (this.lastCriticalCrashAt ?? -Infinity) >= 15) {
+          this.lastCriticalCrashAt = timeSec;
+          this.#sayMoments(this.moments.criticalCrashApproach(flightCrit.operatorId), this.socket.serverNow());
+        }
+      }
       // the last seconds of a timed match (never the yard's, never sudden death)
       const match = this.latestSnapshot;
       if (match.roomState === 'PLAYING' && Number.isFinite(match.matchSeconds) && Number.isFinite(match.matchStartedAt) && !match.suddenDeath && !this.#inPractice()) {

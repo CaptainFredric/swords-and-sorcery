@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { VOICE_LINES, VoiceDirector } from './voiceRules.mjs';
-import { VoiceMoments } from './voiceMoments.mjs';
+import { VoiceMoments, deathPose } from './voiceMoments.mjs';
 import { SCENES, VoiceScenes } from './voiceScenes.mjs';
+import { VoiceWatch } from './voiceWatch.mjs';
+import { VoiceBank } from './VoiceBank.mjs';
 import { linesFor, voiceLine } from './voiceLines.mjs';
-import { subtitleFor } from '../../ui/voiceLibrary.mjs';
+import { subtitleFor, captionsFor, captionPlan } from '../../ui/voiceLibrary.mjs';
 
 const voiceDir = new URL('../../assets/voice/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', voiceDir), 'utf8'));
@@ -90,16 +92,32 @@ test('subtitles and beats match delivery and preserve comedic surprises', () => 
   assert.equal(dreaming.beats[1].words, '[Snoring]');
   assert.equal(dreaming.beats[1].at, 1.85);
 
-  // Nonverbal cries: spoken subtitles are null/empty, but credits describe them
+  // Subtitled comedic cries: kept as kind 'exertion' while providing visible captions and keeping ordinary exertions unsubtitled
   const stubbed = voiceLine('stubbedToe');
   assert.equal(stubbed.kind, 'exertion');
-  assert.equal(subtitleFor('stubbedToe'), null, 'no in-game spoken subtitle for stubbed toe cry');
+  assert.equal(stubbed.subtitle, true);
+  assert.equal(subtitleFor('stubbedToe'), 'AHHAAAAAAAH!!');
   assert.ok(stubbed.credits.title.length > 0);
 
   const laughScream = voiceLine('laughToScream');
   assert.equal(laughScream.kind, 'exertion');
-  assert.equal(subtitleFor('laughToScream'), null, 'no in-game spoken subtitle for laugh-to-scream cry');
+  assert.equal(laughScream.subtitle, true);
+  assert.equal(subtitleFor('laughToScream'), 'AHAH, HAH, HAAAAGH!');
+  assert.deepEqual(captionsFor('laughToScream'), ['AHAH,', 'AHAH, HAH,', 'AHAH, HAH, HAAAAGH!']);
+  assert.deepEqual(captionPlan('laughToScream', { beats: [0, 0.75, 1.21] }), {
+    text: 'AHAH,',
+    after: 0,
+    cues: [
+      { at: 0.75, text: 'AHAH, HAH,' },
+      { at: 1.21, text: 'AHAH, HAH, HAAAAGH!' },
+    ],
+  });
   assert.ok(laughScream.credits.title.length > 0);
+
+  // Ordinary combat exertions stay unsubtitled
+  for (const ordinary of ['effort', 'hurt', 'coldHurt', 'heavyHurt', 'jump']) {
+    assert.equal(subtitleFor(ordinary), null, `${ordinary} stays unsubtitled`);
+  }
 
   // Multipart scenes: separate parts
   const wait1 = voiceLine('waitIStabbedYouV1');
@@ -328,4 +346,163 @@ test('stubbedToe and laughToScream: registered as kind exertion with exceptional
   const laugh = voiceLine('laughToScream');
   assert.equal(laugh.kind, 'exertion');
   assert.ok(laugh.triggers.violentReversal > 0);
+});
+
+// ------------------------------------------------------------------------------------------------
+// 11. Contextual Refinement Coverage (Nov 24 Review)
+// ------------------------------------------------------------------------------------------------
+
+test('stubbedToe: accompanies comparatively minor sudden painful impacts with minorUnhurt boost', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+  const groups = moments.damage(
+    { attackerId: 'foe', victimId: 'me', source: 'sword', amount: 8, health: 90, at: 10 },
+    { knight: (id) => ({ id, health: 98, alive: true }) },
+  );
+  const stub = groups.flat().find((s) => s.line === 'stubbedToe');
+  assert.ok(stub, 'stubbedToe offered for minor sudden impact');
+  assert.ok(stub.chanceScale >= 2.0, 'minorUnhurt boost scales stubbedToe odds up');
+});
+
+test('laughToScream: accommodates broader reversals and interrupts existing laughter recordings with scream portion', () => {
+  const director = new VoiceDirector({ rand: () => 0.01 });
+  // Knight starts laughing (even high-priority laughter like heavyHurt2 or normal laugh)
+  assert.ok(director.consider('laugh', 'me', 10.0, { duration: 2.2 }));
+  assert.equal(director.saying('me', 10.5), 'laugh');
+
+  // Parried / Shocked reversal mid-laugh cuts straight to the scream portion
+  const verdict = director.consider('laughToScream', 'me', 10.6, { duration: 2.53, chanceScale: 4.0 });
+  assert.ok(verdict, 'laughToScream allowed over active laugh');
+  assert.ok(verdict.stop.includes('me'), 'stops own ongoing laugh');
+  assert.equal(verdict.screamOnly, true, 'signals scream-only slice when cutting active laugh');
+
+  // VoiceBank starts audio at the scream beat offset (~1.21s) and subtitles only HAAAAGH!
+  const played = [];
+  const spoken = [];
+  const engine = {
+    now: 10.0,
+    running: true,
+    muted: false,
+    levels: { master: 1, voice: 1 },
+    onReady() {},
+    playBuffer: (buf, opts) => { played.push(opts); return { stop() {}, place() {} }; },
+    duck: () => {},
+  };
+  const bank = new VoiceBank(engine, { director: new VoiceDirector({ rand: () => 0.01 }) });
+  bank.onSpoken = (s) => spoken.push(s);
+  bank.takes.set('laugh', [{ duration: 2.0 }]);
+  bank.takes.set('laughToScream', [{ duration: 2.53 }]);
+  bank.takeBeats.set('laughToScream', [[0, 0.75, 1.21]]);
+
+  assert.ok(bank.say('laugh', { speaker: 'me', force: true }));
+  bank.engine.now = 10.5;
+  const res = bank.say('laughToScream', { speaker: 'me', chanceScale: 4.0 });
+  assert.ok(res?.screamOnly, 'VoiceBank reports screamOnly splice');
+  assert.ok(Math.abs(played.at(-1).offset - 1.21) < 0.05, 'audio starts at scream onset');
+  assert.equal(spoken.at(-1).textOverride, 'HAAAAGH!', 'subtitle shows only scream portion');
+});
+
+test('hitYouOverThere: elevated priority when Spellblade himself displaced foe beyond melee reach', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+  const knights = new Map([
+    ['caster', { id: 'caster', position: { x: 0, y: 0, z: 0 }, alive: true }],
+    ['foe', { id: 'foe', position: { x: 6.5, y: 0, z: 0 }, alive: true }],
+  ]);
+  const groups = moments.galeCaught(
+    { playerId: 'caster', affected: [{ id: 'foe', guarded: false, pressure: 0.9 }], at: 12 },
+    { knight: (id) => knights.get(id), positionOf: (id) => knights.get(id)?.position },
+  );
+  const candidate = groups.flat().find((s) => s.line === 'hitYouOverThere');
+  assert.ok(candidate, 'hitYouOverThere offered after displacing foe past melee reach');
+  assert.equal(candidate.highPriority, true, 'receives elevated director priority');
+  assert.ok(candidate.chanceScale >= 4.0, 'selfDisplaced boost raises chanceScale significantly');
+
+  // Confirm VoiceDirector grants EARNED (2.5) > CONTEXT (2) priority when highPriority is set
+  const director = new VoiceDirector({ rand: () => 0.05 });
+  assert.ok(director.consider('openUp', 'caster', 12.0, { duration: 3.0 }));
+  assert.ok(director.consider('hitYouOverThere', 'caster', 12.5, { ...candidate, duration: 2.5 }), 'outranks ordinary context chatter');
+});
+
+test('groundAngel: prioritizes actual flat-backed poses and rejects faceplants and white-flag defeats', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+  const backArr = moments.disasterArrival('me', { flatBack: true }).flat();
+  const angelBack = backArr.find((s) => s.line === 'groundAngel');
+  assert.ok(angelBack && angelBack.chanceScale >= 2.0, 'flatBack Lightning gag strongly prioritizes groundAngel');
+
+  const faceArr = moments.disasterArrival('me', { faceplant: true }).flat();
+  assert.equal(faceArr.find((s) => s.line === 'groundAngel'), undefined, 'faceplant does not trigger groundAngel');
+
+  const whiteFlagPose = deathPose({ position: { x: 0, y: 0, z: 0 }, yaw: 0 }, { x: 0, z: -2 }, { at: 5, whiteFlag: true });
+  assert.equal(whiteFlagPose.back, false, 'standing white-flag defeat never counts as lying on back');
+});
+
+test('silentTreatment: strictly requires genuine interruption of another knight dialogue', () => {
+  const director = new VoiceDirector({ rand: () => 0.05 });
+  // Nobody speaking
+  assert.equal(director.consider('silentTreatment', 'caster', 10.0, { disruptedSpeaker: 'foe', duration: 2 }), null);
+  // Target only grunting (not dialogue)
+  assert.ok(director.consider('effort', 'foe', 10.0, { duration: 1.5, force: true }));
+  assert.equal(director.consider('silentTreatment', 'caster', 10.2, { disruptedSpeaker: 'foe', duration: 2 }), null);
+
+  // galeCaught with silent victim must NOT offer silentTreatment fallback
+  const moments = new VoiceMoments({ rand: () => 0.05 });
+  const groups = moments.galeCaught(
+    { playerId: 'caster', affected: [{ id: 'foe', guarded: false, pressure: 0.9 }], at: 15 },
+    { speakingCheck: () => false },
+  );
+  assert.equal(groups.flat().find((s) => s.line === 'silentTreatment'), undefined, 'no silentTreatment fallback when target is silent');
+});
+
+test('doNotStandInThat: never warns allies away from friendly Area of Denial; warns for hostile hazards', () => {
+  const watch = new VoiceWatch();
+  const allies = [
+    { id: 'me', team: 'red', alive: true, position: { x: 0, y: 0, z: 0 } },
+    { id: 'ally', team: 'red', alive: true, position: { x: 4, y: 0, z: 0 } },
+  ];
+  // Friendly Area of Denial near ally
+  const friendlyEvents = watch.step(10, allies, {
+    flightBurnZones: [{ id: 'f1', sourceId: 'me', team: 'red', point: { x: 5, y: 0, z: 0 }, radius: 4, startedAt: 8, expiresAt: 18 }],
+  });
+  assert.equal(friendlyEvents.filter((e) => e.tags.includes('allyHazardApproach')).length, 0, 'friendly AoD never triggers warning');
+
+  // Hostile Area of Denial near ally
+  const hostileEvents = watch.step(10.5, allies, {
+    flightBurnZones: [{ id: 'h1', sourceId: 'enemy', team: 'blue', point: { x: 5, y: 0, z: 0 }, radius: 4, startedAt: 8, expiresAt: 18 }],
+  });
+  assert.ok(hostileEvents.some((e) => e.speaker === 'me' && e.tags.includes('allyHazardApproach')), 'hostile AoD triggers warning');
+});
+
+test('notDeadYet: integrates cleanly with In Denial status including zero-damage attacks', () => {
+  const moments = new VoiceMoments({ rand: () => 0.05 });
+  const onEvent = moments.inDenial({ type: 'inDenial', playerId: 'me', attackerId: 'foe', at: 20 }).flat();
+  const entry = onEvent.find((s) => s.line === 'notDeadYet');
+  assert.ok(entry && entry.chanceScale >= 2.5, 'inDenial event triggers notDeadYet with boost');
+
+  const zeroDmg = moments.damage({ attackerId: 'foe', victimId: 'me', source: 'sword', amount: 0, health: 0, inDenial: true, at: 21 }, { knight: () => ({ id: 'me', inDenial: true }) }).flat();
+  assert.ok(zeroDmg.some((s) => s.line === 'notDeadYet'), '0-damage hit while In Denial still triggers notDeadYet');
+});
+
+test('noLongerMoving: requires genuine Full Flash Freeze immobilization, not chill alone', () => {
+  const watch = new VoiceWatch();
+  const chilledOnly = [
+    { id: 'me', team: 'red', alive: true, position: { x: 0, y: 0, z: 0 }, oneHitFrozenUntil: -Infinity, chill: 0.45 },
+    { id: 'foe', team: 'blue', alive: true, position: { x: 3, y: 0, z: 0 }, oneHitFrozenUntil: -Infinity, chill: 0.5 },
+  ];
+  const chillOut = watch.step(5, chilledOnly, {});
+  assert.equal(chillOut.filter((e) => e.tags.includes('targetFrozen')).length, 0, 'chill alone does not trigger targetFrozen');
+
+  const frozen = [
+    { id: 'me', team: 'red', alive: true, position: { x: 0, y: 0, z: 0 }, oneHitFrozenUntil: -Infinity },
+    { id: 'foe', team: 'blue', alive: true, position: { x: 3, y: 0, z: 0 }, oneHitFrozenUntil: 6.0 },
+  ];
+  const freezeOut = watch.step(5.1, frozen, {});
+  assert.ok(freezeOut.some((e) => e.speaker === 'me' && e.tags.includes('targetFrozen')), 'genuine Flash Freeze triggers targetFrozen');
+});
+
+test('vortexCatch credits attacker and fireReaction handles Area of Denial burn ticks', () => {
+  const moments = new VoiceMoments({ rand: () => 0.05 });
+  const vortex = moments.damage({ attackerId: 'spinner', victimId: 'victim', source: 'vortex', amount: 18, health: 70, at: 8 }).flat();
+  assert.ok(vortex.some((s) => s.speaker === 'spinner' && s.line === 'roundAndRoundYouGo'), 'caster says Round and round you go');
+
+  const burn = moments.fireHazardDamage({ attackerId: 'foe', victimId: 'me', source: 'fight-flight-burning-ground', amount: 4, health: 60, at: 9 }).flat();
+  assert.ok(burn.some((s) => s.speaker === 'me' && s.line === 'whyIsThisFire'), 'ongoing AoD fire tick triggers fireReaction');
 });

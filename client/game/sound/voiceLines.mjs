@@ -248,33 +248,34 @@ export const VOICE_TAGS = Object.freeze({
   galeVictimDisplacement: { rank: 22, delay: 0.2, about: 'forcibly displaced by another character\'s Gale' },
   // --- November 23, 2026 packet (26 newly recorded Spellblade lines)
   fireReaction: { rank: 35, delay: 0.2, about: 'unexpected burning, sustained fire damage, or entering a hazardous fire field' },
-  violentReversal: { rank: 38, delay: 0.1, about: 'sudden violent reversal during apparent confidence, unexpected launch or fall' },
-  allyHazardApproach: { rank: 26, delay: 0.3, about: 'an ally approaching a live dangerous persistent elemental field' },
+  violentReversal: { rank: 38, delay: 0.1, about: 'sudden violent reversal during apparent confidence, parry, backlash, freeze, unexpected launch or fall' },
+  allyHazardApproach: { rank: 26, delay: 0.3, about: 'an ally approaching a hostile live persistent elemental field' },
   burialPursuit: { rank: 25, delay: 0.2, about: 'pursuing, being pursued, or leading a foe toward unfavorable terrain' },
   persistentHazardCreated: { rank: 22, delay: 0.2, about: 'creating a persistent elemental field or securing an objective' },
+  displacedBeyondReach: { rank: 44, delay: 0.15, about: 'a foe he himself just displaced beyond melee reach' },
   galeInfusedDisasterRange: { rank: 24, delay: 0.2, about: 'preparing a ranged attack against a distant foe, especially Gale-infused Disaster' },
   lightningSlamArrival: { rank: 28, delay: 0.15, about: 'Lightning arrival slam or dramatic impact' },
   drawnOutSwordWin: { rank: 74, delay: 0.5, about: 'defeating a durable opponent after several successful sword hits' },
   vortexCatch: { rank: 25, delay: 0.2, about: 'an opponent caught in Blazing Vortex or rotational combat' },
   galeContestedClear: { rank: 26, delay: 0.3, about: 'clearing or defending a contested area, particularly with Gale' },
-  stubToePain: { rank: 30, delay: 0.1, about: 'disproportionate reaction to a minor sudden injury' },
+  stubToePain: { rank: 30, delay: 0.1, about: 'disproportionate reaction to a minor or sudden painful impact' },
   disasterDisplacement: { rank: 23, delay: 0.2, about: 'completing significant Lightning displacement or dramatic landing' },
   disasterPredicament: { rank: 25, delay: 0.1, about: 'a genuinely disastrous personal predicament' },
   disasterInvocation: { rank: 100, delay: 0.05, about: 'All-Natural Disaster alternative invocation' },
   hillRetreat: { rank: 22, delay: 0.25, about: 'retreating from contested elevated terrain or falling on a hill' },
-  galeSilentTreatment: { rank: 32, delay: 0.2, about: 'Gale disrupting an opponent, especially one currently speaking' },
+  galeSilentTreatment: { rank: 32, delay: 0.2, about: 'Gale genuinely interrupting another knight who is speaking' },
   waitIStabbedSetup: { rank: 27, delay: 0.15, opens: 'waitIStabbed', about: 'feigned pause in sword combat before a strike' },
   fightFlightTerminalCommitted: { rank: 35, delay: 0.2, about: 'committed Flight to the Valkyrie while retaining steering' },
   criticalCrashApproach: { rank: 30, delay: 0.2, about: 'critically damaged Fight-and-Flight apparatus approaching crash' },
   whirlActivated: { rank: 25, delay: 0.05, about: 'initial activation of Whirl Like a Wind' },
-  notDeadYetAssault: { rank: 28, delay: 0.15, about: 'persistent assault while knocked down or incapacitated, but still alive' },
+  notDeadYetAssault: { rank: 28, delay: 0.15, about: 'persistent or futile assault while staggered, frozen, In Denial, or nearly beaten' },
   dieOverThereSetup: { rank: 28, delay: 0.2, opens: 'dieOverThere', about: 'inquiry of where a pursued or displaced foe would prefer to die' },
-  targetFrozen: { rank: 25, delay: 0.2, about: 'successfully applying the Frozen effect to an opponent' },
+  targetFrozen: { rank: 25, delay: 0.2, about: 'successfully applying Full Flash Freeze immobilization to an opponent' },
   stopPretendingWin: { rank: 73, delay: 0.5, about: 'turning the tide after a prolonged disadvantage or duel' },
 });
 
 // Facts of a moment that never raise a line by themselves, only make one likelier (a line's `boost`)
-export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing', 'planFailed', 'victimSpoke', 'constitutionBoasted']);
+export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing', 'planFailed', 'victimSpoke', 'constitutionBoasted', 'selfDisplaced', 'flatBack', 'inDenial', 'minorUnhurt', 'midLaugh']);
 
 export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- the breath of things: exertions (heard often, each on its own short cooldown; they never cut anything)
@@ -2369,14 +2370,16 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     voice: { drive: 2.0, rmsDb: -16 }, file: 'AH.AH.AH.WhyIsThisFire.mp3',
   },
   {
-    id: 'laughToScream', kind: 'exertion',
-    text: '(laughter turning into an abrupt scream)',
+    id: 'laughToScream', kind: 'exertion', subtitle: true,
+    text: 'AHAH, HAH, HAAAAGH!',
+    beats: [{ words: 'AHAH,' }, { at: 0.96, words: 'AHAH, HAH,' }, { at: 1.42, words: 'AHAH, HAH, HAAAAGH!' }],
     trigger: 'violentReversal',
-    priority: 'high', rarity: 0.08, cooldown: 180,
+    boost: { midLaugh: 4.0 },
+    priority: 'high', rarity: 0.14, cooldown: 150,
     section: 'Exertions',
     credits: {
       title: 'Laughter to Scream',
-      description: 'A sudden violent reversal during apparent confidence, unexpected launch or fall.',
+      description: 'A sudden violent reversal during apparent confidence, laughter, unexpected launch or fall.',
       note: 'Confidence was revoked mid-syllable.',
     },
     voice: { drive: 2.0, rmsDb: -15.5 }, file: 'AhHAHhHAHhHAAAAAH!.mp3',
@@ -2437,12 +2440,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'hitYouOverThere',
     text: "I would like to hit you, but you're over there!",
-    trigger: { galeInfusedDisasterRange: 1, standoff: 0.4 },
-    priority: 'normal', rarity: 0.15, cooldown: 180,
+    trigger: { displacedBeyondReach: 1, galeInfusedDisasterRange: 1, standoff: 0.35 },
+    boost: { selfDisplaced: 4.5 },
+    priority: 'normal', rarity: 0.15, cooldown: 150,
     section: 'Battle & Abilities',
     credits: {
       title: "You're Over There!",
-      description: 'Preparing a ranged attack or Gale-infused Disaster against a foe beyond melee reach.',
+      description: 'After displacing a foe beyond melee reach, or preparing a ranged attack against a distant opponent.',
       note: 'Distance proved an obstacle to swordplay.',
     },
     voice: { drive: 1.8, rmsDb: -16 }, file: 'IWouldLikeToHitYouBut.mp3',
@@ -2450,12 +2454,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'groundAngel',
     text: "I'm a ground angel!",
-    trigger: { lightningSlamArrival: 1, fellBack: 0.35 },
-    priority: 'normal', rarity: 0.18, cooldown: 180,
+    trigger: { lightningSlamArrival: 1, fellBack: 0.5 },
+    boost: { flatBack: 2.5 },
+    priority: 'normal', rarity: 0.2, cooldown: 160,
     section: 'Defeat & Death',
     credits: {
       title: 'Ground Angel',
-      description: 'Upon a dramatic Lightning arrival slam or a suitable grounded backward defeat.',
+      description: 'Upon a flat-backed Lightning arrival slam or a suitable grounded backward defeat.',
       note: 'Imprinted upon the soil.',
     },
     voice: { drive: 2.0, rmsDb: -15.5 }, file: 'I_mAGroundAngel!(deathorLightningslam).mp3',
@@ -2513,14 +2518,15 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     voice: { drive: 1.9, rmsDb: -16 }, file: 'Stayawayfromherefornow.thankyou.mp3',
   },
   {
-    id: 'stubbedToe', kind: 'exertion',
-    text: '(a sudden, disproportionate shriek of acute agony)',
+    id: 'stubbedToe', kind: 'exertion', subtitle: true,
+    text: 'AHHAAAAAAAH!!',
     trigger: 'stubToePain',
-    priority: 'high', rarity: 0.04, cooldown: 180,
+    boost: { minorUnhurt: 2.8 },
+    priority: 'high', rarity: 0.08, cooldown: 150,
     section: 'Injury',
     credits: {
       title: 'Stubbed Toe',
-      description: 'A disproportionate reaction to a minor sudden injury.',
+      description: 'A disproportionate reaction to a minor, sudden painful impact.',
       note: 'Steel sabatons have their limits.',
     },
     voice: { drive: 1.8, rmsDb: -15, expandBelowDb: -42 }, file: 'StubToe(AHHHHAAHH!!).mp3',
@@ -2638,11 +2644,12 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'notDeadYet',
     text: "Why are you still attacking me? I'm not dead yet!",
     trigger: 'notDeadYetAssault',
-    priority: 'normal', rarity: 0.2, cooldown: 180,
+    boost: { inDenial: 2.8 },
+    priority: 'normal', rarity: 0.2, cooldown: 150,
     section: 'Remarks & Oddities',
     credits: {
       title: "I'm Not Dead Yet!",
-      description: 'Under persistent assault while knocked down or incapacitated, but still alive.',
+      description: 'Under persistent assault while incapacitated, frozen, In Denial, or stubbornly refusing to fall.',
       note: 'Premature burial prevented by verbal protest.',
     },
     voice: { drive: 2.0, rmsDb: -16 }, file: 'WhyAreYouStillAttackingMeImNotDeadYet.mp3',
@@ -2720,6 +2727,7 @@ function triggersOf(declaration) {
 export function normalizeLine(declaration) {
   return Object.freeze({
     kind: 'sentence',
+    subtitle: declaration.subtitle === undefined ? false : declaration.subtitle,
     priority: 'normal',
     rarity: 1,
     cooldown: 0,
@@ -2831,13 +2839,14 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = null
       });
       return;
     }
-    let chanceScale = line.triggers[through] * present[through];
-    for (const fact of facts) if (line.boost[fact]) chanceScale *= line.boost[fact];
-    const tag = VOICE_TAGS[through];
-    offered.push({
-      say: { line: line.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}), ...(disruptedSpeaker ? { disruptedSpeaker } : {}) },
-      rank: tag.rank, order: line.order, index, shuffle: force ? rng() : 0,
-    });
+      let chanceScale = line.triggers[through] * present[through];
+      for (const fact of facts) if (line.boost[fact]) chanceScale *= line.boost[fact];
+      const tag = VOICE_TAGS[through];
+      const highPriority = line.id === 'hitYouOverThere' && (through === 'displacedBeyondReach' || facts.includes('selfDisplaced'));
+      offered.push({
+        say: { line: line.id, speaker, chanceScale, delay: tag.delay ?? 0, ...(rand ? { rand } : {}), ...(force ? { force: true } : {}), ...(tag.opens ? { opens: tag.opens } : {}), ...(disruptedSpeaker ? { disruptedSpeaker } : {}), ...(highPriority ? { highPriority: true } : {}) },
+        rank: tag.rank, order: line.order, index, shuffle: force ? rng() : 0,
+      });
   });
   offered.sort((a, b) => b.rank - a.rank || (force ? a.shuffle - b.shuffle : 0) || b.order - a.order || a.index - b.index);
   return offered.map((entry) => entry.say);
@@ -2896,6 +2905,7 @@ export function validateVoiceLines({ declarations = VOICE_LINE_DECLARATIONS, man
     seen.add(line.id);
     if (!line.text) errors.push(`${at} its words are missing (text)`);
     if (!['sentence', 'exertion'].includes(line.kind)) errors.push(`${at} kind must be 'sentence' or 'exertion'`);
+    if (typeof line.subtitle !== 'boolean') errors.push(`${at} subtitle must be true or false`);
     if (!PRIORITIES[line.priority]) errors.push(`${at} priority must be 'high', 'normal' or 'low'`);
     if (!(line.rarity > 0 && line.rarity <= 1)) errors.push(`${at} rarity must be above 0 and at most 1`);
     const cooldown = Array.isArray(line.cooldown) ? line.cooldown : [line.cooldown, line.cooldown];

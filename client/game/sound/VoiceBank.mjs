@@ -89,7 +89,7 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null, source = null, chorus = null, gainScale = 1, rand = null, disruptedSpeaker = null } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null, source = null, chorus = null, gainScale = 1, rand = null, disruptedSpeaker = null, highPriority = false } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
     // a line said in parts: its recordings are its parts, in order (the part asked for, the first if none is)
@@ -98,14 +98,14 @@ export class VoiceBank {
     const index = parts ? part ?? 0 : this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
     if (!force && !cry && !earned && !opening && VOICE_LINES[line]?.kind === 'sentence') chanceScale *= this.audibleHistory.scale(line,speaker,this.engine.now,source);
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, source, duration: delay + take.duration / Math.max(0.5, rate), rand, disruptedSpeaker });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, source, duration: delay + take.duration / Math.max(0.5, rate), rand, disruptedSpeaker, partIndex: index, highPriority });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)
     for (const cut of verdict.stop) {
       const handle = this.playing.get(cut);
       const cutLine = handle?.line;
-      const wasSentence = Boolean(cutLine && VOICE_LINES[cutLine]?.kind === 'sentence');
+      const wasSentence = Boolean(cutLine && (VOICE_LINES[cutLine]?.kind === 'sentence' || VOICE_LINES[cutLine]?.subtitle));
       this.audibleHistory.cancel(handle?.audibleEntry,this.engine.now);
       handle?.stop?.(0.1);
       this.playing.delete(cut);
@@ -115,8 +115,12 @@ export class VoiceBank {
     const rule = VOICE_LINES[line];
     // (a hair of variety each time, no more: every word stays the word it was)
     const played = rate * (0.99 + Math.random() * 0.02);
+    const takeBeats = this.takeBeats.get(line)?.[index] ?? null;
+    const offset = verdict.screamOnly ? (takeBeats?.[2] ?? 1.21) : 0;
+    const playDuration = Math.max(0.1, take.duration - offset);
     const handle = this.engine.playBuffer(take, {
-      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain * gainScale, rate: played, delay,
+      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain * gainScale, rate: played, delay, offset,
+      ...(offset > 0 ? { attack: 0.015 } : {}),
       reverb: close ? VOICE_HEARING.own : reverb,
       // (another knight: through his own helm, a little rougher than mine)
       ...(close || !this.timbre ? {} : { shape: (ctx) => this.timbre.build(ctx, speaker) }),
@@ -126,19 +130,20 @@ export class VoiceBank {
       handle.line = line;
       handle.ruleGain = rule.gain * gainScale;
       handle.close = close;
-      handle.endsAt = this.engine.now + delay + take.duration / Math.max(0.5, played);
+      handle.endsAt = this.engine.now + delay + playDuration / Math.max(0.5, played);
       this.playing.set(speaker, handle);
       if (rule.kind === 'sentence' && !this.engine.muted && (this.engine.levels?.master ?? 1) > 0 && (this.engine.levels?.voice ?? 1) > 0) handle.audibleEntry = this.audibleHistory.note(line,speaker,this.engine.now+delay,source);
     }
-    const seconds = take.duration / Math.max(0.5, played);
+    const seconds = playDuration / Math.max(0.5, played);
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
     if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
     // (a line subtitled a beat at a time: where each beat falls, as it is played)
-    const beats = this.takeBeats.get(line)?.[index]?.map((at) => at / Math.max(0.5, played)) ?? null;
-    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}) });
+    const beats = verdict.screamOnly ? null : (takeBeats?.map((at) => at / Math.max(0.5, played)) ?? null);
+    const textOverride = verdict.screamOnly ? 'HAAAAGH!' : null;
+    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}), ...(textOverride ? { textOverride } : {}) });
     // (how long it runs, for whoever times something on its end: the next part, an answer; and where its beats fall,
     // for a subtitle of its own: the menu's)
-    return { seconds, delay, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}) };
+    return { seconds, delay, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}), ...(verdict.screamOnly ? { screamOnly: true } : {}) };
   }
 
   resetAudibleHistory() { this.audibleHistory = new AudibleHistory(); }
