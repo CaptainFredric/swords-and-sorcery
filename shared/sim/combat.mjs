@@ -1827,6 +1827,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
   const death = { type: 'death', victimId, killerId: credited, source,
+    ...(denial?{deferredByDenial:true}:{}),
     ...(killFacts.infusionTiers?{infusionTiers:{...killFacts.infusionTiers}}:{}),
     ...(special?{killContext:special}:{}),
     ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
