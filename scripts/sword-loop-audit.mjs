@@ -105,8 +105,16 @@ class AnimatorEmulation {
     }
     this.swordLayer = null; this.swordFade = null;
     const clip = model.clips.has(plan.clip) ? plan.clip : plan.fallback;
+    if (this.inertia) { this.inertia.elapsed += step; if (this.inertia.elapsed >= this.inertia.duration) this.inertia = null; }
     if (this.active?.clip !== clip) {
-      const duration = this.active ? (Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.active.clip) ? plan.blend : blendSeconds(this.active.clip, clip)) : 0;
+      let duration = this.active ? (Number.isFinite(plan.blend) && (!plan.blendFrom || plan.blendFrom === this.active.clip) ? plan.blend : blendSeconds(this.active.clip, clip)) : 0;
+      // (a Sword Technique entered from anything else is inertialized, as SpellbladeAnimator does: the pose shown is
+      // taken once and its difference from the technique dies away)
+      if (duration > 0 && /^Technique_/.test(clip) && !/^Technique_/.test(this.active.clip)) {
+        const shown = [{ clip: this.active.clip, time: this.active.time, weight: this.active.weight ?? 1 }, ...this.fading.map((e) => ({ clip: e.clip, time: e.frozen, weight: e.weight ?? 0 }))];
+        this.inertia = { from: shown.filter((l) => l.weight > 0), offsets: null, elapsed: 0, duration: Number.isFinite(plan.entrySec) ? plan.entrySec : Math.max(duration, /Whirl/.test(clip) ? 0.2 : 0.14) };
+        duration = 0;
+      }
       if (duration > 0) {
         this.fading = this.fading.filter((e) => e.clip !== clip);
         this.fading.push({ ...this.active, frozen: this.active.time, carry: this.active.carry });
@@ -125,16 +133,41 @@ class AnimatorEmulation {
     this.fading.forEach((e, i) => { e.weight = weights.fading[i]; });
     if (weights.active >= 1) this.fading = [];
     this.active.weight = weights.active;
-    return { layered: false, layers: [{ clip, time: this.active.time, weight: weights.active }, ...this.fading.map((e) => ({ clip: e.clip, time: e.frozen, weight: e.weight }))] };
+    return { layered: false, inertia: this.inertia, layers: [{ clip, time: this.active.time, weight: weights.active }, ...this.fading.map((e) => ({ clip: e.clip, time: e.frozen, weight: e.weight }))] };
   }
 }
 
 const OWNER = model.gltf.nodes.map((n) => spellbladeBoneOwner(n.name ?? ''));
-function sample(layers, owners = null) {
+// quaternions [x, y, z, w]
+const qMul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+const qInv = (q) => [-q[0], -q[1], -q[2], q[3]];
+// q's turn scaled by k (along its own axis, the short way)
+function qScale(q, k) {
+  const p = q[3] < 0 ? q.map((v) => -v) : q;
+  const s = Math.hypot(p[0], p[1], p[2]);
+  if (s < 1e-9) return [0, 0, 0, 1];
+  const angle = 2 * Math.atan2(s, p[3]) * k;
+  return [p[0] / s * Math.sin(angle / 2), p[1] / s * Math.sin(angle / 2), p[2] / s * Math.sin(angle / 2), Math.cos(angle / 2)];
+}
+function sample(layers, owners = null, inertia = null) {
   let local = localPose(model, layers);
   if (owners) {
     const legs = localPose(model, [{ clip: owners.locomotion.clip, time: owners.locomotion.time, weight: 1 }]);
     local = local.map((v, i) => (OWNER[i] === 'locomotion' ? legs[i] : v));
+  }
+  if (inertia) {
+    // the difference from the pose shown, fixed on the first frame, dying away in the model's own space, parent before
+    // child (spellbladeComposition's blend-out, space 'model', as SpellbladeAnimator enters a technique)
+    const world = (pose) => { const out = []; const at = (i) => (out[i] ??= model.parent[i] < 0 ? pose[i].r : qMul(at(model.parent[i]), pose[i].r)); pose.forEach((_, i) => at(i)); return out; };
+    const there = world(local);
+    if (!inertia.offsets) {
+      const from = localPose(model, inertia.from);
+      const fromWorld = world(from);
+      inertia.offsets = from.map((f, i) => ({ r: qMul(fromWorld[i], qInv(there[i])), t: f.t.map((v, k) => v - local[i].t[k]) }));
+    }
+    const u = Math.min(1, inertia.elapsed / inertia.duration), k = 1 - 3 * u * u + 2 * u * u * u;
+    const here = there.map((q, i) => qMul(qScale(inertia.offsets[i].r, k), q));
+    local = local.map((v, i) => ({ ...v, r: model.parent[i] < 0 ? here[i] : qMul(qInv(here[model.parent[i]]), here[i]), t: v.t.map((x, c) => x + inertia.offsets[i].t[c] * k) }));
   }
   const w = worldMatrices(model, local);
   return { tip: apply(w[HAND], TIP), hand: apply(w[HAND], [0, 0, 0]), feet: FEET.map((f) => apply(w[f], [0, 0, 0])) };
@@ -188,7 +221,7 @@ export function run(name, { seconds, script, defender = false }) {
     const state = resolveSpellbladeState(snap, now);
     const plan = resolveSpellbladeAnimationPlan({ state, player: snap, serverNow: now, localTime: now });
     const shown = animator.apply(plan, DT);
-    const pose = sample(shown.layers, shown.owners);
+    const pose = sample(shown.layers, shown.owners, shown.inertia);
     // the feet in the world: the knight's place and facing, his pose's feet in it (yaw about +y; forward is -z)
     const c = Math.cos(a.yaw), sn = Math.sin(a.yaw);
     const feet = pose.feet.map((f) => [a.position.x + f[0] * c + f[2] * sn, a.position.y + f[1], a.position.z - f[0] * sn + f[2] * c]);

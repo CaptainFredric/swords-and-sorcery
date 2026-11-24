@@ -62,11 +62,12 @@ import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWor
 import { castVisualDuration } from './weaponPose.mjs';
 import { landingStrength, localPushDirection } from './spellbladeMotion.mjs';
 import { CONTACT_LIMITS, contactWorthDrawing, footfallPlan, groundContactAt, landingPlan } from './groundContact.mjs';
+import { whirlRevolution } from './techniqueMotion.mjs';
 import { blowDirection, cutTravel, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, conductShockRecipe, attackWindupRecipe, riposteHitRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -121,7 +122,7 @@ import {
 import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
-import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
+import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase, whirlCameraWanted } from './vortexCamera.mjs';
 import { disasterCameraWanted, disasterHolding, disasterTeleportAiming, stepDisasterReveal } from './oneHitCamera.mjs';
 import { planOneHitTeleport } from '../../shared/src/oneHitTrajectory.mjs';
 import { ONE_HIT_RULES } from '../../shared/src/oneHitOfWondersRules.mjs';
@@ -288,6 +289,11 @@ export class GameRuntime {
     // another knight's Blazing Vortex: the star's ting as it is lit, and the beat of the blade, once a turn
     this.remotePlayers.onVortexSpark = (id) => this.#play(vortexStarRecipe(), this.#bodyPosition(id), 0.7);
     this.remotePlayers.onVortexTurn = (id, rate) => this.#play(vortexWhooshRecipe(Math.random, { rate }), this.#bodyPosition(id), 0.6);
+    this.remotePlayers.onWhirlTurn = (id, revolution) => {
+      if (revolution === 0) return; // The technique-start event is the first turn's cue.
+      const gale = this.latestSnapshot?.players?.find(player => player.id === id)?.spell === 'gale';
+      this.#play(whirlSpinRecipe(Math.random, { revolution, gale }), this.#bodyPosition(id), 0.65);
+    };
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
     // and his longer scenes, each part said when the game has earned it (voiceScenes.mjs)
@@ -2178,6 +2184,7 @@ export class GameRuntime {
         }
       }
       if (event.type === 'swordHit') this.#swordHit(event);
+      if (event.type === 'swordTechniqueHit') this.#techniqueHit(event);
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
@@ -2242,9 +2249,13 @@ export class GameRuntime {
           const marker = damageHitMarker(event, me);
           if (marker) this.hud.hit(marker);
           // my numbers only: the blow's weight, rising off the body
-          const victim = this.#bodyPosition(event.victimId);
-          if (victim && event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {
-            this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
+          if (event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {
+            const showNumber = () => {
+              const victim = this.#bodyPosition(event.victimId);
+              if (victim) this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
+            };
+            if (event.source === 'sword') this.remotePlayers.showRiposteBraceCue(event.victimId, event.at, showNumber);
+            else showNumber();
           }
         }
         // (a ram knocks me through my own view itself, harder: #steelRam)
@@ -3563,8 +3574,12 @@ export class GameRuntime {
       // (the way the attacker's blade was going as it met: his aim and the cut, as the server swept it)
       const aim = event.playerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.playerId);
       const travel = aim && Number.isFinite(aim.yaw) ? cutTravel(strike, aim.yaw, aim.pitch ?? 0) : null;
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality, travel, from: attacker, heavy: event.level === 'elevated' });
-      this.remotePlayers.flashHit(event.targetId);
+      this.remotePlayers.showRiposteBraceCue(event.targetId, event.at, () => {
+        const from = this.#bodyPosition(event.playerId);
+        const to = this.#bodyPosition(event.targetId);
+        if (point) this.effects.hitBurst(point, blowDirection(to, from), { strike, quality, travel, from, heavy: event.level === 'elevated' });
+        this.remotePlayers.flashHit(event.targetId);
+      });
     }
     // a Sundering blow: its weight made felt and seen (a deep whump under the hit, sparks driven down, the ground kicked up)
     if (event.level === 'elevated') {
@@ -3591,6 +3606,33 @@ export class GameRuntime {
     }
   }
 
+  // a Sword Technique's blow landing (swordTechniqueHit: it has no swordHit of its own). The Riposte's thrust has its
+  // own impact: a point punched through plate, the arm stopped dead for an instant, a restrained kick; a Whirl's cut
+  // lands as a cut. A miss has none of it.
+  #techniqueHit(event) {
+    const me = this.playerId;
+    const attacker = this.#bodyPosition(event.playerId);
+    const victim = this.#bodyPosition(event.targetId);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
+    const riposte = event.id === 'rigid_riposte';
+    const quality = event.clean ? 1 : 0.55;
+    if (event.targetId !== me) {
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike: riposte ? 2 : 0, quality, from: attacker, heavy: riposte });
+      this.remotePlayers.flashHit(event.targetId);
+    }
+    const recipe = riposte ? riposteHitRecipe(Math.random, { clean: Boolean(event.clean) }) : swordHitRecipe(Math.random, { strike: 0, quality });
+    if (event.playerId === me) {
+      this.hud.hit(event.clean ? 'hit' : 'glance');
+      this.weapon.hitstop(riposte ? 0.085 : hitstopSeconds({ quality }), riposte ? 0.7 : hitKick({ quality }));
+      this.#play(recipe, null, 1);
+    } else if (event.targetId === me) {
+      this.#play(hurtRecipe(Math.random, { heavy: riposte, amount: event.damage ?? 20 }), null, 1);
+      if (riposte) { this.#play(recipe, null, 0.7); this.cameraKick = Math.max(this.cameraKick, 0.08); }
+    } else {
+      this.#play(recipe, point, 0.85);
+    }
+  }
+
   // a blow meeting a guard: sparks where the blades met and the ring of steel (or the crunch of it breaking)
   #guardContact(event) {
     const me = this.playerId;
@@ -3609,7 +3651,13 @@ export class GameRuntime {
       // (the blade met the guard where it met the body: the server's point; sparks scrape on along the cut's way)
       const aim = event.attackerId === me ? { yaw: this.input.yaw, pitch: this.input.pitch } : this.latestSnapshot?.players.find((p) => p.id === event.attackerId);
       const travel = aim && Number.isFinite(aim.yaw) && Number.isInteger(event.kind) ? cutTravel(event.kind, aim.yaw, aim.pitch ?? 0) : null;
-      this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry, travel });
+      const show = () => {
+        const from = this.#bodyPosition(event.attackerId);
+        const to = this.#bodyPosition(event.defenderId);
+        this.effects.blockBurst(event.point ? point : { ...point, y: point.y + 0.15 }, blowDirection(to, from), { heavy, parry, travel });
+      };
+      if (parry && event.technique === 'rigid_riposte') this.remotePlayers.showRiposteBraceCue(event.defenderId, event.at, show);
+      else show();
     }
     const isRiposteParry = parry && (event.technique === 'rigid_riposte' || this.latestSnapshot?.players?.find((p) => p.id === event.defenderId)?.swordTechnique?.id === 'rigid_riposte');
     const recipe = isRiposteParry ? rigidRiposteParryRecipe() : parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
@@ -4316,7 +4364,8 @@ export class GameRuntime {
       this.disasterReveal = this.inspectionFree ? null
         : stepDisasterReveal(this.disasterReveal, this.localAuth, serverNow, dt, this.chase);
       const cinematic = !this.inspectionFree &&
-        (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0);
+        (disasterCameraWanted(this.localAuth, serverNow) || (this.disasterReveal?.remaining ?? 0) > 0 ||
+          whirlCameraWanted(this.localAuth, serverNow));
       this.chase = stepChase(this.chase ?? 0,
         (this.onFootThirdPerson && !this.inspectionFree &&
           !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId) ||
@@ -4387,6 +4436,12 @@ export class GameRuntime {
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
+    // my own Whirl's revolutions, heard as each begins (another knight's are RemotePlayers' onWhirlTurn)
+    const ownTurn = whirlRevolution(this.localAuth?.swordTechnique, this.socket.serverNow());
+    if (ownTurn > 0 && ownTurn !== this.ownWhirlTurn) {
+      this.#play(whirlSpinRecipe(Math.random, { revolution: ownTurn, gale: this.localAuth?.spell === 'gale' }), null, 0.8);
+    }
+    this.ownWhirlTurn = ownTurn;
     this.#showAfflictions(dt);
     // Whirl Like the Wind continuous presentation: white crescents + light green gale ascent
     const whirlPlayers = this.latestSnapshot?.players ?? [];

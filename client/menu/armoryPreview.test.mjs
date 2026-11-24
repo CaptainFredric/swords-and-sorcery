@@ -44,3 +44,15 @@ test('each gesture lands its beat on its cue\'s: the blow as the sword comes dow
   assert.equal(armoryPose('chivalry',.12).spell,null);
   assert.ok(armoryPose('chivalry',.2).spell.weight>.99 && armoryPose('chivalry',.2).sword.target.wrist[1]>1.5);
 });
+
+test('a spell showcase sometimes leans on the sword: the point planted ahead of his right foot, eased in and out', async () => {
+  const { ARMORY_SWORD_LEAN, ARMORY_LEAN_SHARE, armoryLeanWeight, ARMORY_PREVIEW_SEC } = await import('./armoryPreview.mjs');
+  assert.ok(ARMORY_LEAN_SHARE > 0 && ARMORY_LEAN_SHARE < 1, 'both the carry and the lean get their turns');
+  const aim = ARMORY_SWORD_LEAN.aim;
+  assert.ok(Math.abs(Math.hypot(...aim) - 1) < 1e-3, 'the blade direction is a unit vector');
+  assert.ok(aim[1] < -0.9, 'the blade points down, near upright');
+  assert.ok(aim[0] > 0 && aim[2] < 0, 'ahead and to his right: clear of the boot');
+  assert.equal(armoryLeanWeight(0), 0);
+  assert.equal(armoryLeanWeight(ARMORY_PREVIEW_SEC), 0, 'handed back to the carry before the showcase ends');
+  assert.equal(armoryLeanWeight(ARMORY_PREVIEW_SEC / 2), 1);
+});
