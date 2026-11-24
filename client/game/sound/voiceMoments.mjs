@@ -133,6 +133,8 @@ export class VoiceMoments {
     this.hurtInMatch = new Set();
     this.lastTargets = new Map(); // speaker -> last targeted/attacked opponent id
     this.damageStrikes = new Map(); // `${attacker}>${victim}` -> number of strikes against standing victim
+    this.constitutionBoasted = new Set(); // knights who boasted of constitution during current life
+    this.burnReactions = new Map(); // victim -> when fireReaction was last raised
   }
 
   /**
@@ -182,6 +184,28 @@ export class VoiceMoments {
       const before = new Set(recent.slice(0, -1).map((hit) => hit.victimId)).size;
       if (caught === MOMENTS.massive.caught && before < caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
     }
+    if (event.hazard === 'fire' || source === 'burn') {
+      const last = this.burnReactions.get(victimId) ?? -Infinity;
+      if (at - last >= 10 && event.health > 0) {
+        this.burnReactions.set(victimId, at);
+        groups.push(this.#lines(victimId, ['fireReaction']));
+      }
+    }
+    if (wild(source) && event.amount > 0 && event.amount <= 12 && event.health > 0) {
+      groups.push(this.#lines(victimId, ['stubToePain']));
+    }
+    if (other && wild(source) && event.amount >= MOMENTS.hurtSounds.heavy && (knight(victimId)?.attackActive || event.health <= 40)) {
+      groups.push(this.#lines(victimId, ['violentReversal']));
+    }
+    if (source === 'vortex' || event.hazard === 'vortex') {
+      groups.push(this.#lines(victimId, ['vortexCatch']));
+    }
+    if (event.prone || event.incapacitated || knight(victimId)?.knockedDown) {
+      groups.push(this.#lines(victimId, ['notDeadYetAssault']));
+    }
+    if (other && source === 'sword') {
+      groups.push(this.#lines(attackerId, ['waitIStabbedSetup']));
+    }
     const standing = event.health > 0;
     // (nearly felled: remembered, for felling the one who did it)
     if (other && standing && event.health <= MOMENTS.avenged.health) this.nearlyFelled.set(victimId, { by: attackerId, at });
@@ -227,7 +251,7 @@ export class VoiceMoments {
         && !this.#excused(victimId, saidAgo);
       const heavy = other && event.amount >= MOMENTS.hurtSounds.heavy;
       const prowessDepleted = Boolean(event.prowessDepleted || event.prowessSpent || (event.prowess !== undefined && event.prowess <= 0 && (event.prowessBefore === undefined || event.prowessBefore > 0)));
-      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', prowessDepleted && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken']));
+      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', prowessDepleted && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken'], { facts: this.constitutionBoasted.has(victimId) ? ['constitutionBoasted'] : [] }));
     }
     return groups.filter((group) => group.length);
   }
@@ -289,6 +313,9 @@ export class VoiceMoments {
       flightElevated: Boolean(extra.flightElevated),
       quickMultikill: Boolean(extra.quickMultikill),
       quickCloseMultikill: Boolean(extra.quickCloseMultikill),
+      drawnOut: source === 'sword' && (this.strikes.get(`${killerId}>${victimId}`)?.length ?? 0) >= 3,
+      stopPretending: Boolean(killer && (killer.health ?? 100) <= 35),
+      lightningArrival: source === 'lightning',
     } : {};
     if (killerId) {
       const prevFoe = this.consecutiveFoe.get(killerId);
@@ -334,6 +361,7 @@ export class VoiceMoments {
    */
   respawn(event, { practice = false, saidAgo = () => Infinity } = {}) {
     const id = event.playerId;
+    if (id) this.constitutionBoasted.delete(id);
     if (practice || !id || this.#excused(id, saidAgo)) return [];
     const falls = this.fallsInARow.get(id) ?? 0;
     const by = this.fellTo.get(id) ?? [];
@@ -366,11 +394,19 @@ export class VoiceMoments {
   }
 
   /** A gust caught knights (a `galeBlast`'s `affected`): the jibe, the thrown, and anyone it rescued. */
-  galeCaught(event, { knight = () => null } = {}) {
+  galeCaught(event, { knight = () => null, speakingCheck = null } = {}) {
     const groups = [];
     // (how fitting the jibe is, the moment says itself: likelier the harder the gust threw them)
     const jibe = galeTauntScale(event.affected ?? []);
-    if (jibe > 0) groups.push(this.#lines(event.playerId, { galeDisplacement: jibe }));
+    const speakingVictim = (event.affected ?? []).find((c) => !c.guarded && (speakingCheck ? speakingCheck(c.id) : false));
+    if (speakingVictim) {
+      groups.push(this.#lines(event.playerId, ['galeSilentTreatment'], { facts: ['victimSpoke'], disruptedSpeaker: speakingVictim.id }));
+    } else if (jibe > 0) {
+      groups.push(this.#lines(event.playerId, { galeDisplacement: jibe, galeSilentTreatment: 0.15 }));
+    }
+    if (event.contestedZone) {
+      groups.push(this.#lines(event.playerId, ['galeContestedClear']));
+    }
     for (const caught of event.affected ?? []) {
       if (caught.guarded || !(caught.pressure >= 0.5)) continue;
       this.gusts.set(`${event.playerId}>${caught.id}`, event.at);
@@ -522,6 +558,8 @@ export class VoiceMoments {
     this.hurtInMatch.clear();
     this.lastTargets.clear();
     this.damageStrikes.clear();
+    this.constitutionBoasted.clear();
+    this.burnReactions.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -565,5 +603,57 @@ export class VoiceMoments {
     for (const map of [this.strikes, this.gusts]) {
       for (const key of [...map.keys()]) if (key.endsWith(`>${id}`)) map.delete(key);
     }
+  }
+
+  constitutionSpoken(speaker) {
+    if (speaker) this.constitutionBoasted.add(speaker);
+  }
+
+  hazardCreated(playerId, hazardKind = 'fire') {
+    return [this.#lines(playerId, ['persistentHazardCreated'])];
+  }
+
+  allyHazardApproach(speakerId) {
+    return [this.#lines(speakerId, ['allyHazardApproach'])];
+  }
+
+  burialPursuit(speakerId) {
+    return [this.#lines(speakerId, ['burialPursuit'])];
+  }
+
+  disasterRanged(speakerId) {
+    return [this.#lines(speakerId, ['galeInfusedDisasterRange'])];
+  }
+
+  disasterArrival(speakerId) {
+    return [this.#lines(speakerId, ['lightningSlamArrival', 'disasterDisplacement'])];
+  }
+
+  disasterPredicament(speakerId) {
+    return [this.#lines(speakerId, ['disasterPredicament'])];
+  }
+
+  flightTerminalCommitted(operatorId) {
+    return [this.#lines(operatorId, ['fightFlightTerminalCommitted'])];
+  }
+
+  criticalCrashApproach(operatorId) {
+    return [this.#lines(operatorId, ['criticalCrashApproach'])];
+  }
+
+  whirlStarted(playerId) {
+    return [this.#lines(playerId, ['whirlActivated'])];
+  }
+
+  dieOverThereSetup(speakerId) {
+    return [this.#lines(speakerId, ['dieOverThereSetup'])];
+  }
+
+  targetFrozen(attackerId) {
+    return [this.#lines(attackerId, ['targetFrozen'])];
+  }
+
+  hillRetreat(playerId) {
+    return [this.#lines(playerId, ['hillRetreat'])];
   }
 }

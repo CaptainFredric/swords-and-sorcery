@@ -191,6 +191,8 @@ export function deathMoment({ victimId, killerId, source, overkill = false, mino
       ...(pose?.back ? { fellBack: 1 } : {}), ...(pose?.skyward ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
       ...(doomCut ? { doomInterrupted: 1 } : {}),
       ...(nap ? { napFall: 1 } : {}),
+      ...(source === 'lightning' || moment.lightningArrival ? { lightningSlamArrival: 1 } : {}),
+      ...(pose?.hill ? { hillRetreat: 1 } : {}),
     },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
@@ -228,6 +230,8 @@ export function victorTags({ source, moment = {} }) {
     ...(moment.flightElevated ? { flightElevatedKill: 1 } : {}),
     ...(moment.quickMultikill ? { quickMultikill: 1 } : {}),
     ...(moment.quickCloseMultikill ? { quickCloseMultikill: 1 } : {}),
+    ...(moment.drawnOut ? { drawnOutSwordWin: 1 } : {}),
+    ...(moment.stopPretending ? { stopPretendingWin: 1 } : {}),
   };
 }
 
@@ -391,7 +395,7 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null, rand = null } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null, rand = null, disruptedSpeaker = null } = {}) {
     this.suppressions = this.suppressions.filter((s) => now < s.until);
     if (line !== 'notRightNow' && source) {
       const sx = source.x ?? 0, sz = source.z ?? 0;
@@ -425,7 +429,8 @@ export class VoiceDirector {
     const followsOn = earned && ownBusy && own.line === line;
     // (and a scene's part takes the voice from his own ultimate's cry: what has been earned outranks what is announced)
     const overCry = part && ownBusy && own.cry;
-    if (ownBusy && priority <= own.priority && !followsOn && !overCry && !coordinated) return null;
+    const whyIsThisFireInterrupt = line === 'whyIsThisFire' && ownBusy && own.priority <= EXERTION;
+    if (ownBusy && priority <= own.priority && !followsOn && !overCry && !coordinated && !whyIsThisFireInterrupt) return null;
     if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
     const sentence = rule.kind === 'sentence';
     // one sentence heard at a time: another knight's is let finish, unless this one matters more
@@ -444,7 +449,7 @@ export class VoiceDirector {
         other = null;
       }
     }
-    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
+    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus) && !(line === 'silentTreatment' && other.speaker === disruptedSpeaker)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     let odds = rule.chance * chanceScale;
     if (!force && sentence && line !== this.frequentException) {
@@ -460,6 +465,16 @@ export class VoiceDirector {
     if (other && !(coordinated && other.chorus === chorus) && !notRightNow) {
       stop.push(other.speaker);
       this.speaking.delete(other.speaker);
+    }
+    if (line === 'silentTreatment' && disruptedSpeaker) {
+      if (this.speaking.has(disruptedSpeaker)) {
+        if (!stop.includes(disruptedSpeaker)) stop.push(disruptedSpeaker);
+        this.speaking.delete(disruptedSpeaker);
+      }
+      if (this.sentence && this.sentence.speaker === disruptedSpeaker) {
+        if (!stop.includes(disruptedSpeaker)) stop.push(disruptedSpeaker);
+        this.sentence = null;
+      }
     }
     if (line === 'notRightNow') {
       const sx = source?.x ?? 0, sz = source?.z ?? 0;

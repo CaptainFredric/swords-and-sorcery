@@ -88,9 +88,20 @@ const LINES = Object.freeze({
   shameOpen: lineFor('shameOpening') ?? 'haveYouNoShame',
   shameAns: lineFor('shameAnswer') ?? 'notOnMe',
   shamePay: lineFor('shamePayoff') ?? 'thenLetMeHaveIt',
+  waitIStabbedV1: 'waitIStabbedYouV1',
+  waitIStabbedV2: 'waitIStabbedYouV2',
+  dieOverThere: 'dieOverThereOrHere',
 });
 
 export const SCENES = Object.freeze({
+  waitIStabbed: Object.freeze({
+    expirySec: 8,          // short window to land the sword hit on that same opponent
+    payoffAfter: 0.1,      // immediate payoff when sword hit lands
+  }),
+  dieOverThere: Object.freeze({
+    expirySec: 15,         // window during pursuit / displacement
+    payoffAfter: 0.35,     // beat after the kill, before "Here it is!"
+  }),
   shame: Object.freeze({
     answerAfter: 0.35,     // after Knight A finishes "Have you no shame!?"
     payoffAfter: 0.35,     // after Knight B finishes "Not on me!"
@@ -172,6 +183,8 @@ export class VoiceScenes {
     this.handshakes = new Map();   // speaker -> { targetId, until }: "Hand shake? This hand will shake you..." setup
     this.tranquilizers = new Map(); // speaker -> { targetId, until }: "Which one of these arrows..." setup
     this.shameScenes = new Map();  // speaker -> { foe, stage, at, expiryAt }: "Have you no shame!?" scene
+    this.waitStabbed = new Map();  // speaker -> { targetId, line, at, until, readyAt }: "Wait a minute. Ha! I stabbed you!" scene
+    this.dieOverThere = new Map(); // speaker -> { targetId, at, until }: "Would you like to die over there..." scene
   }
 
   /** A new match: nothing carries over. */
@@ -191,6 +204,8 @@ export class VoiceScenes {
     this.handshakes.clear();
     this.tranquilizers.clear();
     this.shameScenes.clear();
+    this.waitStabbed.clear();
+    this.dieOverThere.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the shame dialogue
@@ -443,6 +458,14 @@ export class VoiceScenes {
     if (!(event.amount > 0) || !victimId) return;
     this.#lowBlow(event);
     this.#counted(event);
+    // waitIStabbed payoff: damaging sword or riposte contact on that same opponent
+    if (attackerId && (event.source === 'sword' || event.source === 'riposte') && !event.blocked && !event.parried) {
+      const scene = this.waitStabbed.get(attackerId);
+      if (scene && scene.targetId === victimId && at <= scene.until && at >= scene.readyAt) {
+        this.waitStabbed.delete(attackerId);
+        this.say(scene.line, attackerId, { part: 1, earned: true, delay: SCENES.waitIStabbed.payoffAfter });
+      }
+    }
     // the verdict: what he takes while it is open counts against it
     const duel = this.duels.get(victimId);
     if (duel?.stage === 'verdict' && attackerId && attackerId !== victimId) {
@@ -475,6 +498,9 @@ export class VoiceScenes {
     this.handshakes.delete(victimId);
     for (const [speaker, scene] of [...this.handshakes]) if (scene.targetId === victimId) this.handshakes.delete(speaker);
     this.tranquilizers.delete(victimId);
+    this.waitStabbed.delete(victimId);
+    for (const [speaker, scene] of [...this.waitStabbed]) if (scene.targetId === victimId) this.waitStabbed.delete(speaker);
+    this.dieOverThere.delete(victimId);
     let victor = false;
     const activeTranquilizer = killerId ? this.tranquilizers.get(killerId) : null;
     if (activeTranquilizer && activeTranquilizer.targetId === victimId && at <= activeTranquilizer.until) {
@@ -491,6 +517,13 @@ export class VoiceScenes {
       if (this.say(LINES.foundIt, killerId, { earned: true, delay: SCENES.troubleshoot.payoffAfter })) victor = true;
     } else {
       for (const [speaker, scene] of [...this.troubleshoot]) if (scene.targetId === victimId) this.troubleshoot.delete(speaker);
+    }
+    const activeDieOverThere = killerId ? this.dieOverThere.get(killerId) : null;
+    if (activeDieOverThere && activeDieOverThere.targetId === victimId && at <= activeDieOverThere.until) {
+      this.dieOverThere.delete(killerId);
+      if (this.say(LINES.dieOverThere, killerId, { part: 1, earned: true, delay: SCENES.dieOverThere.payoffAfter })) victor = true;
+    } else {
+      for (const [speaker, scene] of [...this.dieOverThere]) if (scene.targetId === victimId) this.dieOverThere.delete(speaker);
     }
     // the comeback: the fallen restates it as he gets up (not after the last time: then it simply ends); a kill of the
     // one who declared it, while it stands, is what he always knew
@@ -538,6 +571,8 @@ export class VoiceScenes {
     this.#counts(now, knights);
     this.#comebacks(now, knights);
     this.#shame(now, knights, positionOf);
+    for (const [speaker, scene] of [...this.waitStabbed]) if (now > scene.until) this.waitStabbed.delete(speaker);
+    for (const [speaker, scene] of [...this.dieOverThere]) if (now > scene.until) this.dieOverThere.delete(speaker);
   }
 
   #shame(now, knights, positionOf = null) {
@@ -669,5 +704,36 @@ export class VoiceScenes {
   tranquilizerReset(speaker = null) {
     if (speaker === null) this.tranquilizers.clear();
     else this.tranquilizers.delete(speaker);
+  }
+
+  // ------------------------------------------------------------------------------------------------ wait a minute / stabbed
+  waitStabbedStarted(speaker, targetId, line, at, seconds = 0) {
+    if (!speaker || !targetId) return;
+    this.waitStabbed.set(speaker, {
+      targetId,
+      line: line ?? LINES.waitIStabbedV1,
+      at,
+      until: at + seconds + SCENES.waitIStabbed.expirySec,
+      readyAt: at + Math.max(0.4, seconds * 0.7),
+    });
+  }
+
+  waitStabbedInterrupted(speaker, at) {
+    const scene = this.waitStabbed.get(speaker);
+    if (!scene) return;
+    if (at < scene.readyAt) {
+      this.waitStabbed.delete(speaker);
+    }
+  }
+
+  // ------------------------------------------------------------------------------------------------ die over there / here it is
+  dieOverThereStarted(speaker, targetId, at, seconds = 0) {
+    if (!speaker || !targetId) return;
+    this.dieOverThere.set(speaker, { targetId, at, until: at + seconds + SCENES.dieOverThere.expirySec });
+  }
+
+  dieOverThereReset(speaker = null) {
+    if (speaker === null) this.dieOverThere.clear();
+    else this.dieOverThere.delete(speaker);
   }
 }

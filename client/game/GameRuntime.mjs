@@ -3414,6 +3414,7 @@ export class GameRuntime {
       }
       const tiers = event.preparedTiers ?? (me ? this.localAuth?.ultimateState?.preparedTiers : this.latestSnapshot?.players.find((p) => p.id === event.playerId)?.ultimateState?.preparedTiers) ?? {};
       const total = (tiers.fire ?? 0) + (tiers.frost ?? 0) + (tiers.gale ?? 0) + (tiers.lightning ?? 0);
+      if (Math.random() < 0.35 && this.#sayMoment(event.playerId, ['disasterInvocation'])) return;
       this.#sayMoment(event.playerId, [total > 0 ? 'allNaturalDisasterInfused' : 'allNaturalDisasterBase']);
       return;
     }

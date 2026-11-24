@@ -14,6 +14,9 @@
   "accreditedVictory": [
     "accredited-victory-1.mp3"
   ],
+  "addToMyTally": [
+    "ItTookAWhileButIKnew_1.mp3"
+  ],
   "allNaturalDisasterBaseShelter": [
     "all-natural-disaster-base-shelter-1.mp3"
   ],
@@ -26,6 +29,9 @@
   ],
   "alwaysKnew": [
     "always-knew-1.mp3"
+  ],
+  "amIDreaming": [
+    "AmIDreaming.snore.mp3"
   ],
   "anybodyThere": [
     "anybody-there-1.mp3"
@@ -98,6 +104,9 @@
   "constitution": [
     "constitution-1.mp3"
   ],
+  "constitutionReversal": [
+    "YouThinkICannotSurvive...YoureCorrect.mp3"
+  ],
   "continueToPass": [
     "continue-to-pass-1.mp3"
   ],
@@ -112,6 +121,9 @@
   ],
   "couldveDoneThat": [
     "couldve-done-that-1.mp3"
+  ],
+  "crashSiteLookNice": [
+    "WhereWouldACrashSiteLookNice.mp3"
   ],
   "death": [
     "death-1.mp3",
@@ -140,11 +152,18 @@
   "deservedAnyway": [
     "deserved-anyway-1.mp3"
   ],
+  "dieOverThereOrHere": [
+    "WouldYouLikeToDieOverThereOverHere.splice.hereitis!.mp3:0.00-2.80",
+    "WouldYouLikeToDieOverThereOverHere.splice.hereitis!.mp3:2.80-4.15"
+  ],
   "dismissed": [
     "dismissed-1.mp3"
   ],
   "distanceAdvice": [
     "distance-advice-1.mp3"
+  ],
+  "doNotStandInThat": [
+    "DoNotStandInThat.mp3"
   ],
   "dontTouchBlades": [
     "dont-touch-blades-1.mp3"
@@ -232,9 +251,15 @@
   "goingEasy": [
     "going-easy-1.mp3"
   ],
+  "goodBurialSpot": [
+    "FollowMeIKnowGoodBurial.mp3"
+  ],
   "goodLuckForgettingMe": [
     "good-luck-forgetting-me-1.mp3",
     "good-luck-forgetting-me-2.mp3"
+  ],
+  "groundAngel": [
+    "I_mAGroundAngel!(deathorLightningslam).mp3"
   ],
   "groundPersuasion": [
     "ground-persuasion-1.mp3"
@@ -287,6 +312,12 @@
   "highGround": [
     "high-ground-1.mp3"
   ],
+  "hillToDieOn": [
+    "ThisIsNotAHillIdLikeToDieOn.mp3"
+  ],
+  "hitYouOverThere": [
+    "IWouldLikeToHitYouBut.mp3"
+  ],
   "hurt": [
     "hurt-1.mp3"
   ],
@@ -326,6 +357,9 @@
     "recording-2-master.wav:11.87-13.91",
     "laugh-2.mp3"
   ],
+  "laughToScream": [
+    "AhHAHhHAHhHAAAAAH!.mp3"
+  ],
   "lesserFoe": [
     "lesser-foe-1.mp3"
   ],
@@ -352,6 +386,9 @@
   ],
   "magicDefeat": [
     "recording-2-master.wav:5.15-7.25"
+  ],
+  "markMyTerritory": [
+    "IMarkMyTerritory.mp3"
   ],
   "masterBreak": [
     "master-break-1.mp3"
@@ -380,11 +417,17 @@
   "newKnighthood": [
     "new-knighthood-1.mp3"
   ],
+  "noLongerMoving": [
+    "YouAreNoLongerMoving!.mp3"
+  ],
   "noSpare": [
     "no-spare-1.mp3"
   ],
   "noSquire": [
     "no-squire-1.mp3"
+  ],
+  "notDeadYet": [
+    "WhyAreYouStillAttackingMeImNotDeadYet.mp3"
   ],
   "notFall": [
     "not-fall-1.mp3"
@@ -437,6 +480,9 @@
   "prowessConspiracyV2": [
     "prowess-conspiracy-v2-1.mp3"
   ],
+  "quiteATrip": [
+    "ThatWasQuiteATrip(deathorlightningslam).mp3"
+  ],
   "realMatch": [
     "real-match-1.mp3"
   ],
@@ -480,6 +526,9 @@
   "rotorMoralityV4": [
     "rotor-morality-v4-1.mp3"
   ],
+  "roundAndRoundYouGo": [
+    "RoundandRoundYouGo.mp3"
+  ],
   "runAwayFromSafety": [
     "run-away-from-safety-1.mp3"
   ],
@@ -488,6 +537,12 @@
   ],
   "scorchMark": [
     "scorch-mark-1.mp3"
+  ],
+  "silentTreatment": [
+    "ThisWindAdminister.mp3"
+  ],
+  "slashedAcrossVitalSpots": [
+    "NotManyFoesCansurvive.mp3"
   ],
   "someError": [
     "some-error-1.mp3"
@@ -526,6 +581,9 @@
   "statueLanding": [
     "statue-landing-1.mp3"
   ],
+  "stayAwayForNow": [
+    "Stayawayfromherefornow.thankyou.mp3"
+  ],
   "steelBoast": [
     "steel-boast-1.mp3"
   ],
@@ -538,12 +596,18 @@
   "stopMoving": [
     "stop-moving-1.mp3"
   ],
+  "stopPretendingToWin": [
+    "YouMayStopPretendingToWinNow.mp3"
+  ],
   "stopRunning": [
     "stop-running-1.mp3"
   ],
   "stopYou": [
     "stop-you-1.mp3",
     "stop-you-2.mp3"
+  ],
+  "stubbedToe": [
+    "StubToe(AHHHHAAHH!!).mp3"
   ],
   "subparStandard": [
     "subpar-standard-1.mp3"
@@ -611,6 +675,9 @@
   "thinkAbout": [
     "think-about-1.mp3"
   ],
+  "thisIsADisaster": [
+    "ThisIsADisaster!!.mp3"
+  ],
   "threeStrikes": [
     "three-strikes-1.mp3",
     "three-strikes-2.mp3",
@@ -648,11 +715,25 @@
   "vortexUse": [
     "vortex-use-1.mp3"
   ],
+  "waitIStabbedYouV1": [
+    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:0.00-1.32",
+    "WaitAMinuteHahIStabbedYou(plsspliceminute.hah).mp3:1.32-2.50"
+  ],
+  "waitIStabbedYouV2": [
+    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:0.00-1.42",
+    "WaitMinuteHahStabbedYou2(spliceminute.hah).mp3:1.42-2.87"
+  ],
   "whatNotToDo": [
     "what-not-to-do-1.mp3"
   ],
   "whereAncillary": [
     "where-ancillary-1.mp3"
+  ],
+  "whirlLikeAWind": [
+    "WhirlLikeAWind!.mp3"
+  ],
+  "whyIsThisFire": [
+    "AH.AH.AH.WhyIsThisFire.mp3"
   ],
   "woodVsSteel": [
     "wood-vs-steel-1.mp3"
