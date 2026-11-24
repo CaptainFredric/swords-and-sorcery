@@ -121,9 +121,9 @@ export class SiegeWorkshopScene {
     this.root.visible = Boolean(visible);
     if (!visible) this.stopPreview();
     if (visible) {
-      if (!this.machinePivot.children.length || (!this.cache.has(this.activeMachineId) && !this.inFlight.has(this.activeMachineId))) {
-        this.selectMachine(this.activeMachineId);
-      }
+      // (a machine chosen while the workshop was hidden got only its stand-in: fetch the real one now)
+      if (!this.machinePivot.children.length) this.selectMachine(this.activeMachineId);
+      else if (!this.cache.has(this.activeMachineId)) this.loadAuthored(this.activeMachineId);
       if (!this.knight && !this.knightLoading) {
         this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
           if (!instance) return;
@@ -532,7 +532,9 @@ export class SiegeWorkshopScene {
         new THREE.Vector3(this.root.position.x-radius,this.root.position.y,this.root.position.z-radius),
         new THREE.Vector3(this.root.position.x+radius,this.root.position.y+modelBounds.max.y,this.root.position.z+radius));
     })() : new THREE.Box3().setFromObject(this.machinePivot);
-    if(this.knight&&!this.performance.active)bounds.union(this.knightBounds);
+    // (a knight measured as NaN would frame the camera on nothing: leave him out rather than lose the machine)
+    const knightMeasured=[...this.knightBounds.min.toArray(),...this.knightBounds.max.toArray()].every(Number.isFinite);
+    if(this.knight&&!this.performance.active&&knightMeasured)bounds.union(this.knightBounds);
     const demonstration=this.performance.bounds();
     if(demonstration)bounds.union(demonstration);
     if (bounds.isEmpty()) return null;

@@ -48,6 +48,8 @@ const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
 // a showcase cut short (another card, another screen): how long the camera takes to come away from it
 const SHOWCASE_RELEASE_SEC = 0.6;
+// the share of a turn the menu knight's cloth feels (the game's is 0.3: there he turns to fight, here to be shown)
+export const MENU_CLOTH_INERTIA = Object.freeze({ turn: 0.8 });
 // The front door's presentation (menuPresentation.mjs): how long the camera takes to recompose when the banner is drawn
 // aside or brought back (overlapping the banner's own move), and where he stands across the stage once it has gone
 const PRESENTATION_SEC = 0.42;
@@ -214,6 +216,8 @@ export class MenuScene {
       this.visualKind = 'production';
       instance.setCloth(this.cloth ?? 'crimson');
       instance.setEmblem?.(this.emblem ?? 'grimoirelee');
+      // (turned on the spot to be looked at, his cape swings out and trails the turn instead of riding round with him)
+      instance.animator.cloth?.setInertia?.(MENU_CLOTH_INERTIA);
       this.characterRoot.add(instance.root);
       instance.root.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; } });
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
