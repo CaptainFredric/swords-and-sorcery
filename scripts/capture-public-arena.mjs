@@ -301,10 +301,9 @@ try {
   // Fresh one-browser Bot Duel. Prove it stays WAITING beyond the retired auto-start window.
   await resetToFreshMenu();
   await setName('Public Duelist');
-  await click('#solo-button');
+  await click('#duel-button');
   await waitVisible('#solo-menu');
-  await click('#bot-duel');
-  await click('#solo-launch');
+  await click('#duel-start-now');
   await waitVisible('#lobby', 10000);
   await poll(async () => {
     const ui = await snapshotUi();
