@@ -52,7 +52,7 @@ const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotR
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'setInputSampler', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
   'practiceSetDummyMode', 'practiceReadyUltimate', 'practiceOneHit', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'technique', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'oneHitRelease', 'oneHitFire', 'oneHitDetonate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'highGroundsBuild', 'ping', 'send'];
-const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
+const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'seekSiege', 'cancelSeek', 'seekBotDuel', 'seekBotSiege', 'listRooms', 'createPublicRoom'];
 
 export class GameLink {
   constructor({ remote = new GameSocket(), local = new LocalHost(), timing = LINK_TIMING, timers = globalThis } = {}) {
@@ -249,7 +249,7 @@ export class GameLink {
   // Online actions wake and connect to the server on demand, executing the requested command once ready.
   async #online(method, args) {
     if (method === 'cancelSeek') {
-      if (this.pendingAction?.method === 'seekDuel') {
+      if (this.pendingAction?.method === 'seekDuel' || this.pendingAction?.method === 'seekSiege') {
         this.pendingAction = null;
       }
       if (this.status === 'online') {
@@ -286,6 +286,10 @@ export class GameLink {
           this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
           this.hosting = 'local';
           this.local.startSolo('BOT_DUEL', args[0]);
+          return;
+        }
+        if (method === 'seekSiege') {
+          this.#emit('notice', { text: 'Multiplayer matchmaking is unavailable. Play with Bots remains ready.' });
           return;
         }
         if (method === 'createSharedPracticeRoom') {

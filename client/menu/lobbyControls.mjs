@@ -22,11 +22,13 @@ export function siegeRulesText(rules) {
 const choice = (name, values, selected, label) => `<select name="${name}" class="game-input">${values.map((value) =>
   `<option value="${value}"${String(value) === String(selected) ? ' selected' : ''}>${label(value)}</option>`).join('')}</select>`;
 /** Siege Blades plays rounds on its own clock: its format and rounds stand in for a match time. */
-export function siegeRuleFields(rules = {}, shown = false) {
+export function siegeRuleFields(rules = {}, shown = false, teamSize = 1) {
   const r = { ...SIEGE_ROOM_RULES.defaults, ...(rules ?? {}) }, hide = (on) => (on ? '' : ' hidden');
+  const clashShown = shown && r.format === 'ENDLESS' && Number(teamSize) === 1;
   return `<label data-siege-field="format"${hide(shown)}>FORMAT${choice('format', SIEGE_ROOM_RULES.formats, r.format, (v) => (v === 'MATCH' ? 'MATCH' : 'ENDLESS EXHIBITION'))}</label>
     <label data-siege-field="rounds"${hide(shown && r.format !== 'ENDLESS')}>ROUNDS${choice('matchRounds', SIEGE_ROOM_RULES.matchRounds, r.matchRounds, (v) => `${v} ROUNDS`)}</label>
-    <label data-siege-field="cap"${hide(shown && r.format === 'ENDLESS')}>ROUND CAP${choice('endlessRoundCap', [10, 25, 50, 0], r.endlessRoundCap, (v) => (v ? `${v} ROUNDS` : 'NO CAP'))}</label>`;
+    <label data-siege-field="cap"${hide(shown && r.format === 'ENDLESS')}>ROUND CAP${choice('endlessRoundCap', [10, 25, 50, 0], r.endlessRoundCap, (v) => (v ? `${v} ROUNDS` : 'NO CAP'))}</label>
+    <label data-siege-field="clash"${hide(clashShown)}>CLASH STARTS${choice('clashStarts', ['on', 'off'], r.clashStarts === false ? 'off' : 'on', (v) => (v === 'on' ? 'ENABLED' : 'DISABLED'))}</label>`;
 }
 /** Shows the fields a mode's rules use on a room form (score, time, sides, bots, Siege rounds); resetTime restores its default clock. */
 export function syncRuleForm(form, mode, { resetTime = false } = {}) {
@@ -41,9 +43,11 @@ export function syncRuleForm(form, mode, { resetTime = false } = {}) {
   }
   if (team && form.elements.teamSize?.selectedOptions[0]?.disabled) form.elements.teamSize.value = siege ? '1' : '3';
   const endless = form.elements.format?.value === 'ENDLESS';
+  const clash = siege && endless && Number(form.elements.teamSize?.value ?? 1) === 1;
   show('[data-siege-field="format"]', siege);
   show('[data-siege-field="rounds"]', siege && !endless);
   show('[data-siege-field="cap"]', siege && endless);
+  show('[data-siege-field="clash"]', clash);
   if (resetTime && form.elements.minutes) form.elements.minutes.value = mode === 'HIGH_GROUNDS' ? 12 : mode === 'BREAKTHROUGH' ? 5 : 6;
 }
 /** The settings a room form asks the server for, or the reason it cannot. */
@@ -57,7 +61,15 @@ export function ruleFormSettings(form, mode) {
   if (mode === 'FFA') settings.scoreToWin = score;
   else if (mode === 'EDGE_OF_VICTORY') settings.botSkill = f.botSkill.value;
   else Object.assign(settings, { teamSize: Number(f.teamSize.value), botSkill: f.botSkill.value });
-  if (siege) Object.assign(settings, { format: f.format.value, matchRounds: Number(f.matchRounds.value), endlessRoundCap: Number(f.endlessRoundCap.value) });
+  if (siege) {
+    const endlessOne = f.format.value === 'ENDLESS' && Number(f.teamSize.value) === 1;
+    Object.assign(settings, {
+      format: f.format.value,
+      matchRounds: Number(f.matchRounds.value),
+      endlessRoundCap: Number(f.endlessRoundCap.value),
+      clashStarts: endlessOne && f.clashStarts ? f.clashStarts.value === 'on' : null,
+    });
+  }
   return { settings };
 }
 export function lobbyControls(message, localId) {
@@ -68,7 +80,7 @@ export function lobbyControls(message, localId) {
     return `<div class="lobby-readonly"><p class="small-copy">The room host sets these rules:</p>
       <dl><div><dt>MODE</dt><dd>${modeLabel(message.mode)}</dd></div>
       <div><dt>ARENA</dt><dd>${escape(WORLD_NAMES[message.worldId]??message.worldId)}</dd></div>
-      ${message.mode==='SIEGE_BLADES'?`<div><dt>ROUNDS</dt><dd>${siegeRulesText(message.siegeRules)}</dd></div>`
+      ${message.mode==='SIEGE_BLADES'?`<div><dt>ROUNDS</dt><dd>${siegeRulesText(message.siegeRules)}${message.teamSize===1&&message.siegeRules?.format==='ENDLESS'&&typeof message.siegeRules?.clashStarts==='boolean'?(message.siegeRules.clashStarts?' · CLASH ON':' · CLASH OFF'):''}</dd></div>`
         :`<div><dt>TIME</dt><dd>${Math.round((message.matchSeconds??360)/60)} MIN</dd></div>`}
       ${message.mode==='EDGE_OF_VICTORY'?'<div><dt>VICTORY</dt><dd>LAST KNIGHT STANDING</dd></div>':teams?`<div><dt>TEAMS</dt><dd>${message.teamSize??3}V${message.teamSize??3}</dd></div>
         <div><dt>BOT SKILL</dt><dd>${escape((message.botSkill??'knight').toUpperCase())}</dd></div>`
@@ -87,7 +99,7 @@ export function lobbyControls(message, localId) {
     <label>ARENA<select name="worldId" class="game-input">${arenaOptions(message.mode,message.worldId)}</select></label>
     <label data-score-field${team||message.mode==='EDGE_OF_VICTORY'?' hidden':''}>FIRST TO<input name="scoreToWin" class="game-input" type="number" inputmode="numeric" min="1" max="100" step="1" value="${Number.isFinite(message.scoreToWin)?message.scoreToWin:10}"></label>
     <label data-time-field${message.mode==='SIEGE_BLADES'?' hidden':''}>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="decimal" min="1" max="30" step="any" value="${(message.matchSeconds??(team?300:360))/60}"></label>
-    ${siegeRuleFields(message.siegeRules, message.mode==='SIEGE_BLADES')}
+    ${siegeRuleFields(message.siegeRules, message.mode==='SIEGE_BLADES', message.teamSize)}
     <label data-team-field${team?'':' hidden'}>SIDES<select name="teamSize" class="game-input"><option value="1"${message.teamSize===1?' selected':''}${message.mode==='SIEGE_BLADES'?'':' hidden disabled'}>1V1</option><option value="2"${message.teamSize===2?' selected':''}>2V2</option><option value="3"${message.teamSize===3?' selected':''}>3V3</option><option value="5"${message.teamSize===5?' selected':''} hidden disabled>5V5</option></select></label>
     <label data-bot-field${team||message.mode==='EDGE_OF_VICTORY'?'':' hidden'}>BOT DIFFICULTY<select name="botSkill" class="game-input">
     ${[['squire','SQUIRE'],['knight','KNIGHT'],['champion','CHAMPION'],['spellblade','THE SPELLBLADE']].map(([key,label])=>`<option value="${key}"${key===(message.botSkill??'knight')?' selected':''}>${label}</option>`).join('')}

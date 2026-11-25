@@ -108,3 +108,14 @@ test('Renown Trials arena is chosen and remembered: court-of-merit by default or
   // Rejects invalid arena names and falls back to court-of-merit
   assert.equal(controller.chooseRenownArena('outerworks'), 'court-of-merit');
 });
+
+test('Edge of Victory uses Breakthrough bot difficulty and FFA arena selection validates arenas', () => {
+  const { controller, calls } = harness();
+  controller.chooseBotSkill('squire');
+  controller.chooseBreakthroughSkill('champion');
+  controller.edgeOfVictory('Challenger');
+  assert.deepEqual(calls.at(-1), ['startSolo', 'EDGE_OF_VICTORY', 'Challenger', 'champion']);
+  assert.equal(controller.ffaArena(), 'castleward');
+  assert.equal(controller.chooseFfaArena('court-of-merit'), 'court-of-merit');
+  assert.equal(controller.chooseFfaArena('outerworks'), 'castleward');
+});

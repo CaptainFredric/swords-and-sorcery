@@ -104,6 +104,8 @@ export class SiegeWorkshopScene {
 
     this.cache = new Map();
     this.inFlight = new Map();
+    this.loadStates = new Map();
+    this.firstFrameRendered = new Set();
     this.mixers = new Map();
     this.flickThumbParts=[];
     this.clips = new Map();
@@ -478,7 +480,12 @@ export class SiegeWorkshopScene {
 
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
-    if (this.activeMachineId === id && this.machinePivot.children.length===1 && this.machinePivot.children[0]?.userData?.machineId===id) return;
+    const cached = this.cache.get(id);
+    const alreadyReady = cached?.userData?.isAuthored && cached.userData.machineId === id;
+    if (this.activeMachineId === id && this.machinePivot.children.length === 1 && this.machinePivot.children[0]?.userData?.machineId === id && (alreadyReady || this.inFlight.has(id) || this.loadStates.get(id) === 'error')) {
+      this.#notifyState();
+      return;
+    }
     this.stopPreview();
     this.activeMachineId = id;
     this.currentYaw = REST_YAW[id];
@@ -489,13 +496,20 @@ export class SiegeWorkshopScene {
       this.machinePivot.remove(this.machinePivot.children[0]);
     }
 
-    // Attach cached GLTF if available, or fallback
-    const cached = this.cache.get(id);
-    if (cached?.userData?.machineId===id) {
+    // Attach cached authored GLTF if ready; otherwise keep hidden fallback bounds for camera framing
+    // while static transparent preview holds the viewport until first authored frame renders.
+    if (alreadyReady) {
       this.machinePivot.add(cached);
+      this.loadStates.set(id, 'ready');
+      this.machinePivot.visible = true;
     } else {
       const fallback = this.fallbacks.get(id);
-      if (fallback?.userData?.machineId===id) this.machinePivot.add(fallback);
+      if (fallback?.userData?.machineId === id) {
+        fallback.visible = false;
+        this.machinePivot.add(fallback);
+      }
+      this.machinePivot.visible = false;
+      this.firstFrameRendered.delete(id);
       if (this.root.visible) {
         this.loadAuthored(id);
       }
@@ -503,6 +517,7 @@ export class SiegeWorkshopScene {
 
     this.machinePivot.position.y = 0;
     this.#placeKnight();
+    this.#notifyState();
   }
 
   #placeKnight() {
@@ -543,12 +558,18 @@ export class SiegeWorkshopScene {
 
   loadAuthored(id) {
     const cached=this.cache.get(id);
-    if (cached?.userData?.machineId===id) return Promise.resolve(cached);
+    if (cached?.userData?.isAuthored && cached.userData.machineId===id) {
+      this.loadStates.set(id, 'ready');
+      this.#notifyState();
+      return Promise.resolve(cached);
+    }
     if(cached)this.cache.delete(id);
     if (this.inFlight.has(id)) return this.inFlight.get(id);
 
     const assetPath = MACHINE_ASSETS[id];
     if (!assetPath) return Promise.resolve(null);
+    this.loadStates.set(id, 'loading');
+    this.#notifyState();
 
     const promise = new Promise((resolve) => {
       this.loader.load(
@@ -559,7 +580,9 @@ export class SiegeWorkshopScene {
             // authored ram must contain its mechanical fist attachment.
             if(!gltf.scene.getObjectByName('Armored_Fist')){
               this.inFlight.delete(id);
-              console.error('Siege Workshop: incorrect ram model; retaining ram fallback');
+              this.loadStates.set(id, 'error');
+              console.error('Siege Workshop: incorrect ram model; keeping static preview');
+              this.#notifyState();
               resolve(null);return;
             }
             try{
@@ -610,22 +633,26 @@ export class SiegeWorkshopScene {
 
           this.cache.set(id, model);
           this.inFlight.delete(id);
+          this.loadStates.set(id, 'ready');
 
-          // If still active machine, swap out fallback
+          // Swap into pivot ONLY if player is still inspecting this machine
           if (this.activeMachineId === id && model.userData.machineId===id) {
             while (this.machinePivot.children.length > 0) {
               this.machinePivot.remove(this.machinePivot.children[0]);
             }
             this.machinePivot.add(model);
+            this.machinePivot.visible = true;
             this.#placeKnight();
           }
+          this.#notifyState();
           resolve(model);
         },
         undefined,
         (err) => {
           this.inFlight.delete(id);
-          // Fallback remains active honestly
-          console.warn(`SiegeWorkshop: GLTF asset load error for ${id}; procedural model active`, err);
+          this.loadStates.set(id, 'error');
+          console.warn(`SiegeWorkshop: GLTF asset load error for ${id}; keeping static preview`, err);
+          this.#notifyState();
           resolve(null);
         }
       );
@@ -633,6 +660,28 @@ export class SiegeWorkshopScene {
 
     this.inFlight.set(id, promise);
     return promise;
+  }
+
+  retryLoad(id = this.activeMachineId) {
+    if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return Promise.resolve(null);
+    if (this.inFlight.has(id)) return this.inFlight.get(id);
+    this.cache.delete(id);
+    this.firstFrameRendered.delete(id);
+    this.loadStates.set(id, 'loading');
+    this.#notifyState();
+    return this.loadAuthored(id);
+  }
+
+  markFrameRendered() {
+    const id = this.activeMachineId;
+    if (!this.root.visible || !this.isDisplayingAuthored(id)) return;
+    if (this.firstFrameRendered.has(id)) return;
+    this.firstFrameRendered.add(id);
+    this.#notifyState();
+  }
+
+  #notifyState() {
+    this.onStateChange?.(this.getActiveModelStatus());
   }
 
   whenLoaded(id = this.activeMachineId) {
@@ -648,14 +697,19 @@ export class SiegeWorkshopScene {
 
   getActiveModelStatus() {
     const child = this.machinePivot.children[0];
+    const id = this.activeMachineId;
+    const isAuthored = this.isDisplayingAuthored(id);
+    const loadState = isAuthored ? 'ready' : (this.loadStates.get(id) ?? (this.inFlight.has(id) ? 'loading' : 'idle'));
     return {
-      id: this.activeMachineId,
-      isAuthored: this.isDisplayingAuthored(),
+      id,
+      isAuthored,
+      loadState,
+      firstFrameReady: isAuthored && this.firstFrameRendered.has(id),
       childName: child?.name ?? null,
       bounds: child?.userData?.bounds ?? null,
       scale: child?.scale.x ?? null,
       knight: Boolean(this.knight),
-      hasMixer: this.mixers.has(this.activeMachineId),
+      hasMixer: this.mixers.has(id),
       argonHand: Boolean(child?.userData?.argonHand),
     };
   }
@@ -876,7 +930,8 @@ export class SiegeWorkshopScene {
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
     else if(this.previewAnimation)this.#restorePreviewAnimation();
     if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
-    this.machinePivot.visible=!(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
+    const ready = this.isDisplayingAuthored(this.activeMachineId);
+    this.machinePivot.visible = ready && !(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
     this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
     this.inspectionPivot.rotation.y=this.currentYaw;
     this.machinePivot.rotation.set(pose?.pitch??0,pose?.yawOffset??0,pose?.roll??0);

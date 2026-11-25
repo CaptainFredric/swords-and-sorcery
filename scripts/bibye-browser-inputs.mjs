@@ -95,6 +95,12 @@ export async function startPractice(page, url = 'http://127.0.0.1:3228/?debug', 
   if(await skip.isVisible()) await skip.click();
   await page.locator('#player-name').fill('Siege Integration');
   await page.locator('#solo-button').click();
+  if (inspection) {
+    const tools = page.locator('#advanced-practice-tools');
+    if (await tools.count() && !(await page.locator('#inspection-mode').isVisible())) {
+      await tools.locator('summary').click();
+    }
+  }
   await page.locator(inspection?'#inspection-mode':'#practice-mode').click();
   await waitFor(page,s=>s.authored,'authored model loaded');
   if(!(await state(page)).ballista){

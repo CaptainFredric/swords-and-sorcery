@@ -76,17 +76,28 @@ const EXPLANATIONS={
  boltToTheOccasion:'Prime independent heavy aiming, then release Bolt II on a second Skill press. Bolt I may fire in between.',
  coldHowTouching:'Skill activates Bolt I proximity frost detonation until the next real Bolt II release. No homing or added damage.',
  lookAroundAndFindOut:'Sustain A Sharp Turn as a stationary bow spin. Fire to stop, settle and release only truly loaded ammunition. Press Skill to cancel; Bolt II is locked throughout rotation. The 24s cooldown begins when the action resolves.',
- beatToThePunch:'Prime the ram for a physically triggered counterstroke. The machine can become unstable.',
+ beatToThePunch:'Overload the ram engine to unlock backwards charging and deliver an automatic armored punch when an enemy enters range. Receiving heavy damage (35+ hull shock) or rising engine instability triggers the punch early; enters a 24s cooldown once resolved.',
  longArmToTheJaw:'Fire the actual fist into the world. The exposed piston keeps working. Drive to the grounded fist, press Skill to retrieve, then recover for 24s. If lost to the abyss, return to deployment and dismount for locked, 24s restoration at the same fist HP.',
  hellpingHand:'Open the armored fist into an articulated hand. While parked with its palm braced, steer sideways to pivot the ram around it and aim. Press Skill near an enemy to grab and crush over four seconds (facing Guard resists). Hold forward or reverse and press Skill for a short aimed hand-assisted hop; otherwise press again to close. Allies may voluntarily board with Interact, attack while riding and exit with Interact. Cooldown: 24 seconds after release.',
  fireAwayRightHere:'Keep firing physical bolts at up to 7/s, spending 1.5 flight charge per bolt instead of ammunition. Pause Fire to sustain level hover without spending charge; climbing still costs power. The Skill ends when charge or rotor speed fails and empties the normal magazine. 24s cooldown begins on activation.',
   narrowToOne:'Press Skill to scan. Your reticle softly marks the exposed enemy closest to where you look and stays with them until you deliberately look at another. Fire the first real bolt to hard-lock that foe; hold Fire to keep shooting while looking elsewhere, even in third person. The repeating crossbow independently follows only within its mechanical turning arc and never fires through cover or guards. Land, settle, and press Skill to pick another target. The 24s cooldown starts when the Skill ends.',
   doNotStopMyAscension:'Until your next repeater bolt, rotor Dash uses flight charge instead of prowess, at the Rise rate. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
+const SKILL_SUMMARIES={
+ longArmToTheJaw:'Launch your fist at distant foes and retrieve it. Deliver one last aimed punch upon destruction.',
+ hellpingHand:'Unfold your fist to crush foes, carry allies or vault by pushing off the ground.',
+ beatToThePunch:'Overload your engine to charge backwards and punch approaching foes automatically. Damage or instability may trigger the punch prematurely.',
+ boltToTheOccasion:'Prime an independent heavy Bolt II shot while continuing to fire Bolt I until release.',
+ coldHowTouching:'Electrify Bolt I shots with proximity frost detonation on near misses until your next real Bolt II release.',
+ lookAroundAndFindOut:'Commit to a sustained 360° spinning sweep; fire stops the bow, settles and releases only loaded bolts.',
+ fireAwayRightHere:'Spin up the rotor and fire bolts using flight charge instead of ammo; pause fire to hover cleanly.',
+ narrowToOne:'Scan and hard-lock a visible target so the repeating crossbow tracks them while you look elsewhere.',
+ doNotStopMyAscension:'Power your next rotor Dash with flight charge instead of prowess, or hold Dash + Ultimate for a Valkyrie Dive.',
+};
 export function siegeArmoryView(choice){
  const selected=normalizeSiegeLoadout(choice);
  return MACHINES.map(machine=>({...machine,skills:SIEGE_SKILL_OPTIONS[machine.id].map(id=>({
-  id,name:SIEGE_SKILL_NAMES[id],line:EXPLANATIONS[id],
+  id,name:SIEGE_SKILL_NAMES[id],summary:SKILL_SUMMARIES[id]??EXPLANATIONS[id],line:EXPLANATIONS[id],
   ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:id==='lookAroundAndFindOut'?{icon:'siegeSweep'}:{}),
    ...(machine.id==='fightFlight'?{icon:id==='fireAwayRightHere'?'fireAway':id}:{}),
   equipped:selected[machine.id]===id
