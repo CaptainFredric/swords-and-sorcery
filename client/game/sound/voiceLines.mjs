@@ -269,13 +269,14 @@ export const VOICE_TAGS = Object.freeze({
   criticalCrashApproach: { rank: 30, delay: 0.2, about: 'critically damaged Fight-and-Flight apparatus approaching crash' },
   whirlActivated: { rank: 25, delay: 0.05, about: 'initial activation of Whirl Like a Wind' },
   notDeadYetAssault: { rank: 28, delay: 0.15, about: 'persistent or futile assault while staggered, frozen, In Denial, or nearly beaten' },
+  whiteFlagDefeat: { rank: 34, delay: 0.15, about: 'dropping his sword yet staying on his feet swinging a white flag on the killfeed' },
   dieOverThereSetup: { rank: 28, delay: 0.2, opens: 'dieOverThere', about: 'inquiry of where a pursued or displaced foe would prefer to die' },
   targetFrozen: { rank: 25, delay: 0.2, about: 'successfully applying Full Flash Freeze immobilization to an opponent' },
   stopPretendingWin: { rank: 73, delay: 0.5, about: 'turning the tide after a prolonged disadvantage or duel' },
 });
 
 // Facts of a moment that never raise a line by themselves, only make one likelier (a line's `boost`)
-export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing', 'planFailed', 'victimSpoke', 'constitutionBoasted', 'selfDisplaced', 'flatBack', 'inDenial', 'minorUnhurt', 'midLaugh']);
+export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing', 'planFailed', 'victimSpoke', 'constitutionBoasted', 'selfDisplaced', 'flatBack', 'inDenial', 'minorUnhurt', 'midLaugh', 'whiteFlag']);
 
 export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- the breath of things: exertions (heard often, each on its own short cooldown; they never cut anything)
@@ -366,7 +367,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'defeat',
     text: 'What!? But I am a knight!',
     // (planFailed: felled with a plan still announced and not yet come off: "Wait, wait!!...")
-    trigger: { death: 1, matchLost: DEFEAT_ON_LOSS }, boost: { decisive: DEFEAT_ON_LOSS, planFailed: PLAN_FAILED },
+    trigger: { death: 1, matchLost: DEFEAT_ON_LOSS }, boost: { decisive: DEFEAT_ON_LOSS, planFailed: PLAN_FAILED, whiteFlag: 2.5 },
     priority: 'high', rarity: 0.25, cooldown: 150,
     section: 'Defeat & Death',
     credits: { title: 'But I Am a Knight', description: 'Occasionally upon being felled. More often when that proves decisive.', note: 'His title has failed as protective equipment.' },
@@ -1169,7 +1170,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'notTired',
     text: 'What!? But I’m not tired!',
-    trigger: 'death', order: -3,
+    trigger: 'death', order: -3, boost: { whiteFlag: 3.0 },
     priority: 'high', rarity: 0.06, cooldown: 300,
     section: 'Defeat & Death',
     credits: { title: 'Not Tired', description: 'Rarely upon being felled.', note: 'Rest remains unauthorized.' },
@@ -1665,10 +1666,9 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'undeadRecreation',
     text: 'I am now going to play with the undead.',
     trigger: 'death',
-    coming: 'Undead',
     priority: 'normal', rarity: 0.03, cooldown: 360,
     section: 'Defeat & Death',
-    credits: { title: 'Afterlife Recreation', description: 'Very rarely as a death fantasy upon being felled.', note: 'A new leisure activity has been scheduled.' },
+    credits: { title: 'Afterlife Recreation', description: 'Very rarely upon being felled.', note: 'A new leisure activity has been scheduled.' },
     file: 'IAmNowGoingToPlayWithTheUndead(1).mp3',
   },
   {
@@ -2643,8 +2643,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'notDeadYet',
     text: "Why are you still attacking me? I'm not dead yet!",
-    trigger: 'notDeadYetAssault',
-    boost: { inDenial: 2.8 },
+    trigger: { notDeadYetAssault: 1, whiteFlagDefeat: 1 },
+    boost: { inDenial: 2.8, whiteFlag: 3.0 },
     priority: 'normal', rarity: 0.2, cooldown: 150,
     section: 'Remarks & Oddities',
     credits: {

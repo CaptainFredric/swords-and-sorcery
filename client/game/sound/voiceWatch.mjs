@@ -124,6 +124,7 @@ export class VoiceWatch {
     this.dragged = new Set();     // knights a dragging match has been raised for, this match
     this.watchedDuels = new Set(); // knights two others' fight has been raised for, this match
     this.defeatedBodies = new Map(); // victimId -> { position: {x, z}, at, exercised: false }
+    this.aodClaimedZones = new Set(); // flightBurnZone ids already remarked on when enemies entered them
   }
 
   #knight(id, now) {
@@ -139,7 +140,7 @@ export class VoiceWatch {
 
   // what is watched once a life (or begun again with it)
   #freshLife(now) {
-    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false, crouches: [], crouched: false, hazardWarnAt: -Infinity, frozenSaid: false };
+    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false, crouches: [], crouched: false, hazardWarnAt: -Infinity, frozenSaid: false, aodPursuitAt: -Infinity };
   }
 
   /**
@@ -152,6 +153,7 @@ export class VoiceWatch {
     const living = knights.filter((k) => k && k.alive !== false && k.position);
     out.push(...this.#dismissals(now, knights, world));
     out.push(...this.#allyHazards(now, living, { flightBurnZones, oneHitFields, oneHitBurnZones }));
+    out.push(...this.#aodConfinement(now, living, flightBurnZones));
     if (!practice) out.push(...this.#othersDueling(now, living));
     const lowest = lowestGround(world);
     for (const knight of knights) {
@@ -417,6 +419,55 @@ export class VoiceWatch {
       if (!warner) continue;
       allyState.hazardWarnAt = now;
       out.push({ speaker: warner.id, tags: ['allyHazardApproach'] });
+    }
+    return out;
+  }
+
+  // enemies trapped in or being driven toward hostile Area of Denial rings (markMyTerritory / goodBurialSpot)
+  #aodConfinement(now, living, flightBurnZones = []) {
+    if (!flightBurnZones?.length) return [];
+    const byId = new Map(living.map((k) => [k.id, k]));
+    const out = [];
+    for (const z of flightBurnZones) {
+      const point = z?.point ?? z?.position;
+      const expiry = z?.expiresAt ?? z?.endsAt ?? Infinity;
+      if (!point || expiry <= now || (Number.isFinite(z?.startedAt) && now < z.startedAt)) continue;
+      const radius = z.radius ?? 4.5;
+      const ownerId = z.sourceId ?? z.ownerId ?? null;
+      const zoneTeam = z.team ?? null;
+      const owner = ownerId ? byId.get(ownerId) : null;
+      const zoneSide = owner ?? (zoneTeam ? { id: ownerId, team: zoneTeam } : null);
+      const isHostileTo = (foe) => !(ownerId === foe.id || (zoneTeam && foe.team && zoneTeam === foe.team) || (zoneSide && sameSide(zoneSide, foe)));
+
+      if (owner && z.id && !this.aodClaimedZones.has(z.id) && owner.actorKind !== 'dummy') {
+        const trapped = living.some((foe) => foe.id !== owner.id && isHostileTo(foe)
+          && Math.hypot(foe.position.x - point.x, foe.position.z - point.z) <= radius + 1.5);
+        if (trapped && Math.hypot(owner.position.x - point.x, owner.position.z - point.z) <= 22) {
+          this.aodClaimedZones.add(z.id);
+          out.push({ speaker: owner.id, tags: ['persistentHazardCreated'] });
+        }
+      }
+
+      for (const speaker of living) {
+        if (speaker.actorKind === 'dummy' || isHostileTo(speaker)) continue;
+        const st = this.#knight(speaker.id, now);
+        if (now - (st.aodPursuitAt ?? -Infinity) < 25) continue;
+        const prey = living.find((foe) => {
+          if (foe.id === speaker.id || !isHostileTo(foe)) return false;
+          const inRim = Math.hypot(foe.position.x - point.x, foe.position.z - point.z) <= radius + 3.0;
+          if (!inRim) return false;
+          const toX = foe.position.x - speaker.position.x;
+          const toZ = foe.position.z - speaker.position.z;
+          const dist = Math.hypot(toX, toZ);
+          if (dist < 1.5 || dist > 14) return false;
+          const vel = flat(speaker.velocity);
+          return (vel.x * toX + vel.z * toZ) / dist >= 2.0;
+        });
+        if (prey) {
+          st.aodPursuitAt = now;
+          out.push({ speaker: speaker.id, tags: ['burialPursuit'] });
+        }
+      }
     }
     return out;
   }

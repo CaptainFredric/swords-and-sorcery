@@ -506,3 +506,33 @@ test('vortexCatch credits attacker and fireReaction handles Area of Denial burn 
   const burn = moments.fireHazardDamage({ attackerId: 'foe', victimId: 'me', source: 'fight-flight-burning-ground', amount: 4, health: 60, at: 9 }).flat();
   assert.ok(burn.some((s) => s.speaker === 'me' && s.line === 'whyIsThisFire'), 'ongoing AoD fire tick triggers fireReaction');
 });
+
+test('whiteFlagDefeat comedy, AoD confinement/baiting, and undeadRecreation normal death activation', () => {
+  // 1. whiteFlagDefeat boosts stubborn defiance lines while suppressing lying-down poses
+  const moments = new VoiceMoments({ rand: () => 0.05 });
+  const wf = moments.death(
+    { victimId: 'me', killerId: 'foe', source: 'sword', at: 15 },
+    { knight: (id) => ({ id, position: { x: 0, y: 0, z: 0 } }), extra: { whiteFlag: true, pose: { back: false, skyward: false, inconvenient: false } } },
+  );
+  assert.equal(wf.fallen[0].line, 'notDeadYet', 'white-flag defeat leads with notDeadYet');
+  assert.ok(wf.fallen[0].chanceScale >= 2.5, 'whiteFlag boost applied to notDeadYet');
+  assert.ok(!wf.fallen.some((s) => ['laidBack', 'theSky', 'groundAngel'].includes(s.line)), 'lying-down lines excluded on white-flag defeat');
+  assert.ok(wf.fallen.find((s) => s.line === 'notTired')?.chanceScale >= 2.5, 'whiteFlag boost applied to notTired');
+
+  // 2. Area of Denial enemy entrapment & baiting pursuit
+  const watch = new VoiceWatch();
+  const aodOut = watch.step(20, [
+    { id: 'caster', team: 'red', alive: true, position: { x: 0, y: 0, z: 0 }, velocity: { x: 4, y: 0, z: 0 } },
+    { id: 'enemy', team: 'blue', alive: true, position: { x: 5, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
+  ], {
+    flightBurnZones: [{ id: 'aod1', sourceId: 'caster', team: 'red', point: { x: 5.5, y: 0, z: 0 }, radius: 4, startedAt: 18, expiresAt: 26 }],
+  });
+  assert.ok(aodOut.some((e) => e.speaker === 'caster' && e.tags.includes('persistentHazardCreated')), 'enemy inside AoD triggers territory claim');
+  assert.ok(aodOut.some((e) => e.speaker === 'caster' && e.tags.includes('burialPursuit')), 'closing on enemy near AoD triggers burialPursuit');
+
+  // 3. undeadRecreation is now un-gated as an active normal death line
+  const undead = voiceLine('undeadRecreation');
+  assert.equal(undead.coming, null);
+  assert.equal(undead.priority, 'normal');
+  assert.ok(linesFor('me', ['death']).some((s) => s.line === 'undeadRecreation'), 'undeadRecreation active in death lines');
+});

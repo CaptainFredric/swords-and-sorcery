@@ -201,12 +201,14 @@ export function deathMoment({ victimId, killerId, source, overkill = false, mino
       ...(pose?.back && !pose?.whiteFlag ? { fellBack: 1 } : {}), ...(pose?.skyward && !pose?.whiteFlag ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
       ...(doomCut ? { doomInterrupted: 1 } : {}),
       ...(nap ? { napFall: 1 } : {}),
+      ...(pose?.whiteFlag ? { whiteFlagDefeat: 1 } : {}),
       ...((source === 'lightning' || moment.lightningArrival) && moment.lightningArrival !== 'face' ? { lightningSlamArrival: 1 } : {}),
       ...(pose?.hill ? { hillRetreat: 1 } : {}),
     },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [
       overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed',
+      pose?.whiteFlag && 'whiteFlag',
       ((pose?.flatBack || (pose?.back && !pose?.whiteFlag && !pose?.hill) || moment.lightningArrival === 'back') && 'flatBack'),
     ].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
