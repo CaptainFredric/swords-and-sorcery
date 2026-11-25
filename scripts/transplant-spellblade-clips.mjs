@@ -20,6 +20,10 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
+//   node scripts/transplant-spellblade-clips.mjs --turn-pauldrons 0.5 [--apply]
+//     (each pauldron turned that share of the way about its shoulder joint onto the arm's line)
+//   node scripts/transplant-spellblade-clips.mjs --add-json-meshes tools/blender/characters/spellblade/upper-arm/rerebrace.json [--apply]
+//     (meshes made in Blender, each rigid on one bone, in the gauntlet's material)
 //   node scripts/transplant-spellblade-clips.mjs --fill-core [--apply]
 //     (the chainmail core's torso widened to fill the open-sided cuirass, and the core made dark matte mail)
 //   node scripts/transplant-spellblade-clips.mjs --drop-bells [--apply]
@@ -703,6 +707,106 @@ function fillCore(baseFile, spec = CORE_FILL) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+// The upper arm (tools/blender/characters/spellblade/upper-arm): the supplied pauldrons were modelled for an arm hanging
+// straight down (each one's middle 15 cm below its shoulder joint, directly under it), while the rig's arms slant 30-40
+// degrees out of them; the upper arm itself had nothing but the hollow bell #557 took out, so a raised sword arm's
+// forearm hung in the air from the Armory's camera. Designed in Blender against renders of the game's own poses
+// (lab.py, with the game's pauldron rule): each pauldron turned half way about its shoulder joint toward the arm's line
+// (rigid on its own bone, so it moves exactly as before, only sitting truer), and a plated rerebrace tube along each
+// upper arm, rigid on it, from under the pauldron into the couter (rerebrace.json, written by export.py). The game's
+// pauldron follow is raised to match (pauldronFollow.mjs).
+function turnPauldrons(baseFile, share = 0.5) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
+  const bin = Buffer.from(base.bin);
+  const ibm = (() => { const a = doc.accessors[skin.inverseBindMatrices], v = doc.bufferViews[a.bufferView]; return (v.byteOffset ?? 0) + (a.byteOffset ?? 0); })();
+  const bound = (name) => { const k = skin.joints.findIndex((j) => doc.nodes[j].name === name); if (k < 0) throw Error('No joint ' + name);
+    const m = Array.from({ length: 16 }, (_, c) => bin.readFloatLE(ibm + k * 64 + c * 4));
+    return [0, 1, 2].map((r) => -(m[r * 4] * m[12] + m[r * 4 + 1] * m[13] + m[r * 4 + 2] * m[14])); };
+  const vec3 = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? 12 }; };
+  const unit = (v) => { const l = Math.hypot(...v); return v.map((x) => x / l); };
+  const report = [];
+  for (const side of ['L', 'R']) {
+    const mesh = doc.meshes.find((m) => m.name === `Pauldron.${side}`);
+    if (!mesh) throw Error('No mesh Pauldron.' + side);
+    const joint = bound(`upper_arm.${side}`), elbow = bound(`forearm.${side}`);
+    let sum = [0, 0, 0], n = 0;
+    for (const prim of mesh.primitives) { const P = vec3(prim.attributes.POSITION);
+      for (let i = 0; i < P.a.count; i += 1) { for (let c = 0; c < 3; c += 1) sum[c] += bin.readFloatLE(P.o + i * P.stride + c * 4); n += 1; } }
+    const from = unit(sum.map((x, c) => x / n - joint[c])), to = unit(elbow.map((x, c) => x - joint[c]));
+    // the shortest turn from the pauldron's middle onto the arm's line, `share` of the way, about the shoulder joint
+    const axis = unit([from[1] * to[2] - from[2] * to[1], from[2] * to[0] - from[0] * to[2], from[0] * to[1] - from[1] * to[0]]);
+    const angle = Math.acos(Math.max(-1, Math.min(1, from.reduce((t, x, c) => t + x * to[c], 0)))) * share;
+    const [x, y, z] = axis, cs = Math.cos(angle), sn = Math.sin(angle), t = 1 - cs;
+    const R = [[t * x * x + cs, t * x * y - sn * z, t * x * z + sn * y], [t * x * y + sn * z, t * y * y + cs, t * y * z - sn * x], [t * x * z - sn * y, t * y * z + sn * x, t * z * z + cs]];
+    const turn = (v) => [0, 1, 2].map((r) => R[r][0] * v[0] + R[r][1] * v[1] + R[r][2] * v[2]);
+    for (const prim of mesh.primitives) {
+      for (const [key, about] of [['POSITION', joint], ['NORMAL', null]]) {
+        if (prim.attributes[key] === undefined) continue;
+        const A = vec3(prim.attributes[key]);
+        const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+        for (let i = 0; i < A.a.count; i += 1) {
+          const v = [0, 1, 2].map((c) => bin.readFloatLE(A.o + i * A.stride + c * 4));
+          const w = about ? turn(v.map((q, c) => q - about[c])).map((q, c) => q + about[c]) : turn(v);
+          w.forEach((q, c) => { bin.writeFloatLE(q, A.o + i * A.stride + c * 4); lo[c] = Math.min(lo[c], q); hi[c] = Math.max(hi[c], q); });
+        }
+        if (key === 'POSITION') { A.a.min = lo; A.a.max = hi; }
+      }
+    }
+    report.push({ mesh: `Pauldron.${side}`, turnedDeg: +((angle * 180) / Math.PI).toFixed(1) });
+  }
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
+// Meshes made elsewhere (in Blender: rerebrace.json), each rigid on one bone, drawn with the gauntlet's material.
+function addJsonMeshes(baseFile, file, material = 'SpellbladeLeftGauntlet1') {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
+  const parts = Object.values(JSON.parse(readFileSync(file, 'utf8')));
+  const mat = doc.materials.findIndex((m) => m.name === material);
+  if (mat < 0) throw Error('No material ' + material);
+  const rig = doc.nodes.findIndex((n) => n.name === 'SpellbladeRig');
+  let bin = Buffer.from(base.bin.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => {
+    bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, target });
+    bin = Buffer.concat([bin, data]);
+    return doc.bufferViews.length - 1;
+  };
+  const accessor = (arr, componentType, type, count, extra = {}) =>
+    doc.accessors.push({ bufferView: append(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength), extra.target), componentType, count, type, ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
+  const report = [];
+  for (const part of parts) {
+    if (doc.meshes.some((m) => m.name === part.name)) throw Error('The model already has ' + part.name);
+    const k = skin.joints.findIndex((j) => doc.nodes[j].name === part.bone);
+    if (k < 0) throw Error('No joint ' + part.bone);
+    const count = part.position.length / 3;
+    const min = [0, 1, 2].map((c) => Math.min(...part.position.filter((_, i) => i % 3 === c)));
+    const max = [0, 1, 2].map((c) => Math.max(...part.position.filter((_, i) => i % 3 === c)));
+    const joints = new Uint8Array(count * 4), weights = new Float32Array(count * 4);
+    for (let i = 0; i < count; i += 1) { joints[i * 4] = k; weights[i * 4] = 1; }
+    const primitive = {
+      attributes: {
+        POSITION: accessor(new Float32Array(part.position), 5126, 'VEC3', count, { min, max, target: 34962 }),
+        NORMAL: accessor(new Float32Array(part.normal), 5126, 'VEC3', count, { target: 34962 }),
+        TEXCOORD_0: accessor(new Float32Array(part.uv), 5126, 'VEC2', count, { target: 34962 }),
+        JOINTS_0: accessor(joints, 5121, 'VEC4', count, { target: 34962 }),
+        WEIGHTS_0: accessor(weights, 5126, 'VEC4', count, { target: 34962 }),
+      },
+      indices: accessor(new Uint16Array(part.index), 5123, 'SCALAR', part.index.length, { target: 34963 }),
+      material: mat,
+    };
+    doc.meshes.push({ name: part.name, primitives: [primitive] });
+    doc.nodes.push({ name: part.name, mesh: doc.meshes.length - 1, skin: 0 });
+    doc.nodes[rig].children.push(doc.nodes.length - 1);
+    report.push({ mesh: part.name, bone: part.bone, vertices: count, triangles: part.index.length / 3 });
+  }
+  bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -836,6 +940,12 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--add-couters')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addCouters(join(dir, file));
+} else if (arg('--turn-pauldrons')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = turnPauldrons(join(dir, file), Number(arg('--turn-pauldrons')));
+} else if (arg('--add-json-meshes')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = addJsonMeshes(join(dir, file), resolve(arg('--add-json-meshes')));
 } else if (process.argv.includes('--fill-core')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = fillCore(join(dir, file));
