@@ -33,12 +33,16 @@ test('Relocated control IDs are unique and Armory tabs cannot break words',()=>{
  assert.match(renown,/overflow-y:auto/);
 });
 
-test('Dedicated Siege Blades hub uses new action portraits and Modes of Mettle groups Individual vs Team modes',()=>{
+test('Dedicated Siege Blades hub uses cohesive panoramic artwork and Modes of Mettle groups Individual vs Team modes',()=>{
  const siege=section('siege-blades-menu');
- for(const portrait of ['so-fist-ication.svg','bi-bye-llista.svg','fight-and-flight.svg'])
-  assert.ok(siege.includes(portrait),portrait);
- for(const id of ['siege-play-bots','siege-browse-matches','siege-create-private','siege-open-workshop','siege-hub-size','siege-hub-format'])
+ assert.ok(siege.includes('siege-blades-panoramic.webp'));
+ assert.ok(!siege.includes('data-workshop-machine'),'panoramic artwork must not act as a stealth Workshop button');
+ for(const id of ['siege-play-bots','siege-browse-matches','siege-create-private','siege-open-workshop','siege-hub-size','siege-hub-format','siege-orders-summary'])
   assert.ok(siege.includes('id="'+id+'"'),id);
+ assert.ok(section('rooms-menu').includes('data-siege-field="clash"'));
+ assert.ok(section('private-menu').includes('data-private-clash'));
+ for(const screenId of ['solo-menu','siege-blades-menu','breakthrough-menu','rooms-menu','private-menu'])
+  assert.ok(section(screenId).includes('data-identity-bar'),`${screenId} must use compact identity bar`);
  const mettle=section('breakthrough-menu');
  const indiv=mettle.indexOf('>INDIVIDUAL PURSUITS<'),team=mettle.indexOf('>TEAM BATTLES<');
  assert.ok(indiv>0&&team>indiv);

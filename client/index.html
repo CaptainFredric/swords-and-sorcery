@@ -424,11 +424,19 @@
 
     <section id="solo-menu" class="side-screen hidden" data-panel="list" data-purpose="training">
       <div class="side-screen-inner banner-panel"><div class="banner-scroll">
-        <button class="back-button" id="solo-back">← BACK</button>
+        <div class="banner-topbar">
+          <button class="back-button" id="solo-back">← BACK</button>
+          <div class="identity-pill-row" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="solo-name">SPELLBLADE NAME</label>
+              <input id="solo-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p id="solo-eyebrow" class="eyebrow">TRAINING</p>
         <h2 id="solo-heading">PRACTICE &amp; TUTORIAL</h2>
-        <label class="field-label" for="solo-name">SPELLBLADE NAME</label>
-        <input id="solo-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p id="solo-intro" class="panel-copy">Train at your own pace, alone or with friends.</p>
 
@@ -468,12 +476,20 @@
         </button>
       </div></div>
       <div class="banner-panel companion-banner solo-companion"><div class="banner-scroll">
-        <button id="solo-list-return" class="back-button companion-return" type="button">← ACTIVITIES</button>
+        <div class="banner-topbar companion-topbar">
+          <button id="solo-list-return" class="back-button companion-return" type="button">← ACTIVITIES</button>
+          <div class="identity-pill-row companion-identity" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="solo-right-name">SPELLBLADE NAME</label>
+              <input id="solo-right-name" data-name-copy class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">YOUR CHOSEN PURSUIT</p>
         <h2 id="solo-selected-title">BOT DUEL</h2>
         <p id="solo-selected-note" class="panel-copy">First to ten against a selected rival.</p>
-        <label class="field-label" for="solo-right-name">SPELLBLADE NAME</label>
-        <input id="solo-right-name" data-name-copy class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <div id="solo-arena-wrap">        <div id="solo-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Arena">
           <span>ARENA</span>
         </div>
@@ -499,69 +515,76 @@
 
     <section id="siege-blades-menu" class="side-screen paired-banners hidden" data-panel="list">
       <div class="side-screen-inner banner-panel siege-hub-inner"><div class="banner-scroll">
-        <button class="back-button" id="siege-back" type="button">← MAIN MENU</button>
+        <div class="banner-topbar">
+          <button class="back-button" id="siege-back" type="button">← MAIN MENU</button>
+          <div class="identity-pill-row" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="siege-name">SPELLBLADE NAME</label>
+              <input id="siege-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">MECHANIZED WARFARE</p>
         <h2>SIEGE BLADES</h2>
-        <div class="siege-hub-machines" role="group" aria-label="Siege machines — click to inspect in Siege Workshop">
-          <button type="button" class="siege-hub-machine" data-workshop-machine="soFist" aria-label="Inspect SO-FIST-ICATION in Siege Workshop">
-            <img src="client/assets/props/siege-portraits/so-fist-ication.svg" alt="SO-FIST-ICATION Armored Ram" width="340" height="200" decoding="async" />
-            <strong>SO-FIST-ICATION</strong>
-            <small>Armored Ram</small>
-          </button>
-          <button type="button" class="siege-hub-machine" data-workshop-machine="biBye" aria-label="Inspect BI-BYE-LLISTA in Siege Workshop">
-            <img src="client/assets/props/siege-portraits/bi-bye-llista.svg" alt="BI-BYE-LLISTA Twin-Bolt Ballista" width="340" height="200" decoding="async" />
-            <strong>BI-BYE-LLISTA</strong>
-            <small>Twin Ballista</small>
-          </button>
-          <button type="button" class="siege-hub-machine" data-workshop-machine="fightFlight" aria-label="Inspect FIGHT-AND-FLIGHT in Siege Workshop">
-            <img src="client/assets/props/siege-portraits/fight-and-flight.svg" alt="FIGHT-AND-FLIGHT Flying Repeater" width="340" height="200" decoding="async" />
-            <strong>FIGHT-AND-FLIGHT</strong>
-            <small>Flying Repeater</small>
-          </button>
-        </div>
-        <p class="panel-copy">Choose your contraption before each round. Outmaneuver, overpower and dismantle the opposing machines.</p>
-        <p class="scenario-subtitle" id="siege-orders-summary">THE HIGH GROUNDS · 1V1 · ENDLESS</p>
-        <label class="field-label" for="siege-name">SPELLBLADE NAME</label>
-        <input id="siege-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="panel-copy">Choose your machine each round. Outmaneuver, overpower and dismantle the opposition.</p>
+        <figure class="siege-panoramic-art">
+          <img src="client/assets/props/siege-portraits/siege-blades-panoramic.webp" alt="SO-FIST-ICATION, Bi-Bye-llista and Fight-and-Flight in battle on Castleward High Grounds" width="960" height="360" decoding="async" />
+          <figcaption><span>SO-FIST-ICATION</span><span>BI-BYE-LLISTA</span><span>FIGHT-AND-FLIGHT</span></figcaption>
+        </figure>
+        <p class="scenario-subtitle" id="siege-orders-summary">1V1 · THE HIGH GROUNDS · ENDLESS (25) · CLASH ON · KNIGHT</p>
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <button id="siege-play-bots" class="mode-choice primary-command" type="button">
-          <span>PLAY WITH BOTS</span><small>Begin a siege battle immediately</small>
+          <span>PLAY WITH BOTS</span><small>Enter battle immediately using your Battle Orders</small>
         </button>
         <button id="siege-options-btn" class="mode-choice mettle-options" type="button">
-          <span>BATTLE ORDERS</span><small>Battlefield, teams, difficulty and format</small>
+          <span>BATTLE ORDERS</span><small>Battlefield, team size, format and difficulty</small>
         </button>
-        <button id="siege-browse-matches" class="mode-choice" type="button">
-          <span>BROWSE SIEGE MATCHES</span><small>Find other machine operators</small>
-        </button>
-        <button id="siege-create-private" class="mode-choice" type="button">
-          <span>CREATE PRIVATE ROOM</span><small>Invite your fellows into battle</small>
-        </button>
+        <div class="siege-secondary-links">
+          <button id="siege-browse-matches" class="mode-choice siege-sub-command" type="button">
+            <span>BROWSE SIEGE MATCHES</span><small>Public machine rooms</small>
+          </button>
+          <button id="siege-create-private" class="mode-choice siege-sub-command" type="button">
+            <span>CREATE PRIVATE ROOM</span><small>Invite fellows by code</small>
+          </button>
+        </div>
         <button id="siege-open-workshop" class="mode-choice siege-workshop-shortcut" type="button">
-          <span>SIEGE WORKSHOP</span><small>Inspect machines and equip their Skills</small>
+          <span>SIEGE WORKSHOP</span><small>Inspect contraptions and equip their combat Skills</small>
         </button>
       </div></div>
       <div class="banner-panel companion-banner mettle-companion"><div class="banner-scroll">
-        <button id="siege-list-return" class="back-button companion-return" type="button">← SIEGE BLADES</button>
+        <div class="banner-topbar companion-topbar">
+          <button id="siege-list-return" class="back-button companion-return" type="button">← SIEGE BLADES</button>
+          <div class="identity-pill-row companion-identity" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="siege-right-name">SPELLBLADE NAME</label>
+              <input id="siege-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">PREPARE FOR SIEGE</p>
         <h2>BATTLE ORDERS</h2>
-        <label class="field-label" for="siege-right-name">SPELLBLADE NAME</label>
-        <input id="siege-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
-        <div id="siege-hub-size" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Battle Size">
-          <span>BATTLE SIZE</span>
-          <button type="button" class="vote-chip" role="radio" data-size="1">1V1</button>
-          <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
-          <button type="button" class="vote-chip" role="radio" data-size="3">3V3</button>
+        <div class="siege-orders-pair">
+          <div id="siege-hub-size" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Battle Size">
+            <span>BATTLE SIZE</span>
+            <button type="button" class="vote-chip" role="radio" data-size="1">1V1</button>
+            <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
+            <button type="button" class="vote-chip" role="radio" data-size="3">3V3</button>
+          </div>
+          <div id="siege-hub-format" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Format">
+            <span>FORMAT</span>
+            <button type="button" class="vote-chip" role="radio" data-siege-format="MATCH">MATCH</button>
+            <button type="button" class="vote-chip mine" role="radio" data-siege-format="ENDLESS">ENDLESS</button>
+          </div>
         </div>
         <div id="siege-hub-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Battlefield">
           <span>BATTLEFIELD</span>
           <button type="button" class="vote-chip mine" role="radio" data-arena="high-grounds">THE HIGH GROUNDS</button>
           <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
           <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
-        </div>
-        <div id="siege-hub-format" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Format">
-          <span>FORMAT</span>
-          <button type="button" class="vote-chip" role="radio" data-siege-format="MATCH">MATCH <small>(FIXED ROUNDS)</small></button>
-          <button type="button" class="vote-chip mine" role="radio" data-siege-format="ENDLESS">ENDLESS EXHIBITION</button>
         </div>
         <div id="siege-hub-rounds" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Match Rounds" hidden>
           <span>MATCH ROUNDS</span>
@@ -578,7 +601,7 @@
         </div>
         <div id="siege-hub-clash-wrap" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Clash Starts">
           <span>CLASH STARTS</span>
-          <button type="button" class="vote-chip mine" role="radio" data-clash="on">ENABLED <small>(12% IN 1V1)</small></button>
+          <button type="button" class="vote-chip mine" role="radio" data-clash="on">ENABLED <small>(12% 1V1)</small></button>
           <button type="button" class="vote-chip" role="radio" data-clash="off">DISABLED</button>
         </div>
         <div id="siege-hub-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Bot Difficulty">
@@ -589,13 +612,23 @@
           <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
         </div>
         <p class="panel-copy mettle-rival-note" id="siege-hub-rival-note" aria-live="polite"></p>
-        <p class="panel-copy mettle-order-note">Battle orders apply to bot battles and carry into Open &amp; Private Siege rooms.</p>
+        <p class="panel-copy mettle-order-note">Battle orders apply to bot battles and carry into Open &amp; Private Siege creation (Clash Starts applies to 1v1 Endless; open rooms follow their host).</p>
       </div></div>
     </section>
 
     <section id="breakthrough-menu" class="side-screen paired-banners" data-panel="list">
       <div class="side-screen-inner banner-panel breakthrough-inner"><div class="banner-scroll">
-        <button class="back-button" id="breakthrough-back">← BACK</button>
+        <div class="banner-topbar">
+          <button class="back-button" id="breakthrough-back">← BACK</button>
+          <div class="identity-pill-row" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="breakthrough-name">SPELLBLADE NAME</label>
+              <input id="breakthrough-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">SOLO &amp; TEAM BATTLES</p>
         <h2>MODES OF METTLE</h2>
         <div id="mettle-modes" class="mettle-mode-catalog" role="group" aria-label="Battle mode">
@@ -618,8 +651,6 @@
           <button type="button" id="mettle-to-siege" class="mettle-siege-crossref"><span>MECHANIZED WARFARE · <strong>SIEGE BLADES</strong></span><i aria-hidden="true">→</i></button>
         </div>
         <p class="scenario-subtitle" id="breakthrough-scenario-subtitle">BASTION BREACH</p>
-        <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
-        <input id="breakthrough-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy" id="breakthrough-panel-copy">Attackers capture successive objectives; Defenders fight to hold the stronghold.</p>
         <div id="mettle-renown-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Rampage battlefield" hidden>
@@ -643,11 +674,19 @@
         </button>
       </div></div>
       <div class="banner-panel companion-banner mettle-companion"><div class="banner-scroll">
-        <button id="mettle-list-return" class="back-button companion-return" type="button">← MODES OF METTLE</button>
+        <div class="banner-topbar companion-topbar">
+          <button id="mettle-list-return" class="back-button companion-return" type="button">← MODES OF METTLE</button>
+          <div class="identity-pill-row companion-identity" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="breakthrough-right-name">SPELLBLADE NAME</label>
+              <input id="breakthrough-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">PREPARE FOR BATTLE</p>
         <h2>BATTLE ORDERS</h2>
-        <label class="field-label" for="breakthrough-right-name">SPELLBLADE NAME</label>
-        <input id="breakthrough-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
           <span>BATTLE SIZE</span>
           <button type="button" class="vote-chip" role="radio" data-size="1">1V1</button>
@@ -717,11 +756,19 @@
 
     <section id="rooms-menu" class="side-screen hidden" data-panel="list">
       <div class="side-screen-inner banner-panel rooms-inner"><div class="banner-scroll">
-        <button class="back-button" id="rooms-back">← BACK</button>
+        <div class="banner-topbar">
+          <button class="back-button" id="rooms-back">← BACK</button>
+          <div class="identity-pill-row" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="rooms-name">SPELLBLADE NAME</label>
+              <input id="rooms-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">OPEN ROOMS</p>
         <h2>THE MELEE</h2>
-        <label class="field-label" for="rooms-name">SPELLBLADE NAME</label>
-        <input id="rooms-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <div id="room-filters" class="mode-filters" role="group" aria-label="Filter rooms by game mode">
           <button type="button" data-mode="ALL" class="selected">ALL</button>
@@ -734,11 +781,19 @@
         <div id="room-list" class="room-list" aria-live="polite"><p class="room-empty">Looking for open rooms…</p></div>
       </div></div>
       <div class="banner-panel companion-banner rooms-companion"><div class="banner-scroll">
-        <button id="rooms-list-return" class="back-button companion-return" type="button">← ROOM LIST</button>
+        <div class="banner-topbar companion-topbar">
+          <button id="rooms-list-return" class="back-button companion-return" type="button">← ROOM LIST</button>
+          <div class="identity-pill-row companion-identity" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="rooms-right-name">SPELLBLADE NAME</label>
+              <input id="rooms-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">OPEN ROOMS</p>
         <h2 id="room-right-title">SELECTED ROOM</h2>
-        <label class="field-label" for="rooms-right-name">SPELLBLADE NAME</label>
-        <input id="rooms-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <div id="room-selected-info" class="room-selected-info">Choose a room from the list to see its rules.</div>
         <button id="room-join" class="mode-choice primary-command" type="button" disabled><span>JOIN SELECTED ROOM</span></button>
@@ -756,6 +811,7 @@
           <label data-siege-field="format" hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
           <label data-siege-field="rounds" hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
           <label data-siege-field="cap" hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
+          <label data-siege-field="clash" hidden>CLASH STARTS<select name="clashStarts" class="game-input"><option value="on" selected>ENABLED (12% IN 1V1)</option><option value="off">DISABLED</option></select></label>
           <label data-bot-field hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">SPELLBLADE</option></select></label>
           <button type="submit" class="join-button">RAISE PUBLIC ROOM</button>
           <button type="button" id="room-create-cancel" class="back-button">CANCEL</button>
@@ -765,11 +821,19 @@
 
     <section id="private-menu" class="side-screen paired-banners" data-panel="list">
       <div class="side-screen-inner banner-panel private-inner"><div class="banner-scroll">
-        <button class="back-button" id="private-back">← BACK</button>
+        <div class="banner-topbar">
+          <button class="back-button" id="private-back">← BACK</button>
+          <div class="identity-pill-row" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="private-name">SPELLBLADE NAME</label>
+              <input id="private-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">INVITE YOUR FELLOWS</p>
         <h2>PRIVATE ROOMS</h2>
-        <label class="field-label" for="private-name">SPELLBLADE NAME</label>
-        <input id="private-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="armory-slot">CHOOSE A MODE</p>
         <div id="private-mode" class="mode-filters private-mode-tabs" role="group" aria-label="Private match mode">
@@ -795,12 +859,20 @@
         </div>
       </div></div>
       <div class="banner-panel companion-banner private-companion"><div class="banner-scroll">
-        <button id="private-list-return" class="back-button companion-return" type="button">← PRIVATE ROOMS</button>
+        <div class="banner-topbar companion-topbar">
+          <button id="private-list-return" class="back-button companion-return" type="button">← PRIVATE ROOMS</button>
+          <div class="identity-pill-row companion-identity" data-identity-bar>
+            <span class="identity-pill-summary"><span class="identity-pill-label">Spellblade:</span> <strong class="identity-pill-value" data-identity-name>Spellblade</strong></span>
+            <button type="button" class="identity-pill-edit" data-identity-edit aria-expanded="false">Edit</button>
+            <div class="identity-pill-editor" hidden>
+              <label class="sr-only" for="private-right-name">SPELLBLADE NAME</label>
+              <input id="private-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+            </div>
+          </div>
+        </div>
         <p class="eyebrow">THE HOST'S RULES</p>
         <h2>ROOM SPECIFICATIONS</h2>
         <p class="panel-copy" id="private-rule-summary">FREE-FOR-ALL · FIRST TO 10 · 6 MINUTES</p>
-        <label class="field-label" for="private-right-name">SPELLBLADE NAME</label>
-        <input id="private-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <form id="private-settings-form" class="private-settings-form lobby-config">
           <label>ARENA<select name="worldId" class="game-input" aria-label="Private arena"></select></label>
           <label data-private-score>FIRST TO · KILLS<input name="scoreToWin" class="game-input" type="number" inputmode="numeric" min="1" max="100" value="10" /></label>
@@ -809,6 +881,7 @@
           <label data-private-format hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
           <label data-private-rounds hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
           <label data-private-cap hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
+          <label data-private-clash hidden>CLASH STARTS<select name="clashStarts" class="game-input"><option value="on" selected>ENABLED (12% IN 1V1)</option><option value="off">DISABLED</option></select></label>
           <label data-private-team hidden>YOUR SIDE<select name="team" class="game-input"><option value="AUTO" selected>AUTO</option><option value="ATTACKERS">ATTACKERS</option><option value="DEFENDERS">DEFENDERS</option></select></label>
           <label data-private-bot hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">THE SPELLBLADE</option></select></label>
         </form>

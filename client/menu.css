@@ -1450,24 +1450,27 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
     width: calc(min(360px, 43cqw) + 44px);
   }
 }
-@container app (max-width: 640px) {
+@container app (max-width: 640px), (max-height: 500px) {
   #solo-menu,
-  #rooms-menu { --banner-left: 12px; --banner-width: calc(100cqw - 24px); }
+  #rooms-menu {
+    --banner-left: max(12px, calc(50cqw - 280px));
+    --banner-width: min(560px, calc(100cqw - 24px));
+  }
   #solo-menu > .side-screen-inner,
   #rooms-menu > .side-screen-inner,
   #solo-menu > .companion-banner,
   #rooms-menu > .companion-banner {
-    --banner-width: calc(100cqw - 24px);
-    left: 12px;
+    --banner-width: min(560px, calc(100cqw - 24px));
+    left: var(--banner-left);
     right: auto;
-    width: calc(100cqw - 24px);
+    width: var(--banner-width);
     max-width: calc(100cqw - 24px);
   }
   #solo-menu::before,
   #rooms-menu::before {
-    left: -10px;
+    left: calc(var(--banner-left) - 22px);
     right: auto;
-    width: calc(100cqw + 20px);
+    width: calc(var(--banner-width) + 44px);
   }
   #solo-menu[data-panel="list"] > .companion-banner,
   #rooms-menu[data-panel="list"] > .companion-banner,
@@ -1484,6 +1487,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #solo-menu .companion-return,
   #rooms-menu .companion-return {
     display: inline-flex;
+  }
+  #solo-menu .solo-options,
+  #solo-menu[data-purpose="duel"] .duel-options {
+    display: block;
   }
 }
 
@@ -1525,13 +1532,9 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   background: linear-gradient(180deg, rgba(91, 65, 38, .98), rgba(48, 35, 27, .98));
   box-shadow: inset 3px 0 var(--heraldry-brass-light);
 }
-@container app (min-width: 641px) {
-  /* The left standard already has the editable name. On a phone the list
-     vanishes in details view, so keep the right-hand name field there. */
-  #solo-menu .solo-companion > .banner-scroll > label[for="solo-right-name"],
-  #solo-menu #solo-right-name,
-  #rooms-menu .rooms-companion > .banner-scroll > label[for="rooms-right-name"],
-  #rooms-menu #rooms-right-name { display: none; }
+@container app (min-width: 641px) and (min-height: 501px) {
+  /* Companion identity only appears in single-banner mode when the left banner hides. */
+  .companion-identity { display: none; }
 }
 
 /* Integrated from PR #379: filter controls, room detail surface and validated public-room forms. */
@@ -1722,16 +1725,16 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #rooms-menu > .banner-panel .banner-scroll,
   #siege-blades-menu > .banner-panel .banner-scroll,
   #breakthrough-menu > .banner-panel .banner-scroll,
-  #private-menu > .banner-panel .banner-scroll {padding-top:27px;}
+  #private-menu > .banner-panel .banner-scroll {padding-top:26px;}
   #siege-blades-menu .mettle-companion .vote-row,
-  #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;}
+  #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;padding-bottom:6px;}
   #siege-blades-menu .mettle-companion .vote-row > button,
-  #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 7px;}
+  #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 8px;min-height:32px;font-size:12px;}
   #private-menu .private-settings-form {gap:6px;}
 }
-@container app (max-width:640px) {
+@container app (max-width:640px), (max-height:500px) {
   #siege-blades-menu,#breakthrough-menu,#private-menu {
-    --banner-left:12px;--banner-width:calc(100cqw - 24px);
+    --banner-left:max(12px,calc(50cqw - 280px));--banner-width:min(560px,calc(100cqw - 24px));
   }
   #siege-blades-menu > .side-screen-inner,
   #breakthrough-menu > .side-screen-inner,
@@ -1739,12 +1742,12 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #siege-blades-menu > .companion-banner,
   #breakthrough-menu > .companion-banner,
   #private-menu > .companion-banner {
-    --banner-width:calc(100cqw - 24px);
-    left:12px;right:auto;width:calc(100cqw - 24px);
+    --banner-width:min(560px,calc(100cqw - 24px));
+    left:var(--banner-left);right:auto;width:var(--banner-width);
     max-width:calc(100cqw - 24px);
   }
   #siege-blades-menu::before,#breakthrough-menu::before,#private-menu::before {
-    left:-10px;right:auto;width:calc(100cqw + 20px);
+    left:calc(var(--banner-left) - 22px);right:auto;width:calc(var(--banner-width) + 44px);
   }
   #siege-blades-menu[data-panel="list"] > .companion-banner,
   #breakthrough-menu[data-panel="list"] > .companion-banner,
@@ -1766,55 +1769,119 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #private-menu .private-options {display:block;}
   #private-menu #private-create-right {display:block;}
   #siege-blades-menu .mettle-companion .vote-row > button,
-  #breakthrough-menu .mettle-companion .vote-row > button {font-size:14px;}
+  #breakthrough-menu .mettle-companion .vote-row > button {font-size:12.5px;}
 }
 
 #siege-blades-menu [hidden], #breakthrough-menu [hidden], #breakthrough-menu[data-solo-mode="true"]::before { display: none !important; }
 
-/* Dedicated Siege Blades flagship hub & reorganized Modes of Mettle */
-.siege-hub-machines {
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:2px 0 8px;
+/* Persistent compact Spellblade identity bar on secondary screens */
+.sr-only {
+  position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
 }
-.siege-hub-machine {
-  display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 4px 5px;
-  border:1px solid rgba(201,156,82,.42);border-radius:3px;
-  background:linear-gradient(180deg,rgba(33,26,22,.82),rgba(20,16,13,.92));
-  color:var(--heraldry-cream);cursor:pointer;text-align:center;min-height:0;
-  transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease;
+.banner-topbar {
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 8px;
 }
-.siege-hub-machine:hover,.siege-hub-machine:focus-visible {
-  border-color:var(--heraldry-brass-light);
-  box-shadow:0 4px 12px #0008,inset 0 0 0 1px #e9c98444;
-  transform:translateY(-1px);
+.banner-topbar > .back-button { margin:0; }
+.identity-pill-row {
+  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;
+  padding:3px 8px;border:1px solid rgba(201,156,82,.42);border-radius:2px;
+  background:rgba(20,16,13,.66);color:#e9d7b0;font:500 11.5px/1.2 var(--font-script);
+  max-width:100%;min-width:0;
 }
-.siege-hub-machine img {
-  width:100%;height:auto;max-height:68px;aspect-ratio:16 / 9;object-fit:cover;border-radius:2px;display:block;
-  border:1px solid rgba(201,156,82,.25);background:#1b1613;
+.identity-pill-row.missing-name { border-color:#e07a64; }
+.identity-pill-row.editing { width:100%;margin-left:0;padding:5px 7px;justify-content:space-between; }
+.identity-pill-summary { display:inline-flex;align-items:baseline;gap:4px;min-width:0; }
+.identity-pill-label { color:rgba(234,220,182,.68);font-weight:700;letter-spacing:.05em; }
+.identity-pill-value { color:#f5dfb1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14ch; }
+.identity-pill-edit {
+  padding:2px 8px;min-height:24px;border:1px solid rgba(201,156,82,.55);border-radius:2px;
+  background:rgba(48,37,28,.8);color:#f3dca6;font:700 10.5px/1 var(--font-script);letter-spacing:.08em;cursor:pointer;
 }
-.siege-hub-machine strong {
-  font:700 9px/1.15 var(--font-script);letter-spacing:.04em;color:#f5dfb1;
+.identity-pill-edit:hover,.identity-pill-edit:focus-visible { border-color:var(--heraldry-brass-light);color:#fff6dc; }
+.identity-pill-editor { flex:1 1 130px;min-width:110px; }
+.identity-pill-editor .game-input {
+  margin:0 !important;height:30px !important;min-height:30px !important;padding:4px 8px !important;font-size:13px !important;width:100%;
 }
-.siege-hub-machine small {
-  font:500 9.5px/1.1 var(--font-body,Georgia,serif);color:#cdbfa4;
+
+/* Dedicated Siege Blades flagship hub: forged iron, charcoal cloth, oxidized crimson & brass trim */
+#siege-blades-menu > .banner-panel {
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.38),transparent 9%,transparent 91%,rgba(0,0,0,.42)),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 5px),
+    linear-gradient(180deg,#251f20 0%,#331d1d 44%,#1c1819 100%);
 }
-#siege-blades-menu .siege-hub-inner .panel-copy { margin-bottom:5px;font-size:12.5px;line-height:1.35; }
-#siege-blades-menu .siege-hub-inner .scenario-subtitle { margin:0 0 6px; }
-#siege-blades-menu .siege-hub-inner .game-input { margin-bottom:6px;padding-block:6px; }
-#siege-blades-menu .siege-hub-inner .mode-choice { min-height:46px;padding-block:6px;margin-bottom:6px; }
+#siege-blades-menu > .banner-panel::before {
+  border-color:rgba(201,156,82,.58);
+  box-shadow:inset 0 0 0 4px rgba(17,14,14,.78),inset 0 0 0 5px rgba(201,156,82,.22);
+}
+#siege-blades-menu .siege-hub-inner { --banner-width:min(535px,44cqw); }
+#siege-blades-menu .siege-hub-inner h2 { margin:0 0 4px; }
+#siege-blades-menu .siege-hub-inner .panel-copy { margin-bottom:6px;font-size:12.5px;line-height:1.3; }
+.siege-panoramic-art {
+  position:relative;margin:0 0 7px;border:1px solid rgba(201,156,82,.52);border-radius:2px;overflow:hidden;
+  background:#161312;box-shadow:0 4px 14px rgba(0,0,0,.55),inset 0 1px 0 rgba(236,201,127,.18);
+  pointer-events:none;
+}
+.siege-panoramic-art img {
+  display:block;width:100%;height:auto;max-height:142px;object-fit:cover;object-position:center 46%;
+}
+.siege-panoramic-art figcaption {
+  display:flex;justify-content:space-between;gap:6px;padding:4px 8px;
+  background:linear-gradient(180deg,rgba(22,18,16,.9),rgba(14,11,10,.96));
+  border-top:1px solid rgba(201,156,82,.28);color:#dfcaa0;
+  font:700 9.5px/1.15 var(--font-script);letter-spacing:.1em;
+}
+#siege-blades-menu .siege-hub-inner .scenario-subtitle {
+  margin:0 0 7px;padding:4px 8px;border:1px solid rgba(201,156,82,.28);border-radius:2px;
+  background:rgba(16,13,12,.58);text-align:center;font-size:10.5px;letter-spacing:.14em;
+}
+#siege-blades-menu .siege-hub-inner .mode-choice { min-height:46px;padding:6px 26px;margin-bottom:6px; }
+#siege-blades-menu .siege-hub-inner .mode-choice span { font-size:16.5px; }
+.siege-secondary-links {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:6px;
+}
+#siege-blades-menu .siege-sub-command { min-height:42px;margin-bottom:0 !important;padding:5px 10px 6px 20px;text-align:left; }
+#siege-blades-menu .siege-sub-command span { font-size:13.5px;letter-spacing:.03em; }
+#siege-blades-menu .siege-sub-command small { font-size:10px; }
+.siege-workshop-shortcut {
+  border-color:rgba(201,156,82,.58);background:linear-gradient(180deg,#302721,#1d1714);
+}
+
+/* Compact Siege Battle Orders companion banner (fits 1280x720 desktop with no scrolling) */
+#siege-blades-menu .siege-orders-pair {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:8px;
+  border-bottom:1px solid #e9d7ac24;padding-bottom:7px;margin-bottom:6px;
+}
+#siege-blades-menu .siege-orders-pair > .vote-row {
+  border-bottom:0;padding-bottom:0;margin-bottom:0;
+}
+#siege-blades-menu .mettle-companion .eyebrow { margin-bottom:2px; }
+#siege-blades-menu .mettle-companion h2 { margin-bottom:7px;font-size:25px; }
+#siege-blades-menu .mettle-companion .vote-row { gap:4px;padding-bottom:7px;margin-bottom:6px; }
+#siege-blades-menu .mettle-companion .vote-row > span { font-size:9.5px;letter-spacing:.15em;margin-bottom:1px; }
+#siege-blades-menu .mettle-companion .vote-row > button {
+  padding:5px 8px;min-height:29px;font-size:clamp(11px,1cqw,13px);letter-spacing:.04em;
+}
+#siege-blades-menu .mettle-companion .mettle-rival-note { margin:0 0 6px;font-size:11.5px;line-height:1.3; }
+#siege-blades-menu .mettle-companion .mettle-order-note { padding-top:6px;margin-bottom:0;font-size:11.5px;line-height:1.32; }
+
 @container app (max-height:500px) {
   #siege-blades-menu .siege-hub-inner .eyebrow,
   #siege-blades-menu .siege-hub-inner .panel-copy { display:none; }
-  #siege-blades-menu .siege-hub-inner h2 { font-size:21px;margin-bottom:5px; }
-  .siege-hub-machines { gap:4px;margin-bottom:5px; }
-  .siege-hub-machine { padding:3px;gap:2px; }
-  .siege-hub-machine img { max-height:40px; }
-  .siege-hub-machine strong { font-size:8px; }
-  .siege-hub-machine small { display:none; }
-  #siege-blades-menu .siege-hub-inner .scenario-subtitle { font-size:10px;margin-bottom:4px; }
-  #siege-blades-menu .siege-hub-inner .mode-choice { min-height:38px;padding-block:4px;margin-bottom:4px; }
+  #siege-blades-menu .siege-hub-inner .banner-topbar { margin-bottom:4px; }
+  #siege-blades-menu .siege-hub-inner h2 { font-size:21px;margin-bottom:4px; }
+  .siege-panoramic-art { margin-bottom:5px; }
+  .siege-panoramic-art img { max-height:76px;object-position:center 44%; }
+  .siege-panoramic-art figcaption { font-size:8.5px;padding:3px 6px; }
+  #siege-blades-menu .siege-hub-inner .scenario-subtitle { font-size:9.5px;margin-bottom:4px;padding:3px 6px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice { min-height:38px;padding:4px 20px;margin-bottom:4px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice span { font-size:14px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice small { display:none; }
+  .siege-secondary-links { gap:5px;margin-bottom:4px; }
 }
-.siege-workshop-shortcut {
-  border-color:rgba(201,156,82,.55);
+@container app (max-width:480px) {
+  #siege-blades-menu .siege-orders-pair { grid-template-columns:1fr;gap:5px; }
 }
 .mettle-mode-catalog { display:grid;gap:10px;margin:4px 0 12px; }
 .mettle-mode-group { display:grid;gap:5px; }
@@ -1930,18 +1997,13 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #solo-menu[data-purpose="duel"] .side-screen-inner .mode-choice { min-height:44px; padding-block:5px; margin-bottom:5px; }
 }
 
-/* A footer separate from the scroller: the cue never overlays a command.
-   Only its chevron gently dips; reduced-motion users get a static arrow. */
-.banner-panel.has-scroll-cue > .banner-scroll {
-  margin-bottom:calc(var(--hem) + 54px);
-}
+/* Discreet overflow pill: sits inside the lower hem margin below the scroller so it never covers controls or shrinks the scroller. */
 .banner-panel > .menu-scroll-cue {
-  display:flex;align-items:center;justify-content:center;gap:9px;
-  left:18px;right:18px;bottom:calc(var(--hem) + 12px);
-  min-height:38px;padding:5px 10px;animation:none;
-  background:linear-gradient(180deg,#63271e,#471c17);
-  box-shadow:0 -4px 10px #45171155;
-  font-size:11px;letter-spacing:.09em;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  left:50%;right:auto;transform:translateX(-50%);bottom:16px;
+  width:auto;min-height:24px;padding:3px 12px;border-radius:999px;animation:none;
+  border:1px solid rgba(201,156,82,.72);background:rgba(46,19,16,.95);color:#f3e1b4;
+  box-shadow:0 3px 10px #000a;font:700 9.5px/1 var(--font-script);letter-spacing:.1em;
 }
 .banner-panel > .menu-scroll-cue[hidden] { display:none; }
 .scroll-cue-chevron {flex:none;animation:menu-chevron-dip 2.8s ease-in-out infinite;}

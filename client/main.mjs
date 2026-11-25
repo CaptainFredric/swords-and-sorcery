@@ -236,13 +236,11 @@ const rematchCopy = $('#rematch-copy');
 const bannerScrolls=[];
 function updateMenuScrollCue() {
   for(const {panel,scroller,cue} of bannerScrolls){
-    if(!scroller.clientHeight){cue.hidden=true;continue;}
-    const reserved=panel.classList.contains('has-scroll-cue');
-    const footer=reserved?44:0;
-    const overflow=scroller.scrollHeight-scroller.clientHeight>footer+4;
-    if(overflow!==reserved)panel.classList.toggle('has-scroll-cue',overflow);
+    if(!scroller.clientHeight){cue.hidden=true;panel.classList.remove('has-scroll-cue');continue;}
+    const overflow=scroller.scrollHeight-scroller.clientHeight>14;
+    panel.classList.toggle('has-scroll-cue',overflow);
     const remaining=scroller.scrollHeight-scroller.clientHeight-scroller.scrollTop;
-    cue.hidden=!overflow||remaining<5;
+    cue.hidden=!overflow||remaining<14;
   }
 }
 const menuScrollObserver = new ResizeObserver(updateMenuScrollCue);
@@ -390,11 +388,65 @@ let pendingFailureScreen = SCREEN_IDS.MAIN_MENU;
 const params = new URLSearchParams(location.search);
 const invitedRoom = params.get('room');
 const autoSolo = params.get('solo');
+const identityBars = [...document.querySelectorAll('[data-identity-bar]')];
+function setIdentityEditing(bar, editing, { focus = false } = {}) {
+  if (!bar) return;
+  const editor = bar.querySelector('.identity-pill-editor');
+  const btn = bar.querySelector('[data-identity-edit]');
+  const input = editor?.querySelector('input');
+  if (!editor || !btn) return;
+  bar.classList.toggle('editing', editing);
+  editor.hidden = !editing;
+  btn.setAttribute('aria-expanded', String(editing));
+  btn.textContent = editing ? 'Done' : 'Edit';
+  if (editing && focus && input) {
+    input.focus();
+    input.select?.();
+  }
+}
+function syncIdentityBars({ collapseIfValid = false } = {}) {
+  const trimmed = nameInput.value.trim();
+  const display = trimmed || 'Unset';
+  for (const bar of identityBars) {
+    const labelEl = bar.querySelector('[data-identity-name]');
+    if (labelEl) labelEl.textContent = display;
+    bar.classList.toggle('missing-name', !trimmed);
+    if (!trimmed) {
+      setIdentityEditing(bar, true);
+    } else if (collapseIfValid) {
+      setIdentityEditing(bar, false);
+    }
+  }
+}
 nameInput.value = menuController.savedName();
 for (const field of nameFields) {
   field.value = nameInput.value;
-  field.addEventListener('input', () => { for (const other of nameFields) if (other !== field) other.value = field.value; });
+  field.addEventListener('input', () => {
+    for (const other of nameFields) if (other !== field) other.value = field.value;
+    syncIdentityBars();
+  });
 }
+for (const bar of identityBars) {
+  const btn = bar.querySelector('[data-identity-edit]');
+  const input = bar.querySelector('.identity-pill-editor input');
+  btn?.addEventListener('click', () => {
+    const next = !bar.classList.contains('editing');
+    if (next) setIdentityEditing(bar, true, { focus: true });
+    else if (nameInput.value.trim()) setIdentityEditing(bar, false);
+  });
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault();
+      if (nameInput.value.trim()) setIdentityEditing(bar, false);
+    }
+  });
+  input?.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!bar.contains(document.activeElement) && nameInput.value.trim()) setIdentityEditing(bar, false);
+    }, 120);
+  });
+}
+syncIdentityBars({ collapseIfValid: true });
 if (invitedRoom) roomInput.value = invitedRoom.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
 if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
   socket.token = null;
@@ -466,6 +518,8 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
   syncSoundscape();
+  syncIdentityBars({ collapseIfValid: true });
+  requestAnimationFrame(updateMenuScrollCue);
   // in the Armory he holds the chosen spell up in his palm (and its cards' sounds are made ready for the first press)
   menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
@@ -673,7 +727,14 @@ function runMenuAction(result, failureScreen) {
   }
   showMenuError(result.error);
   route(failureScreen);
-  if (/name/i.test(result.error)) nameFields.find(field => field.offsetParent !== null)?.focus();
+  if (/name/i.test(result.error)) {
+    const visibleBar = identityBars.find((bar) => bar.offsetParent !== null);
+    if (visibleBar) {
+      setIdentityEditing(visibleBar, true, { focus: true });
+    } else {
+      nameFields.find(field => field.offsetParent !== null)?.focus();
+    }
+  }
   return false;
 }
 
@@ -886,6 +947,7 @@ function syncPublicRoomForm(draft = null) {
 }
 roomCreateForm.elements.mode.addEventListener('change',()=>syncPublicRoomForm(pendingRoomDraft));
 roomCreateForm.elements.format.addEventListener('change',()=>syncRuleForm(roomCreateForm,roomCreateForm.elements.mode.value));
+roomCreateForm.elements.teamSize.addEventListener('change',()=>syncRuleForm(roomCreateForm,roomCreateForm.elements.mode.value));
 $('#raise-room').addEventListener('click', () => {
   roomCreateForm.hidden = false;
   resetCompanionCrown(roomsMenu);
@@ -1400,8 +1462,10 @@ function renderSiegeHub() {
   const summaryEl = $('#siege-orders-summary');
   if (summaryEl) {
     const arenaName = arena === 'outerworks' ? 'THE OUTERWORKS' : arena === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS';
-    const formatText = format === 'MATCH' ? `${rounds} ROUNDS` : (endlessCap ? `ENDLESS · CAP ${endlessCap}` : 'ENDLESS');
-    summaryEl.textContent = `${arenaName} · ${size}V${size} · ${formatText}`;
+    const formatText = format === 'MATCH' ? `MATCH (${rounds} ROUNDS)` : (endlessCap ? `ENDLESS (${endlessCap} CAP)` : 'ENDLESS (NO CAP)');
+    const clashText = format === 'ENDLESS' && size === 1 ? ` · ${clash ? 'CLASH ON' : 'CLASH OFF'}` : '';
+    const skillText = skill === 'spellblade' ? 'THE SPELLBLADE' : skill.toUpperCase();
+    summaryEl.textContent = `${size}V${size} · ${arenaName} · ${formatText}${clashText} · ${skillText}`;
   }
 }
 $('#siege-hub-size')?.addEventListener('click', (e) => {
@@ -1489,10 +1553,6 @@ function openSiegeWorkshopFromMenu(machineId = null) {
   route(SCREEN_IDS.ARMORY);
 }
 $('#siege-open-workshop')?.addEventListener('click', () => openSiegeWorkshopFromMenu(null));
-siegeBladesMenu?.addEventListener('click', (e) => {
-  const card = e.target.closest?.('[data-workshop-machine]');
-  if (card) openSiegeWorkshopFromMenu(card.dataset.workshopMachine);
-});
 renderSiegeHub();
 
 const breakthroughArena = $('#breakthrough-arena');
@@ -1676,9 +1736,11 @@ const privateActivation = createRepeatActivation({
 });
 function privateFields(){
   const f=privateForm.elements;
+  const endlessOne=f.format.value==='ENDLESS'&&Number(f.teamSize.value)===1;
   return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
     teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value,
-    format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value};
+    format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value,
+    clashStarts:endlessOne&&f.clashStarts?f.clashStarts.value==='on':null};
 }
 function renderPrivateMode({reset=true}={}){
   const mode=privateModeSelected,siege=mode==='SIEGE_BLADES',teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS'||siege;
@@ -1698,7 +1760,12 @@ function renderPrivateMode({reset=true}={}){
   for(const option of f.teamSize.querySelectorAll('[data-siege-only]'))option.hidden=option.disabled=!siege;
   if(reset){
     if(defaults.minutes!==undefined)f.minutes.value=defaults.minutes;
-    if(siege){f.format.value=defaults.format;f.matchRounds.value=defaults.matchRounds;f.endlessRoundCap.value=defaults.endlessRoundCap;}
+    if(siege){
+      f.format.value=defaults.format;
+      f.matchRounds.value=defaults.matchRounds;
+      f.endlessRoundCap.value=defaults.endlessRoundCap;
+      if(f.clashStarts)f.clashStarts.value='on';
+    }
     if(teamMode||mode==='EDGE_OF_VICTORY'){
       if(teamMode)f.teamSize.value=defaults.teamSize;
       if(teamMode)f.team.value=defaults.team;
@@ -1711,10 +1778,13 @@ function renderPrivateMode({reset=true}={}){
     privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY')||(attr==='team'&&siege);
   // Siege Blades plays rounds: its format and rounds replace the match time
   const endless=siege&&f.format.value==='ENDLESS';
+  const clashShown=endless&&Number(f.teamSize.value)===1;
   privateForm.querySelector('[data-private-time]').hidden=siege;
   privateForm.querySelector('[data-private-format]').hidden=!siege;
   privateForm.querySelector('[data-private-rounds]').hidden=!siege||endless;
   privateForm.querySelector('[data-private-cap]').hidden=!endless;
+  const clashRow=privateForm.querySelector('[data-private-clash]');
+  if(clashRow)clashRow.hidden=!clashShown;
   const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
     mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
     mode==='FFA'?'Every Spellblade for themselves. First to ten.':

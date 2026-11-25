@@ -43,6 +43,7 @@ export function applyDraftToRuleForm(form, mode, draft = null) {
     if (f.format && draft.format) f.format.value = draft.format;
     if (f.matchRounds && draft.matchRounds !== undefined) f.matchRounds.value = String(draft.matchRounds);
     if (f.endlessRoundCap && draft.endlessRoundCap !== undefined) f.endlessRoundCap.value = String(draft.endlessRoundCap);
+    if (f.clashStarts && typeof draft.clashStarts === 'boolean') f.clashStarts.value = draft.clashStarts ? 'on' : 'off';
   }
   syncRuleForm(form, mode, { resetTime: !draft });
 }

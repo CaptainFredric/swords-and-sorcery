@@ -31,7 +31,9 @@ export function siegePickerSeconds(selectionEndsAt,serverNow){
 }
 export function siegePickerStatus(choice){
   const machine=SIEGE_MACHINE_CARDS.find(c=>c.id===choice);
-  return machine?`Your machine · ${machine.name}`:'No machine chosen · one will be assigned';
+  return machine
+    ?`Selected: ${machine.name} · Press 1–3 or click/tap to change before deployment`
+    :'Choose your contraption · Press 1–3 or click/tap (auto-assigned if unpicked)';
 }
 export function siegePickerMarkup(){
   return `<div class="sb-draft-backdrop" aria-hidden="true"></div>
@@ -52,7 +54,9 @@ export function siegePickerMarkup(){
           <small>${machine.description}</small>
         </span>
         <kbd class="sb-draft-key" aria-hidden="true">${index+1}</kbd>
+        <span class="sb-draft-picked" aria-hidden="true">SELECTED</span>
       </button>`).join('')}</div>
+      <p class="sb-draft-note">Machines can be switched between every round · Equip combat Skills in the Siege Workshop.</p>
     </div>`;
 }
 

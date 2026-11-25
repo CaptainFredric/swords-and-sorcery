@@ -29,6 +29,7 @@ function makeForm() {
     '[data-siege-field="format"]': { hidden: true },
     '[data-siege-field="rounds"]': { hidden: true },
     '[data-siege-field="cap"]': { hidden: true },
+    '[data-siege-field="clash"]': { hidden: true },
   };
   return {
     elements: {
@@ -42,6 +43,7 @@ function makeForm() {
       format: mkSelect('format', ['MATCH', 'ENDLESS']),
       matchRounds: mkSelect('matchRounds', ['3', '5', '7']),
       endlessRoundCap: mkSelect('endlessRoundCap', ['10', '25', '50', '0']),
+      clashStarts: mkSelect('clashStarts', ['on', 'off']),
     },
     querySelector(sel) {
       return nodes[sel] ?? null;
@@ -77,4 +79,16 @@ test('applyDraftToRuleForm carries Siege Blades format, rounds, endless cap, are
   assert.equal(form.elements.endlessRoundCap.value, '50');
   assert.equal(form.querySelector('[data-siege-field="cap"]').hidden, false);
   assert.equal(form.querySelector('[data-siege-field="rounds"]').hidden, true);
+  assert.equal(form.querySelector('[data-siege-field="clash"]').hidden, true);
+
+  applyDraftToRuleForm(form, 'SIEGE_BLADES', {
+    worldId: 'high-grounds',
+    teamSize: 1,
+    botSkill: 'knight',
+    format: 'ENDLESS',
+    endlessRoundCap: 25,
+    clashStarts: false,
+  });
+  assert.equal(form.elements.clashStarts.value, 'off');
+  assert.equal(form.querySelector('[data-siege-field="clash"]').hidden, false);
 });
