@@ -25,10 +25,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # Build and upload in one job, deploy in the next (GitHub's own Pages pattern): deploying in the same job as the
+  # upload asked for the artifact a third of a second after it was finalized, before the run listed it ("Found 0
+  # artifact(s)", three runs in a row on 2026-11-24).
+  build:
     runs-on: ubuntu-latest
     env:
       GAME_SERVER: wss://swords-and-sorcery.onrender.com/ws
@@ -63,6 +63,14 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

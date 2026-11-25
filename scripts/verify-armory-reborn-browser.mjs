@@ -227,8 +227,7 @@ try {
   assert.match(galeCardState.name, /GALE GARNER/i);
   assert.ok(galeCardState.desc.length > 5);
   console.log('[VERIFY] Gale detail verified:', galeCardState);
-  // Selected cards settle last, do not scale twice, and leave the detail card
-  // below in the same native scroll rail for a downward swipe.
+  // Selected cards remain in the current window; detailed rules are opt-in.
   const equipmentMotion=await evaluate(`(() => {
     const cards=[...document.querySelectorAll('#armory-spells .spell-card')];
     const scroll=document.querySelector('#armory-inspector .inspector-scroll');
@@ -240,15 +239,16 @@ try {
       selected:card?.classList.contains('equipped'),
       visible:r.top>=view.top-2&&r.bottom<=view.bottom+2,
       noLegacyBounce:getComputedStyle(card).animationName==='none',
-      detailBelow:detail.getBoundingClientRect().top>cards.at(-1).getBoundingClientRect().bottom,
-      canSwipe:scroll.scrollHeight>scroll.clientHeight,
+      detailHidden:getComputedStyle(detail).display==='none',
+      infoCount:document.querySelectorAll('#armory-spells [data-equipment-info]').length,
+      count:cards.length,
     };
   })()`);
   assert.equal(equipmentMotion.selected,true);
   assert.equal(equipmentMotion.visible,true,'selected Sorcery stays within the CURRENT visible banner');
   assert.equal(equipmentMotion.noLegacyBounce,true,'no conflicting equip scale keyframes');
-  assert.equal(equipmentMotion.detailBelow,true,'details remain below the options');
-  assert.equal(equipmentMotion.canSwipe,true,'downward swipe exposes equipment details');
+  assert.equal(equipmentMotion.detailHidden,true,'details do not lengthen the selection list');
+  assert.equal(equipmentMotion.infoCount,equipmentMotion.count,'every item has a distinct info target');
 
 
   assert.equal(await evaluate(`(() => {
@@ -258,6 +258,14 @@ try {
     return rail.right <= preview.left && preview.right <= panel.left;
   })()`), true, 'the reserved preview does not intersect either control column');
   await screenshot('02-sorcery-inspector-open.png');
+  await evaluate(`document.querySelector('[data-equipment-info="fireball"]').click()`);
+  assert.equal(await evaluate("document.querySelector('#armory-inspector').classList.contains('show-equipment-detail')"),true);
+  assert.match(await evaluate("document.querySelector('#inspector-card-name').textContent"),/FIREBALL/i);
+  assert.match(await evaluate("document.querySelector('#plaque-name-sorcery').textContent"),/Gale Garner/i,'info does not equip');
+  await screenshot('02c-equipment-info.png');
+  await evaluate("document.querySelector('#equipment-detail-back').click()");
+  await evaluate(`document.querySelector('[data-equipment-info="gale"]').click()`);
+  await evaluate("document.querySelector('#equipment-detail-back').click()");
 
   // Equip Gale Garner
   console.log('[VERIFY] Equipping Gale Garner...');
@@ -343,6 +351,9 @@ try {
   console.log('[VERIFY] All-Natural Disaster detail verified:', oneHitState);
 
   await screenshot('03-masterstroke-inspector-open.png');
+  await evaluate(`document.querySelector('[data-equipment-info="one_hit_of_wonders"]').click()`);
+  await screenshot('03b-masterstroke-full-info.png');
+  await evaluate("document.querySelector('#equipment-detail-back').click()");
 
   // Equip All-Natural Disaster
   console.log('[VERIFY] Equipping All-Natural Disaster...');
@@ -683,6 +694,9 @@ try {
     return r.right<=innerWidth+1 && r.left>=0;
   })()`),true,'the whole inspector is inside the landscape viewport');
   await screenshot('10-landscape-mobile-inspector.png');
+  await evaluate(`document.querySelector('[data-equipment-info="gale"]').click()`);
+  await screenshot('10b-landscape-mobile-equipment-info.png');
+  await evaluate("document.querySelector('#equipment-detail-back').click()");
   await send('Emulation.setTouchEmulationEnabled',{enabled:true});
   const beforeTouch = await evaluate('window.__ssMenu.targetYaw');
   await dragPreview('kit',true);

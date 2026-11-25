@@ -774,7 +774,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
 
         const driveScale=biByeCondition(ballista).driveScale;
         const affliction=siegeDisasterImpairment(ballista,nowSec);
-        const baseSpeed=driveScale*affliction.speed*driveForward*(driveForward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
+        // Siege Blades is vehicle-on-vehicle combat: shorten travel without altering infantry modes.
+        const modeMobility=room.mode==='SIEGE_BLADES'?1.25:1;
+        const baseSpeed=modeMobility*driveScale*affliction.speed*driveForward*(driveForward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
         const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(driveForward);
         const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);

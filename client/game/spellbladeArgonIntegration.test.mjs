@@ -29,12 +29,10 @@ function inspect(file, expected, sha, count) {
   assert.ok(json.skins?.length > 0 && json.meshes?.length > 0);
 }
 
-test('Argon 90/25 production models are the exact reviewed bytes and inventories', () => {
-  // (de8c8655: Argon's reconciliation, verified against his stated SHA-256; 90 clips with the one-handed Lightning
-  // arrival kept as a variation; first person 80de8aee, 25 clips)
-  assert.equal(manifest.thirdPerson.sha256, 'de8c86558a0e758254c4dab87ccc48788a7fc7b42a0b1d561e5f000ac0b0bda4');
-  assert.equal(manifest.firstPerson.sha256, '80de8aeef10268ae80498c1d587f8f02a8df702c58acd9076331a58e81a1971e');
-  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 90);
+test('The Spellblade ships the reviewed model pair and exact inventories', () => {
+  assert.equal(manifest.thirdPerson.sha256, '01c2fe40e50e9be76e84adcb4e9795113fe4364c9fba68afefaee67da8f71ae5');
+  assert.equal(manifest.firstPerson.sha256, '19f161e8eb2b2388ef6c477f721f54fec2dd45b670d0880717d8141e15bd924f');
+  inspect('spellblade.glb', manifest.thirdPerson.clips, manifest.thirdPerson.sha256, 112);
   inspect('spellblade-fp.glb', manifest.firstPerson.clips, manifest.firstPerson.sha256, 25);
 });
 

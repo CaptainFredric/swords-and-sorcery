@@ -155,7 +155,7 @@ export function createSiegeBladesState(room, options = {}) {
   };
 }
 
-export const SIEGE_SELECTION_SECONDS = 8;
+export const SIEGE_SELECTION_SECONDS = 6;
 // After the first round each player's last machine is already chosen for them, so the draft is a chance to change it,
 // not a first decision: five seconds is ample for a key or a tap, and the battle resumes sooner.
 export const SIEGE_RESELECTION_SECONDS = 5;

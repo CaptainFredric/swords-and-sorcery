@@ -17,7 +17,7 @@ export const REACTIONS = Object.freeze({
   // a successful parry: a sharp outward deflection of the blade with a small counter-twist
   parry: Object.freeze({ rise: 0.03, hold: 0.02, fall: 0.2, twist: 0.16, sweep: 0.3 }),
   // landing: knees and hips flex to absorb the fall, deeper for harder landings
-  land: Object.freeze({ rise: 0.05, hold: 0.02, fall: 0.28, flex: 0.34, lean: 0.08 }),
+  land: Object.freeze({ rise: 0.05, hold: 0.02, fall: 0.28, flex: 0.37, lean: 0.11 }),
 });
 
 const MAX_AGE = 0.6;
@@ -95,6 +95,8 @@ export function reactionPose(reactions, now, yaw = 0, { slack = false } = {}) {
       legFlex = Math.max(legFlex, spec.flex * weight);
       // lean forward over the bent knees (the tilt axis for -z)
       rotations.push({ bone: 'spine', axis: [-1, 0, 0], angle: spec.lean * weight });
+      rotations.push({ bone: 'upper_arm.L', axis: [-1, 0, 0], angle: 0.16 * weight });
+      rotations.push({ bone: 'upper_arm.R', axis: [-1, 0, 0], angle: 0.10 * weight });
       continue;
     }
     if (reaction.kind === 'parry') {
@@ -235,8 +237,7 @@ export function landingStrength(impactSpeed) {
 }
 
 /**
- * Loop time for a gait clip from a shared phase, so Run and Sprint stay on the same foot while they cross-fade.
- * Both clips start on the same contact (Sprint is Run retimed).
+ * Loop time for a gait clip from a shared phase, so Walk, Run and Sprint stay on the same foot when blending.
  */
 export function gaitTime(phase, duration) {
   const p = ((phase % 1) + 1) % 1;
@@ -257,7 +258,7 @@ export function sorceryLevel(clip, time, duration) {
   return 1 - t * t * (3 - 2 * t);             // settles back to the ember
 }
 
-export const GAIT_CLIPS = Object.freeze(new Set(['Run', 'Sprint']));
+export const GAIT_CLIPS = Object.freeze(new Set(['Walk', 'Run', 'Sprint']));
 
 // A crouched knight (third person): the knees bent deep (the animator keeps the feet planted), the back leaning in, the
 // head up to look ahead, and both arms carried forward so the sword stays clear of the ground. `amount` 0..1 eases in

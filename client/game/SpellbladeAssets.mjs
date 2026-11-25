@@ -3,6 +3,7 @@ import { joinSwordWrist } from './swordWrist.mjs';
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
 import { lightPlate } from './plateEnvironment.mjs';
+import { guardScaleHiddenProps } from './scaleHiddenProps.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
@@ -199,8 +200,10 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const animator = new SpellbladeAnimator(root, clips, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
     sorcery.update(performance.now() / 1000, (plan.mounted || plan.ramMounted) ? 0 : sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
-  }, { cloth: kind !== 'firstPerson' });
+  }, { cloth: kind !== 'firstPerson', wristTwist: kind !== 'firstPerson' });
 
+  // (props the clips hide by scaling them to nothing, like the white flag: never quite nothing)
+  guardScaleHiddenProps(root, clips);
   // (the supplied model's plate, in the world and in the view's arms: something to reflect, so its steel reads as steel)
   lightPlate(root);
   // (the arms in view are seen a hand's breadth from the eye and edge-on along the forearm: their textures filtered

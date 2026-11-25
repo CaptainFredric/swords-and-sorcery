@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { VORTEX_CAMERA, aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
+import { VORTEX_CAMERA, aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase, whirlCameraWanted } from './vortexCamera.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 
 // The Blazing Vortex seen from outside: the view goes out behind the knight only once it has committed, comes back
@@ -9,6 +9,23 @@ import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 const vortex = ULTIMATES.vortex;
 const feet = { x: 0, y: 0, z: 0 };
 const open = { feet, eyeHeight: 1.58, yaw: 0, pitch: 0 };
+
+test('Whirl holds the chase camera through continuations and its exit while mounted views retain priority', () => {
+  const view = (swordTechnique, options = {}) => ({ alive: true, swordTechnique, ...options });
+  const first = { id: 'whirl_wind', startedAt: 10, phase: 'active' };
+  const continued = { ...first, startedAt: 10.6, initialStartedAt: 10, revolutions: 2, galeLift: true };
+  assert.equal(whirlCameraWanted(view(first), 9.99), false);
+  assert.equal(whirlCameraWanted(view(first), 10), true);
+  assert.equal(whirlCameraWanted(view(continued), 10.59), true);
+  assert.equal(whirlCameraWanted(view({ ...continued, phase: 'recovery', endsAt: 11.45 }), 11.4), true);
+  const interrupted = { ...first, phase: 'interrupted', startedAt: 10.2, until: 10.62 };
+  assert.equal(whirlCameraWanted(view(interrupted), 10.5), true);
+  assert.equal(whirlCameraWanted(view(interrupted), 10.62), false);
+  assert.equal(whirlCameraWanted(view(first, { alive: false }), 10.2), false);
+  assert.equal(whirlCameraWanted(view(first, { operatingFightFlightId: 'fly' }), 10.2), false);
+  assert.equal(whirlCameraWanted(view({ ...first, id: 'rigid_riposte' }), 10.2), false);
+  assert.equal(whirlCameraWanted(view(null), 11.45), false);
+});
 
 test('the view goes out only once the Vortex has committed: in the helm through the startup, and back in the helm after it', () => {
   const lit = { alive: true, ultimateState: { id: 'vortex', phase: 'startup', commitAt: 10.9, until: null } };

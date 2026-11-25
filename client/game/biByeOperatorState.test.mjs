@@ -9,7 +9,10 @@ test('seated poses match the actual production binary and retain its bone length
  assert.equal(createHash('sha256').update(bytes).digest('hex'),data.characterSha256);
  const gltf=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
  for(const pose of Object.values(data.poses))for(const i of gltf.skins[0].joints){
-  const node=gltf.nodes[i],p=pose[node.name];assert.ok(p,node.name);
+  const node=gltf.nodes[i],p=pose[node.name];
+  // Cape and tabard grid bones are driven by the cloth rig.
+  if (/^(cape|tabard)\./.test(node.name)) continue;
+  assert.ok(p,node.name);
   // The rear cloth anchor moves 55 mm to clear the backrest; skeletal limbs retain their lengths.
   if(node.name!=='tabard_back_01')p.position.forEach((x,k)=>assert.ok(Math.abs(x-(node.translation?.[k]??0))<.00001,`${node.name} joint length changed`));
   assert.ok(Math.abs(Math.hypot(...p.quaternion)-1)<1e-6,node.name);

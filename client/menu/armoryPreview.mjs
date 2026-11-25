@@ -13,6 +13,21 @@ export const ARMORY_AUTHORED_CLIPS = Object.freeze({
 });
 export function authoredArmoryClip(id) { return ARMORY_AUTHORED_CLIPS[id] ?? null; }
 
+// The sword hand during an authored spell showcase: carried at his hip as in his idle (the clips), or, now and then,
+// leant on: his hand on the pommel at mid-chest, the blade tipped 20 degrees forward with its point planted ahead of his right
+// foot, clear of the boot. Root space: right +x, up +y, forward -z. Eased in as the showcase opens and out before it
+// ends, so it always hands back to the carry.
+export const ARMORY_LEAN_SHARE = 0.5;
+export const ARMORY_SWORD_LEAN = Object.freeze({
+  wrist: Object.freeze([0.24, 1.41, -0.3]),
+  aim: Object.freeze([0.1001, -0.9386, -0.3302]),
+  roll: Object.freeze([1, 0, 0]),
+});
+export function armoryLeanWeight(elapsed, duration = ARMORY_PREVIEW_SEC) {
+  const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+  return smooth(elapsed / 0.25) * smooth((duration - elapsed) / 0.25);
+}
+
 // Menu performances on the real rig. Root space: right +x, up +y, forward -z.
 export const ARMORY_PREVIEW_SEC = 1.5;
 const arm = (wrist, aim, roll = [1, 0, 0]) => ({ wrist, aim, roll });

@@ -31,11 +31,21 @@ const { exertion: EXERTION, context: CONTEXT, earned: EARNED, state: STATE } = V
 // the same knight says it again; perLife: at most this often in one life; interrupts: a line of state cuts a lesser one
 // and is not held to the gap between sentences. A line still waiting on what it belongs to (`coming`) has no rule
 // here: it cannot be said.
+export const LAUGHTER_LINES = new Set([
+  'laugh', 'noSpare', 'renownDisowned', 'abolishBattle', 'heavyHurt2', 'convinceGround',
+  'wouldLetYouLive', 'rightfulPlaces', 'hahahaANewBattlefieldAwaits', 'goodLuckForgettingMe', 'regenTrick',
+]);
+
+export function isLaughingEntry(entry, now) {
+  return Boolean(entry && now < entry.until && LAUGHTER_LINES.has(entry.line) && (entry.line !== 'regenTrick' || entry.part === 1));
+}
+
 export const VOICE_LINES = Object.freeze(Object.fromEntries(VOICE_LINE_LIST.filter((line) => !line.coming).map((line) => {
   const priority = priorityRank(line.priority);
   const family = line.family ?? line.id.match(/^([a-zA-Z]+)V\d+$/)?.[1];
   return [line.id, Object.freeze({
     kind: line.kind,
+    ...(line.subtitle ? { subtitle: true } : {}),
     priority,
     chance: line.rarity,
     cooldown: line.cooldown,
@@ -188,12 +198,17 @@ export function deathMoment({ victimId, killerId, source, overkill = false, mino
       death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(chivalry ? { chivalryDeath: 1 } : {}), ...(fair ? { fairLoss: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}),
       ...(decisive && killerId && killerId !== victimId ? { matchDecided: 1 } : {}),
       ...(committed ? { committedDeath: 1 } : {}),
-      ...(pose?.back ? { fellBack: 1 } : {}), ...(pose?.skyward ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
+      ...(pose?.back && !pose?.whiteFlag ? { fellBack: 1 } : {}), ...(pose?.skyward && !pose?.whiteFlag ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
       ...(doomCut ? { doomInterrupted: 1 } : {}),
       ...(nap ? { napFall: 1 } : {}),
+      ...((source === 'lightning' || moment.lightningArrival) && moment.lightningArrival !== 'face' ? { lightningSlamArrival: 1 } : {}),
+      ...(pose?.hill ? { hillRetreat: 1 } : {}),
     },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
-    facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
+    facts: [
+      overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed',
+      ((pose?.flatBack || (pose?.back && !pose?.whiteFlag && !pose?.hill) || moment.lightningArrival === 'back') && 'flatBack'),
+    ].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
     victorFacts: [moment.knighthood >= 2 && 'highSwing', victimWasSpeaking && 'victimSpoke'].filter(Boolean),
   };
@@ -228,6 +243,8 @@ export function victorTags({ source, moment = {} }) {
     ...(moment.flightElevated ? { flightElevatedKill: 1 } : {}),
     ...(moment.quickMultikill ? { quickMultikill: 1 } : {}),
     ...(moment.quickCloseMultikill ? { quickCloseMultikill: 1 } : {}),
+    ...(moment.drawnOut ? { drawnOutSwordWin: 1 } : {}),
+    ...(moment.stopPretending ? { stopPretendingWin: 1 } : {}),
   };
 }
 
@@ -391,7 +408,7 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null, rand = null } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null, source = null, rand = null, disruptedSpeaker = null, partIndex = null, highPriority = false } = {}) {
     this.suppressions = this.suppressions.filter((s) => now < s.until);
     if (line !== 'notRightNow' && source) {
       const sx = source.x ?? 0, sz = source.z ?? 0;
@@ -401,6 +418,9 @@ export class VoiceDirector {
     if (coordinated) force = true;
     const base = VOICE_LINES[line];
     if (!base) return null;
+    const targetSpeech = line === 'silentTreatment' && disruptedSpeaker && disruptedSpeaker !== speaker ? this.speaking.get(disruptedSpeaker) : null;
+    const validDisruption = Boolean(targetSpeech && now < targetSpeech.until && VOICE_LINES[targetSpeech.line]?.kind === 'sentence' && (targetSpeech.priority ?? CONTEXT) <= CONTEXT);
+    if (line === 'silentTreatment' && !validDisruption) return null;
     const stat = this.stats.get(line) ?? { tried: 0, said: 0 };
     this.stats.set(line, stat);
     stat.tried += 1;
@@ -410,7 +430,15 @@ export class VoiceDirector {
     // line's own odds, cooldown and once-a-life, but it takes the voice as a part does
     const part = earned || opening;
     const notRightNow = line === 'notRightNow';
-    const rule = notRightNow ? { ...base, priority: STATE + 1, interrupts: true } : cry ? { ...base, priority: STATE, interrupts: true } : part ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true } : base;
+    const rule = notRightNow
+      ? { ...base, priority: STATE + 1, interrupts: true }
+      : cry
+        ? { ...base, priority: STATE, interrupts: true }
+        : part
+          ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true }
+          : highPriority
+            ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true }
+            : base;
     if (cry || earned) force = true;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;
@@ -425,11 +453,14 @@ export class VoiceDirector {
     const followsOn = earned && ownBusy && own.line === line;
     // (and a scene's part takes the voice from his own ultimate's cry: what has been earned outranks what is announced)
     const overCry = part && ownBusy && own.cry;
-    if (ownBusy && priority <= own.priority && !followsOn && !overCry && !coordinated) return null;
-    if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
+    const whyIsThisFireInterrupt = line === 'whyIsThisFire' && ownBusy && own.priority <= EXERTION;
+    const ownWasLaughing = line === 'laughToScream' && ownBusy && isLaughingEntry(own, now);
+    if (ownBusy && priority <= own.priority && !followsOn && !overCry && !coordinated && !whyIsThisFireInterrupt && !ownWasLaughing) return null;
+    if (!rule.interrupts && !ownWasLaughing && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
     const sentence = rule.kind === 'sentence';
-    // one sentence heard at a time: another knight's is let finish, unless this one matters more
-    let other = sentence && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
+    const subtitled = sentence || Boolean(rule.subtitle);
+    // one sentence/caption heard at a time: another knight's is let finish, unless this one matters more
+    let other = subtitled && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
     if (other && notRightNow && source && other.source) {
       const sx = source.x ?? 0, sz = source.z ?? 0;
       const ox = other.source.x ?? 0, oz = other.source.z ?? 0;
@@ -444,7 +475,8 @@ export class VoiceDirector {
         other = null;
       }
     }
-    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
+    const canDisruptSpeaker = line === 'silentTreatment' && validDisruption && Boolean(other && other.speaker === disruptedSpeaker);
+    if (other && priority <= other.priority && !(priority >= STATE && other.subtitleOnly) && !(coordinated && other.chorus === chorus) && !canDisruptSpeaker) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     let odds = rule.chance * chanceScale;
     if (!force && sentence && line !== this.frequentException) {
@@ -460,6 +492,13 @@ export class VoiceDirector {
     if (other && !(coordinated && other.chorus === chorus) && !notRightNow) {
       stop.push(other.speaker);
       this.speaking.delete(other.speaker);
+    }
+    if (line === 'silentTreatment' && validDisruption) {
+      if (!stop.includes(disruptedSpeaker)) stop.push(disruptedSpeaker);
+      this.speaking.delete(disruptedSpeaker);
+      if (this.sentence && this.sentence.speaker === disruptedSpeaker) {
+        this.sentence = null;
+      }
     }
     if (line === 'notRightNow') {
       const sx = source?.x ?? 0, sz = source?.z ?? 0;
@@ -490,15 +529,23 @@ export class VoiceDirector {
     if (familyKey) this.readyAt.set(familyKey, readyAtTime);
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
-    const entry = { speaker, line, priority, source, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };
+    const effectiveDuration = ownWasLaughing ? Math.max(0.4, Math.max(0, duration) - 1.2) : Math.max(0, duration);
+    const entry = {
+      speaker, line, priority, source, until: now + effectiveDuration,
+      ...(cry ? { cry: true } : {}), ...(coordinated ? { chorus } : {}),
+      ...(Number.isInteger(partIndex) ? { part: partIndex } : {}),
+      ...(!sentence && rule.subtitle ? { subtitleOnly: true } : {}),
+    };
     this.speaking.set(speaker, entry);
-    if (sentence) {
-      this.lastSentenceLine.set(line, now);
-      this.lastSentence.set(speaker, now);
+    if (subtitled) {
+      if (sentence) {
+        this.lastSentenceLine.set(line, now);
+        this.lastSentence.set(speaker, now);
+      }
       if (coordinated && this.sentence?.chorus === chorus) entry.until = Math.max(entry.until, this.sentence.until);
       this.sentence = entry;
     }
-    return { stop };
+    return { stop, ...(ownWasLaughing ? { screamOnly: true } : {}) };
   }
 
   /** Whether `speaker` says `line` at `now` (as consider, for callers that cut nothing). */

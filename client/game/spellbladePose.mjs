@@ -1,5 +1,9 @@
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import { spellFor } from '../../shared/src/spells.mjs';
 import { chainPresentation } from './swordChainPresentation.mjs';
+
+export const CAST_RELEASE_PHASE = 0.6;
+const CAST_RECOVERY_SECONDS = 0.26;
 export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
@@ -28,8 +32,23 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
 
 export function castPoseWindowFromEvent(event) {
   if (event?.type !== 'spellCast' || !Number.isFinite(event.at)) return null;
-  const castEndsAt = Number.isFinite(event.castEndsAt) ? event.castEndsAt : event.at + 0.3;
-  return { startAt: event.at, endAt: castEndsAt + 0.06 };
+  const deadline = Number.isFinite(event.castEndsAt) ? event.castEndsAt : event.at + spellFor(event.spell).gatherSec;
+  const releaseAt = Math.max(event.at, deadline);
+  return { startAt: event.at, releaseAt, endAt: releaseAt + CAST_RECOVERY_SECONDS };
+}
+
+export function castPoseWindowFromSnapshot(player, now) {
+  if (!player.castingSpell || !(player.castEndsAt > now) || !Number.isFinite(player.castEndsAt)) return null;
+  const startAt = player.castStartedAt > 0
+    ? player.castStartedAt : player.castEndsAt - spellFor(player.castingSpell).gatherSec;
+  return castPoseWindowFromEvent({ type: 'spellCast', at: startAt, castEndsAt: player.castEndsAt });
+}
+
+/** Sample the same release pose for spells with different gather times. */
+export function castClipPhase(now, startAt, releaseAt) {
+  if (now < releaseAt) return CAST_RELEASE_PHASE * Math.max(0, (now - startAt) / (releaseAt - startAt));
+  const recovery = Math.min(1, (now - releaseAt) / CAST_RECOVERY_SECONDS);
+  return CAST_RELEASE_PHASE + (1 - CAST_RELEASE_PHASE) * recovery;
 }
 
 export function castPoseDeadlineFromEvent(event, currentDeadline = 0) {

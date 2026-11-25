@@ -278,14 +278,16 @@ const p=room.players.get(b.operatorId);
  const sidewaysTurn=Boolean(driver&&!bracedAim&&!b.charging&&Math.abs(input.forward??0)<.08&&
    Math.abs(input.right??0)>.92);
  const driveForward=bracedAim?0:sidewaysTurn?(b.speed<-.45?-.72:.72):(input.forward??0);
- const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?SO_FIST.speed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/.384,0,1));
+ const modeMobility=room.mode==='SIEGE_BLADES'?1.18:1;
+ const cruiseSpeed=SO_FIST.speed*modeMobility;
+ const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):driveForward>0?cruiseSpeed*Math.abs(driveForward):driveForward<0?-SO_FIST.reverse*modeMobility*Math.abs(driveForward):0)*driveScale*elevatedDrive*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):driveForward))/.384,0,1));
  const reversing=target*b.speed<0;
- const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
+ const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):(reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8)*modeMobility;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
   // Actual momentum sign, not the newly requested direction during braking.
   b.chargeDirection=b.charging&&Math.abs(b.speed)>.15?Math.sign(b.speed):0;
  b.steer=clamp(input.right??0,-1,1)*(sidewaysTurn?Math.sign(driveForward):1)*
-   affliction.steering*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
+   affliction.steering*(1-.86*clamp((Math.abs(b.speed)-cruiseSpeed)/(SO_FIST.peak-cruiseSpeed),0,1));
  // Drive and impact momentum both move the carriage through terrain clearance.
  const travelSpeed=b.hellping?.phase==='vault'?0:b.speed+(b.recoilVelocity??0);
  const steps=Math.max(1,Math.ceil(Math.abs(travelSpeed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();

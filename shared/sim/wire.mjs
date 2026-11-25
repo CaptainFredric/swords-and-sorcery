@@ -392,6 +392,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       ultimateLockedUntil: p.ultimateLockedUntil ?? -Infinity,
       spawnProtectionUntil: p.spawnProtectionUntil,
       respawnAt: p.respawnAt,
+      ...(!p.alive && p.defeatedBy ? { defeatedBy: p.defeatedBy } : {}),
       lastInputSeq: p.lastInputSeq,
       operatingBallistaId: p.operatingBallistaId ?? null,
       operatingRamId: p.operatingRamId ?? null,

@@ -382,3 +382,8 @@ test('Authoritative Bot Controllers step machine weapons and steering in Siege B
   assert.ok(Number.isFinite(bot.input?.yaw));
   assert.ok(Number.isFinite(bot.input?.pitch));
 });
+
+
+test('machine selection is exactly six seconds',()=>{
+  assert.equal(SIEGE_SELECTION_SECONDS,6);
+});

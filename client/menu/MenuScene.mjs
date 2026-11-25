@@ -1,4 +1,4 @@
-import { armoryPose, mixArmoryPose, authoredArmoryClip, ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
+import { armoryPose, mixArmoryPose, authoredArmoryClip, ARMORY_PREVIEW_SEC, ARMORY_LEAN_SHARE, ARMORY_SWORD_LEAN, armoryLeanWeight } from './armoryPreview.mjs';
 import { createArmoryHand } from './armoryHand.mjs';
 import { createElementalOrb } from '../game/elementalOrb.mjs';
 import { createSteelSheen } from '../game/steelSheen.mjs';
@@ -48,6 +48,8 @@ const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
 // a showcase cut short (another card, another screen): how long the camera takes to come away from it
 const SHOWCASE_RELEASE_SEC = 0.6;
+// the share of a turn the menu knight's cloth feels (the game's is 0.3: there he turns to fight, here to be shown)
+export const MENU_CLOTH_INERTIA = Object.freeze({ turn: 0.8 });
 // The front door's presentation (menuPresentation.mjs): how long the camera takes to recompose when the banner is drawn
 // aside or brought back (overlapping the banner's own move), and where he stands across the stage once it has gone
 const PRESENTATION_SEC = 0.42;
@@ -214,6 +216,8 @@ export class MenuScene {
       this.visualKind = 'production';
       instance.setCloth(this.cloth ?? 'crimson');
       instance.setEmblem?.(this.emblem ?? 'grimoirelee');
+      // (turned on the spot to be looked at, his cape swings out and trails the turn instead of riding round with him)
+      instance.animator.cloth?.setInertia?.(MENU_CLOTH_INERTIA);
       this.characterRoot.add(instance.root);
       instance.root.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; } });
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
@@ -498,6 +502,11 @@ export class MenuScene {
               actionKey: `armory-${id}-${this.armoryPreview.started}` }
           : resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
         if (!hasAuthored) plan.motion = armoryGestureMotion(gesture);
+        // (now and then he leans on the sword through the showcase instead of carrying it: chosen as it began)
+        else if (this.armoryPreview.lean) {
+          const weight = armoryLeanWeight(Math.min(elapsed, ARMORY_PREVIEW_SEC));
+          plan.motion = { solve: (bones) => solveArm(bones, THIRD_PERSON_SWORD_ARM, ARMORY_SWORD_LEAN, weight) };
+        }
         this.armoryHand ??= createArmoryHand(this.assetInstance);
         this.armoryHand.set(gesture.fist);
         if (id === 'steel') {
@@ -905,7 +914,7 @@ export class MenuScene {
     this.magicLight.intensity = look.light ?? 2.4;
   }
 
-  previewArmory(id) {
+  previewArmory(id, { lean = Math.random() < ARMORY_LEAN_SHARE } = {}) {
     this.showSpell(id);
     this.reaction=null;
     if (this.performs(id)) {
@@ -913,7 +922,7 @@ export class MenuScene {
       this.showcase.start(id, this.#showcaseView());
       return;
     }
-    this.armoryPreview = { id, started: this.clock, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
+    this.armoryPreview = { id, started: this.clock, lean, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
   }
 
   /**

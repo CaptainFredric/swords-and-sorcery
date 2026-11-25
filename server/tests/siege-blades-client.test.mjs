@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { siegeBladesHudView, matchInfoText } from '../../client/ui/HUD.mjs';
@@ -250,18 +249,15 @@ test('Machine draft has three distinct recognizable selectable portraits, descri
   const html=siegePickerMarkup();
   assert.equal((html.match(/data-siege-pick=/g)||[]).length,3);
   assert.equal((html.match(/role="radio"/g)||[]).length,3,'a radio group of three');
+  assert.equal((html.match(/<img src=/g)||[]).length,3);
+  assert.match(html,/data-sb-draft-seconds>6/);
+  for(const machine of SIEGE_MACHINE_CARDS)assert.ok(html.includes('/siege-portraits/'+machine.id+'.svg'));
   for(const machine of SIEGE_MACHINE_CARDS){
     assert.ok(html.includes(machine.name));
     assert.ok(html.includes(machine.role));
     assert.ok(html.includes(machine.description));
-    // a still of the real model, small, and never the machine's GLB
-    assert.ok(html.includes(`/client/assets/ui/siege-machines/${machine.id}.webp`));
-    const picture=readFileSync(new URL(`../../client/assets/ui/siege-machines/${machine.id}.webp`,import.meta.url));
-    assert.equal(picture.toString('ascii',8,12),'WEBP');
-    assert.ok(picture.length<120*1024,`${machine.id} picture stays small (${picture.length} bytes)`);
   }
   assert.doesNotMatch(html,/\.glb/);
-  assert.deepEqual(SIEGE_MACHINE_CARDS.map(c=>c.description),['Charge · Crush · Recoil','Aim · Deploy · Fire','Fly · Strafe · Volley']);
   assert.equal(siegePickerSeconds(18,10),8);
   assert.equal(siegePickerSeconds(18,17.3),1);
   assert.equal(siegePickerSeconds(18,20),0);

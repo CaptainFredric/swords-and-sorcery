@@ -22,6 +22,7 @@ export const VOICE_LIBRARY = Object.freeze(VOICE_LINE_LIST.map((line) => Object.
   when: line.credits.description,
   note: line.credits.note,
   kind: line.kind,
+  subtitle: Boolean(line.subtitle),
   coming: line.coming,
   // (a line said in parts: how many; its recordings are those parts, heard in the Credits as one)
   parts: line.parts?.length ?? 0,
@@ -86,7 +87,7 @@ export function libraryInOrder(isRecorded) {
  */
 export function subtitleFor(line, part = null) {
   const entry = BY_LINE.get(line);
-  if (!entry || entry.kind !== 'sentence' || entry.words.startsWith('(')) return null;
+  if (!entry || (entry.kind !== 'sentence' && !entry.subtitle) || entry.words.startsWith('(')) return null;
   if (!entry.parts || part === null) return entry.words;
   // (each part its own words; a sentence said a word at a time: the sentence so far)
   return voiceLine(line).cumulative ? voiceLine(line).parts.slice(0, part + 1).map((_, i) => partText(line, i)).join(' ') : partText(line, part);
@@ -99,7 +100,7 @@ export function subtitleFor(line, part = null) {
  */
 export function captionsFor(line, part = null) {
   const entry = BY_LINE.get(line);
-  if (!entry || entry.kind !== 'sentence') return null;
+  if (!entry || (entry.kind !== 'sentence' && !entry.subtitle)) return null;
   const beats = beatsOf(line, part);
   return beats ? beats.map((beat) => beat.words) : null;
 }

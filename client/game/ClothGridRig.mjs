@@ -52,6 +52,20 @@ export class ClothGridRig {
     }
     this.enabled = this.grids.length > 0;
     this.wind = [0, 0, 0];
+    this.inertia = null;
+  }
+
+  /**
+   * How much of his own motion the cloth feels, overriding the specs' share ({ move?, turn? }, 0..1; null: the
+   * specs'). The Armory spins him on the spot to be looked at, and there the cape should swing out and trail the turn.
+   */
+  setInertia(inertia) {
+    this.inertia = inertia ? { ...inertia } : null;
+    for (const grid of this.grids) if (grid.sim) grid.sim.spec = this.#spec(grid);
+  }
+
+  #spec(grid) {
+    return this.inertia ? { ...grid.spec, inertia: { ...grid.spec.inertia, ...this.inertia } } : grid.spec;
   }
 
   // the cloth on its drape this frame: every cloth bone back on its bind turn, read off in the world
@@ -106,7 +120,7 @@ export class ClothGridRig {
       // (its side of him turns with him; its height limit is the world's: leaning into a dash, the cape streams out
       // level behind him at most, not up over his head)
       const side = { outward: _a.copy(grid.outward).applyQuaternion(_anchorTurn).toArray(), up: [0, 1, 0] };
-      if (!grid.sim) { grid.sim = createClothGrid(grid.spec, drape.targets); resetClothGrid(grid.sim, drape.targets, body); }
+      if (!grid.sim) { grid.sim = createClothGrid(this.#spec(grid), drape.targets); resetClothGrid(grid.sim, drape.targets, body); }
       else if (dt > 0) stepClothGrid(grid.sim, dt, { targets: drape.targets, colliders: this.#colliders(grid), ground, wind: this.wind, body, ...side });
       else resetClothGrid(grid.sim, drape.targets, body);
       this.#write(grid, drape);

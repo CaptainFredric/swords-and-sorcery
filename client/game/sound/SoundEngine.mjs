@@ -335,7 +335,7 @@ export class SoundEngine {
    * through on its way out (ctx => { input, output, nodes }: another knight's timbre, voiceTimbre.mjs).
    */
   playBuffer(buffer, {
-    bus = 'sfx', pan = 0, gain = 1, rate = 1, at = null, delay = 0, reverb = 0, hall = 0, echo = null, echoLevel = 0.5,
+    bus = 'sfx', pan = 0, gain = 1, rate = 1, at = null, delay = 0, offset = 0, reverb = 0, hall = 0, echo = null, echoLevel = 0.5,
     attack = 0, duration = null, release = 0.05, shape = null, loop = false,
   } = {}) {
     const ctx = this.ctx;
@@ -364,13 +364,15 @@ export class SoundEngine {
     this.#send(out, this.reverb, reverb);
     this.#send(out, this.hall, hall);
     if (echo && this.echoes[echo]) this.#send(out, this.echoes[echo], echoLevel);
-    const natural = buffer.duration / rate;
+    const startOffset = offset > 0 ? Math.min(Math.max(0, buffer.duration - 0.05), offset) : 0;
+    const natural = Math.max(0, buffer.duration - startOffset) / rate;
     const length = duration === null ? natural : Math.min(duration, natural);
     if (duration !== null && duration < natural) {
       amp.gain.setValueAtTime(gain, start + Math.max(attack, length - release));
       amp.gain.linearRampToValueAtTime(0.0001, start + length);
     }
-    source.start(start);
+    if (startOffset > 0) source.start(start, startOffset);
+    else source.start(start);
     if (!loop) {
       source.stop(start + length + 0.02);
       this.#release([source, out, panner, amp, ...(shaped?.nodes ?? [])], start + length);

@@ -4,15 +4,28 @@
 import {WORLD_NAMES} from '../menu/lobbyView.mjs';
 
 export const SIEGE_MACHINE_CARDS = Object.freeze([
-  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge · Crush · Recoil'}),
-  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Aim · Deploy · Fire'}),
-  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Fly · Strafe · Volley'}),
+  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge into enemies and batter them with a steel fist.'}),
+  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Slow foes with frost; finish them with heavy bolts.'}),
+  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Take to the skies, strafe with bolts and strike with rotors.'}),
 ]);
 
-// Each card's picture is a still of the machine's real model, rendered by the game's own renderer
-// (scripts/render-siege-machine-cards.mjs): a small WebP, so the draft never waits on the machines' GLBs.
-export const siegeMachinePicture = (id) => `/client/assets/ui/siege-machines/${id}.webp`;
-
+// Actual game/model captures, cropped to small raster portraits and packaged
+// as standalone SVG image containers. No WebGL context or GLB fetch is needed
+// in the timed picker. appUrl also works in the static GitHub Pages export.
+import {appUrl} from '../appUrl.mjs';
+export const SIEGE_MACHINE_PORTRAITS = Object.freeze({
+  'so-fist-ication':'/client/assets/props/siege-portraits/so-fist-ication.svg',
+  'bi-bye-llista':'/client/assets/props/siege-portraits/bi-bye-llista.svg',
+  'fight-and-flight':'/client/assets/props/siege-portraits/fight-and-flight.svg',
+});
+let portraitsPreloaded=false;
+export function preloadSiegePortraits(){
+  if(portraitsPreloaded||typeof Image==='undefined')return;
+  portraitsPreloaded=true;
+  for(const path of Object.values(SIEGE_MACHINE_PORTRAITS)){
+    const image=new Image();image.src=appUrl(path);
+  }
+}
 export function siegePickerSeconds(selectionEndsAt,serverNow){
   return Number.isFinite(selectionEndsAt) ? Math.max(0,Math.ceil(selectionEndsAt-serverNow)) : 0;
 }
@@ -29,10 +42,10 @@ export function siegePickerMarkup(){
           <h2>Choose your machine</h2>
           <p class="sb-draft-status" data-sb-draft-status aria-live="polite">${siegePickerStatus(null)}</p>
         </div>
-        <div class="sb-draft-clock" role="timer" aria-label="Deploying in"><b data-sb-draft-seconds>8</b><small>DEPLOY</small></div>
+        <div class="sb-draft-clock" role="timer" aria-label="Deploying in"><b data-sb-draft-seconds>6</b><small>DEPLOY</small></div>
       </header>
       <div class="sb-draft-choices" role="radiogroup" aria-label="Siege machine">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" role="radio" data-siege-pick="${machine.id}" aria-checked="false" tabindex="${index===0?0:-1}">
-        <span class="sb-draft-art"><img src="${siegeMachinePicture(machine.id)}" alt="${machine.name}, ${machine.role.toLowerCase()}" decoding="async" draggable="false"></span>
+        <span class="sb-draft-art"><img src="${appUrl(SIEGE_MACHINE_PORTRAITS[machine.id])}" alt="${machine.name}, ${machine.role.toLowerCase()}" decoding="async" draggable="false"></span>
         <span class="sb-draft-text">
           <strong>${machine.name}</strong>
           <span class="sb-draft-role">${machine.role}</span>
