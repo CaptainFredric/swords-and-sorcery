@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
+import {serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {applyDamage} from '../../shared/sim/combat.mjs';
 import {stepFlightBurnZones} from '../../shared/sim/fightFlightTerminal.mjs';
 
@@ -111,4 +112,23 @@ test('the halo protects the sacrificed pilot’s team even after the pilot leave
   applyDamage(room,enemy.id,ally.id,50,'sword',12);
   assert.equal(ally.health,1,'the team belongs to the fire, not its living owner');
   assert.equal(ally.alive,true);
+});
+
+test('snapshot auras use the exact combat exposure, expire, and distinguish overlapping teams',()=>{
+  const {room,ally,enemy}=battle();
+  const state=(p,now)=>serializeSnapshot(room,now,p.id).players.find(x=>x.id===p.id).valkyrieFlames;
+  assert.deepEqual(state(ally,12),{alliedUntil:20,hostileUntil:0});
+  assert.deepEqual(state(enemy,12),{alliedUntil:0,hostileUntil:20});
+  room.flightBurnZones.push({...room.flightBurnZones[0],id:'other-burn',
+    sourceId:enemy.id,team:enemy.team,expiresAt:22});
+  assert.deepEqual(state(ally,12),{alliedUntil:20,hostileUntil:22});
+  assert.deepEqual(state(ally,20),{alliedUntil:0,hostileUntil:22});
+  assert.equal(state(ally,22),null);
+  ally.position.y=2;
+  assert.equal(state(ally,12),null,'a different floor has no aura');
+  ally.position={x:1,y:0,z:0};
+  room.world.solids=[{id:'wall',center:[.5,1,0],size:[.3,2,3]}];
+  assert.equal(state(ally,12),null,'a wall blocks the visual just as it blocks damage');
+  ally.position={x:0,y:0,z:0};ally.alive=false;
+  assert.equal(state(ally,12),null,'no aura on a corpse');
 });
