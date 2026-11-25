@@ -559,7 +559,10 @@ export class FightFlightRenderer{
     const groupVisible=this.group.visible;this.group.visible=true;
     this.scene.add(this.warmTerminalGroup);
     let compiled;
-    try{compiled=renderer.compileAsync?.(this.scene,camera)??Promise.resolve(renderer.compile(this.scene,camera));}
+    // (compile, not compileAsync: the shaders are built here either way, but compileAsync then polls every material of
+    // the whole scene on later frames, and one let go meanwhile throws inside three.js, "reading 'isReady'" (seen
+    // mounting a Flight in High Grounds); tourWorlds.mjs avoids it for the same reason)
+    try{compiled=Promise.resolve(renderer.compile(this.scene,camera));}
     finally{
       // (the compile gathers what it builds at the call: everything is put back as it was at once)
       this.warmTerminalGroup.removeFromParent();
