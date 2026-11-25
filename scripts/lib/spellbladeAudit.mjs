@@ -9,6 +9,27 @@
 // props (the sword, the flag) are left out.
 import { loadGlb, localPose, worldMatrices, multiply, apply } from './glbPose.mjs';
 import { readAccessor } from './glbSkin.mjs';
+import { pauldronFollow } from '../../client/game/pauldronFollow.mjs';
+
+// the game sets each pauldron itself every frame (SpellbladeAnimator #followPauldrons): its upper arm's rest turn, slerped
+// toward the arm's turn by pauldronFollow, at the arm's position; the clips' own pauldron keys are never seen
+const slerp = (a, b, t) => {
+  let d = a.reduce((x, v, i) => x + v * b[i], 0); const bb = d < 0 ? b.map((x) => -x) : b; d = Math.abs(d);
+  if (d > 0.9995) { const v = a.map((x, i) => x + (bb[i] - x) * t); const l = Math.hypot(...v); return v.map((x) => x / l); }
+  const th = Math.acos(d), sn = Math.sin(th), wa = Math.sin((1 - t) * th) / sn, wb = Math.sin(t * th) / sn;
+  return a.map((x, i) => x * wa + bb[i] * wb);
+};
+function gamePauldrons(model, pose) {
+  const { gltf } = model;
+  for (const side of ['L', 'R']) {
+    const p = gltf.nodes.findIndex((n) => n.name === `pauldron.${side}`), u = gltf.nodes.findIndex((n) => n.name === `upper_arm.${side}`);
+    if (p < 0 || u < 0) continue;
+    const rest = gltf.nodes[p].rotation ?? [0, 0, 0, 1], q = pose[u].r;
+    const turn = (2 * Math.acos(Math.min(1, Math.abs(rest.reduce((x, v, i) => x + v * q[i], 0))))) * 180 / Math.PI;
+    pose[p] = { ...pose[p], r: slerp(rest, q, pauldronFollow(turn)), t: pose[u].t };
+  }
+  return pose;
+}
 
 export const AUDIT_CLIPS = Object.freeze(['Idle', 'Run', 'Guard', 'Cast', 'Slash_1', 'Slash_2', 'Slash_3', 'GuardCut_1', 'GuardCut_2', 'GuardCut_3', 'Sunder_Strike', 'Overhead_Raise_Test']);
 export const RIGID_MESHES = /^(Boot|Breastplate|Gauntlet|Greave|Helmet|Pauldron|Visor|InnerSkeletonCore)/;
@@ -100,7 +121,7 @@ export function auditSpellblade(file, { clips = AUDIT_CLIPS, frames = FRAMES } =
     if (!c) continue;
     for (let f = 0; f < frames; f += 1) {
       const time = (c.duration * f) / (frames - 1);
-      const world = worldMatrices(model, localPose(model, [{ clip, time, weight: 1 }]));
+      const world = worldMatrices(model, gamePauldrons(model, localPose(model, [{ clip, time, weight: 1 }])));
       const palette = skinDef.joints.map((node, k) => multiply(world[node], Array.from(ibm.subarray(k * 16, k * 16 + 16))));
       const posed = parts.map((part) => skin(part, palette));
       // tears
