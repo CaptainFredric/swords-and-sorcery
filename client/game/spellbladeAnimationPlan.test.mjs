@@ -531,3 +531,14 @@ test('a white-flag knight finds the nearest living enemy beside him, never a tea
   // gone, or out of sight: back to whoever is beside him
   assert.equal(whiteFlagFoe({ ...knight, defeatedBy: 'down' }, players, 10).id, 'foe');
 });
+
+test('a Sundering strike on the move keeps the legs running under the slam', () => {
+  const running = { attackStartedAt: 10, attackSlam: true, velocity: { x: 0, y: 0, z: 6 }, grounded: true };
+  const plan = resolveSpellbladeAnimationPlan({ state: 'attack', player: running, serverNow: 10.4, localTime: 3 });
+  assert.equal(plan.moving, true);
+  assert.notEqual(plan.layers.locomotion.clip, 'Slash_3');
+  assert.equal(plan.layers.sword.clip, 'Slash_3');
+  close(plan.layers.sword.time, 0.36);
+  // standing still, the slam keeps the whole body
+  assert.equal(resolveSpellbladeAnimationPlan({ state: 'attack', player: { attackStartedAt: 10, attackSlam: true }, serverNow: 10.4 }).clip, 'Slash_3');
+});

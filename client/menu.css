@@ -1786,6 +1786,31 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   background:rgba(201,156,82,.10);border-color:#ebc67d;
 }
 
+/* Compact selection rows and an explicit inspection view. Detailed stats never
+   push equipment off the end of the list. Both actions have separate hit areas. */
+#armory-inspector .inspector-list { min-height:0; }
+#armory-inspector .inspector-list > .armory-slot { margin:0 0 4px; }
+#armory-inspector .inspector-list .armory-spells { gap:5px; }
+#armory-inspector .equipment-row { display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:stretch; gap:4px; }
+#armory-inspector .equipment-row .spell-card { grid-template-columns:23px minmax(0,1fr) auto; padding:6px 7px; column-gap:6px; row-gap:2px; min-height:48px; }
+#armory-inspector .equipment-row .spell-name {font-size:clamp(13px,1.25cqw,16px);letter-spacing:.025em;}
+#armory-inspector .equipment-row .spell-mark {font-size:19px;grid-row:1 / span 2;}
+#armory-inspector .equipment-row small {grid-column:2 / 4;font-size:12px;line-height:1.2;}
+#armory-inspector .equipment-row i {font-size:8px;letter-spacing:.06em;}
+.equipment-info {border:1px solid #c99c5280;background:linear-gradient(#3a322b,#221d19);color:#ecc97f;border-radius:2px;cursor:pointer;font:bold italic 20px Georgia,serif;min-height:44px;}
+.equipment-info:hover,.equipment-info:focus-visible {outline:2px solid #ecc97f;outline-offset:-2px;background:#51402e;}
+#armory-inspector:not(.show-equipment-detail) .inspector-item-card {display:none;}
+#armory-inspector.show-equipment-detail .inspector-list {display:none;}
+#armory-inspector.show-equipment-detail #inspector-scroll-hint {display:none;}
+#armory-inspector .inspector-item-card {margin:0;padding:10px 12px;}
+#armory-inspector .inspector-item-card .back-button {margin:0 0 3px;}
+@container app (max-height:500px) {
+ #armory-inspector .inspector-header {margin-bottom:6px;padding-bottom:5px;}
+ #armory-inspector .equipment-row {grid-template-columns:minmax(0,1fr) 44px;}
+ #armory-inspector .equipment-row .spell-card {padding:5px 6px;min-height:44px;}
+ #armory-inspector .equipment-row .spell-name {font-size:13px;}
+ #armory-inspector .equipment-row small {font-size:11px;}
+}
 
 /* Duel and training use the established paired standards, not a new screen.
    Desktop shows the rival setup alongside the two obvious launch choices;

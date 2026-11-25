@@ -125,3 +125,14 @@ test('the longsword is the weapon and both Sword Techniques are equippable', () 
   assert.equal(switched.techniques.find((t) => t.id === 'whirl_wind').equipped, true);
   assert.equal(switched.techniques.find((t) => t.id === 'rigid_riposte').equipped, false);
 });
+
+
+test('equipment summaries cover all selectable equipment and stay compact',async()=>{
+  const {ARMORY_SUMMARIES}=await import('./armoryView.mjs');
+  const view=armoryView('fireball');
+  for(const item of [...view.techniques,...view.spells,...view.ultimates]){
+    assert.ok(ARMORY_SUMMARIES[item.id],item.id+' needs a compact summary');
+    assert.ok(ARMORY_SUMMARIES[item.id].length<=80,item.id+' exceeds 80 characters');
+    assert.ok(item.line&&item.facts,item.id+' retains full inspection details');
+  }
+});

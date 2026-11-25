@@ -2,20 +2,28 @@
 // actual accessible buttons. Network authority owns the countdown and pick;
 // local selection is shown immediately while the snapshot catches up.
 export const SIEGE_MACHINE_CARDS = Object.freeze([
-  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'ARMORED RAM',description:'Close the distance. Drive the mechanical fist into enemy machines.'}),
-  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'TWIN-BOLT BALLISTA',description:'Mobile firepower, heavy bolts, and a vicious built-in turning attack.'}),
-  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'FLYING REPEATER',description:'Climb, strafe, and spend flight charge on rapid-fire bolts.'}),
+  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'ARMORED RAM',description:'Charge into enemies and batter them with a steel fist.'}),
+  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'TWIN-BOLT BALLISTA',description:'Slow foes with frost; finish them with heavy bolts.'}),
+  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'FLYING REPEATER',description:'Take to the skies, strafe with bolts and strike with rotors.'}),
 ]);
 
-// Compact machine portraits, not load-bearing 3-D assets: the selection must
-// remain usable on slow mobile connections before the full GLBs have loaded.
-const WHEELS='<g stroke="#cfba89" stroke-width="3" fill="#272d31"><circle cx="64" cy="104" r="13"/><circle cx="165" cy="104" r="13"/></g><g stroke="#907d5b" stroke-width="2"><path d="M64 91v26m-13-13h26m88-13v26m-13-13h26"/></g>';
-const ART=Object.freeze({
-  'so-fist-ication':`<svg viewBox="0 0 240 132" role="img" aria-label="Armored siege ram with four wheels and an extended steel fist"><g fill="#4d5354" stroke="#b6a478" stroke-width="2.5"><path d="M31 93L50 74h139l18 19-13 12H40z"/><path d="M62 72V52h95l24 20z"/><rect x="83" y="60" width="66" height="13" rx="2" fill="#94744e"/></g><g stroke="#e0d3b7" stroke-width="3"><path d="M143 66h38m-13-7h24m-9 14h11"/></g><path d="M186 53l9-7h18l9 10-2 18-12 10-20-3-9-13z" fill="#a6afb3" stroke="#e0c999" stroke-width="3"/><path d="M190 48V38l8-3 6 8V33l8 0 1 12 9-1 4 12" fill="#b5bdc1" stroke="#e0c999" stroke-width="2.4"/><path d="M75 72h41" stroke="#d35b46" stroke-width="5"/>${WHEELS}</svg>`,
-  'bi-bye-llista':`<svg viewBox="0 0 240 132" role="img" aria-label="Wheeled siege ballista with two stacked crossbow launchers"><g fill="#424948" stroke="#b7a67f" stroke-width="2"><path d="M36 97h173l-22 10H44z"/><path d="M63 82h118l17 15H46z"/></g><path d="M120 81V48m-34 28 69-54m-32 57 53-33" stroke="#d6c59a" stroke-width="6"/><g stroke="#c9b586" stroke-width="3" fill="none"><path d="M63 38q42 34 95 0M85 66q40 25 102 1"/><path d="m61 38 107 1m-83 27 102 1" stroke="#e2d1ab"/></g><path d="m104 34 58 4-9-7m-33 33 66 3-11-8" stroke="#aebbc1" stroke-width="4" fill="none"/><path d="M108 78h39v12h-39z" fill="#963d34" stroke="#d4b477" stroke-width="2"/>${WHEELS}</svg>`,
-  'fight-and-flight':`<svg viewBox="0 0 240 132" role="img" aria-label="Flying rotor-powered crossbow platform with a compact repeater"><g stroke="#d8cfb0" stroke-width="5" stroke-linecap="round"><path d="M37 43h168M122 24v39"/></g><circle cx="122" cy="43" r="8" fill="#9dabb3" stroke="#d9c79a" stroke-width="3"/><path d="M93 57h59l19 19-9 18H77L67 76z" fill="#576063" stroke="#d5c18e" stroke-width="3"/><path d="M79 75h89" stroke="#9a473d" stroke-width="6"/><path d="M153 66l45-12m-13-12 14 12-8 14m-44 10 49 2" stroke="#c9d5da" stroke-width="3.5" fill="none"/><g stroke="#bea97d" stroke-width="4"><path d="M93 96l-11 15m58-15 13 15M89 112h70"/></g><path d="M65 72 40 80m124-8 29 11" stroke="#d4be8c" stroke-width="4"/></svg>`,
+// Actual game/model captures, cropped to small raster portraits and packaged
+// as standalone SVG image containers. No WebGL context or GLB fetch is needed
+// in the timed picker. appUrl also works in the static GitHub Pages export.
+import {appUrl} from '../appUrl.mjs';
+export const SIEGE_MACHINE_PORTRAITS = Object.freeze({
+  'so-fist-ication':'/client/assets/props/siege-portraits/so-fist-ication.svg',
+  'bi-bye-llista':'/client/assets/props/siege-portraits/bi-bye-llista.svg',
+  'fight-and-flight':'/client/assets/props/siege-portraits/fight-and-flight.svg',
 });
-
+let portraitsPreloaded=false;
+export function preloadSiegePortraits(){
+  if(portraitsPreloaded||typeof Image==='undefined')return;
+  portraitsPreloaded=true;
+  for(const path of Object.values(SIEGE_MACHINE_PORTRAITS)){
+    const image=new Image();image.src=appUrl(path);
+  }
+}
 export function siegePickerSeconds(selectionEndsAt,serverNow){
   return Number.isFinite(selectionEndsAt) ? Math.max(0,Math.ceil(selectionEndsAt-serverNow)) : 0;
 }
@@ -26,13 +34,13 @@ export function siegePickerMarkup(){
       <h2>CHOOSE YOUR SIEGE MACHINE</h2>
       <p class="sb-draft-instruction">You can change your choice until the timer ends.</p>
       <div class="sb-draft-choices">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" data-siege-pick="${machine.id}" aria-pressed="false">
-        <span class="sb-draft-art">${ART[machine.id]}</span>
+        <span class="sb-draft-art" role="img" aria-label="${machine.name} actual machine portrait"><img src="${appUrl(SIEGE_MACHINE_PORTRAITS[machine.id])}" alt="" decoding="async" draggable="false"></span>
         <span class="sb-draft-role">${machine.role}</span>
         <strong>${machine.name}</strong>
         <small>${machine.description}</small>
         <span class="sb-draft-key">PRESS ${index+1}</span>
       </button>`).join('')}</div>
-      <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>8</b>S</span></div>
+      <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>6</b>S</span></div>
     </div>`;
 }
 

@@ -86,7 +86,11 @@ export const WATCH = Object.freeze({
   fleeing: Object.freeze({ freshSec: 0.6, speed: 4, far: 20, away: 0.6 }),
   // corpse exercise: repeatedly crouching (>=3 times in 4.0s) directly over/beside a recently defeated player's corpse (reach <= 2.5m)
   corpseExercise: Object.freeze({ windowSec: 4.0, repetitions: 3, reach: 2.5, bodyFreshSec: 12.0 }),
+  // ally approaching a hostile persistent elemental field
+  allyHazard: Object.freeze({ margin: 3.0, withinOwner: 18.0, cooldownSec: 16.0 }),
 });
+
+const sameSide = (a, b) => Boolean(a && b && (a.id === b.id || (a.team && b.team && a.team === b.team)));
 
 // the arena's lowest ground (a floor, or a ramp's lower end): nothing under it can be landed on (null without one)
 const lowestCache = new WeakMap();
@@ -135,7 +139,7 @@ export class VoiceWatch {
 
   // what is watched once a life (or begun again with it)
   #freshLife(now) {
-    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false, crouches: [], crouched: false };
+    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false, crouches: [], crouched: false, hazardWarnAt: -Infinity, frozenSaid: false };
   }
 
   /**
@@ -143,10 +147,11 @@ export class VoiceWatch {
    * attackStartedAt, attackCommitted, health, burningUntil, pitch, yaw, actorKind }]). self: my own knight (my swings
    * are told as my arms begin them: begin()). world: the arena (its lowest ground: where the Abyss begins).
    */
-  step(now, knights = [], { self = null, world = null, practice = false } = {}) {
+  step(now, knights = [], { self = null, world = null, practice = false, flightBurnZones = [], oneHitFields = [], oneHitBurnZones = [] } = {}) {
     const out = [];
     const living = knights.filter((k) => k && k.alive !== false && k.position);
     out.push(...this.#dismissals(now, knights, world));
+    out.push(...this.#allyHazards(now, living, { flightBurnZones, oneHitFields, oneHitBurnZones }));
     if (!practice) out.push(...this.#othersDueling(now, living));
     const lowest = lowestGround(world);
     for (const knight of knights) {
@@ -158,6 +163,17 @@ export class VoiceWatch {
       if (alive && !state.alive) Object.assign(state, { met: false, quietSince: now, lullSaid: false, chargeArmed: true, streak: 0, ...this.#freshLife(now) });
       state.alive = alive;
       if (!alive || !knight.position) continue;
+      // Full Flash Freeze: genuine immobilization transition (chill/slow alone never triggers targetFrozen)
+      const genuinelyFrozen = (knight.oneHitFrozenUntil ?? -Infinity) > now;
+      if (genuinelyFrozen && !state.frozenSaid) {
+        state.frozenSaid = true;
+        const freezer = living
+          .filter((other) => other.id !== knight.id && !sameSide(other, knight) && other.actorKind !== 'dummy' && other.position)
+          .sort((a, b) => Math.hypot(a.position.x - knight.position.x, a.position.z - knight.position.z) - Math.hypot(b.position.x - knight.position.x, b.position.z - knight.position.z))[0];
+        if (freezer) out.push({ speaker: freezer.id, tags: ['targetFrozen'] });
+      } else if (!genuinelyFrozen) {
+        state.frozenSaid = false;
+      }
       // (as last seen alive: asked about at their fall)
       state.seen = { at: now, position: flat(knight.position), velocity: flat(knight.velocity), sprinting: Boolean(knight.sprinting) };
       const isCrouched = Boolean(knight.crouched);
@@ -341,15 +357,66 @@ export class VoiceWatch {
     for (const [speaker, gust] of [...this.gusts]) {
       if (now < gust.at + rule.afterSec) continue;
       this.gusts.delete(speaker);
+      const caster = knights.find((knight) => knight?.id === speaker);
+      let displacedFar = false;
       const standing = gust.victims.some((id) => {
         const k = knights.find((knight) => knight?.id === id);
         if (!k?.position || k.alive === false) return false;
         const p = k.position;
         if (lowest !== null && p.y < lowest - WATCH.abyss.below) return false;
         const overNothing = world ? surfaceHeightAt(p.x, p.z, p.y, world) === null : false;
-        return !(overNothing && (k.velocity?.y ?? 0) < -rule.falling);
+        if (overNothing && (k.velocity?.y ?? 0) < -rule.falling) return false;
+        if (caster?.position && Math.hypot(p.x - caster.position.x, p.z - caster.position.z) >= 3.2) displacedFar = true;
+        return true;
       });
-      if (standing) out.push({ speaker, tags: ['galeDismissal'] });
+      if (standing) {
+        if (displacedFar) out.push({ speaker, tags: ['displacedBeyondReach', 'galeDismissal'], options: { facts: ['selfDisplaced'] } });
+        else out.push({ speaker, tags: ['galeDismissal'] });
+      }
+    }
+    return out;
+  }
+
+  // an ally approaching a hostile live persistent hazard (never warn allies away from friendly Areas of Denial or friendly fields)
+  #allyHazards(now, living, { flightBurnZones = [], oneHitFields = [], oneHitBurnZones = [] } = {}) {
+    const hazards = [];
+    for (const z of flightBurnZones ?? []) {
+      const point = z?.point ?? z?.position;
+      const expiry = z?.expiresAt ?? z?.endsAt ?? Infinity;
+      if (!point || expiry <= now || (Number.isFinite(z?.startedAt) && now < z.startedAt)) continue;
+      hazards.push({ point, radius: z.radius ?? 4.5, ownerId: z.sourceId ?? z.ownerId ?? null, team: z.team ?? null });
+    }
+    for (const f of oneHitFields ?? []) {
+      const point = f?.position ?? f?.point;
+      if (!point || (f.until ?? Infinity) <= now) continue;
+      hazards.push({ point, radius: f.radius ?? 3.5, ownerId: f.ownerId ?? f.sourceId ?? null, team: f.team ?? null });
+    }
+    for (const b of oneHitBurnZones ?? []) {
+      const point = b?.position ?? b?.point;
+      if (!point || (b.until ?? Infinity) <= now) continue;
+      hazards.push({ point, radius: b.radius ?? 3.5, ownerId: b.ownerId ?? b.sourceId ?? null, team: b.team ?? null });
+    }
+    if (!hazards.length) return [];
+    const rule = WATCH.allyHazard;
+    const byId = new Map(living.map((k) => [k.id, k]));
+    const out = [];
+    for (const ally of living) {
+      if (!ally.team || ally.actorKind === 'dummy') continue;
+      const allyState = this.#knight(ally.id, now);
+      if (now - (allyState.hazardWarnAt ?? -Infinity) < rule.cooldownSec) continue;
+      const threatening = hazards.find((h) => {
+        const owner = h.ownerId ? byId.get(h.ownerId) : null;
+        if (h.ownerId === ally.id) return false;
+        if (h.team && h.team === ally.team) return false;
+        if (owner && sameSide(owner, ally)) return false;
+        const dist = Math.hypot(ally.position.x - h.point.x, ally.position.z - h.point.z);
+        return dist <= h.radius + rule.margin;
+      });
+      if (!threatening) continue;
+      const warner = living.find((k) => k.id !== ally.id && k.team === ally.team && k.actorKind !== 'dummy' && Math.hypot(k.position.x - ally.position.x, k.position.z - ally.position.z) <= rule.withinOwner);
+      if (!warner) continue;
+      allyState.hazardWarnAt = now;
+      out.push({ speaker: warner.id, tags: ['allyHazardApproach'] });
     }
     return out;
   }

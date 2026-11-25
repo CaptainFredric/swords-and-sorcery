@@ -155,7 +155,7 @@ export function createSiegeBladesState(room, options = {}) {
   };
 }
 
-export const SIEGE_SELECTION_SECONDS = 8;
+export const SIEGE_SELECTION_SECONDS = 6;
 const VALID_MACHINE_CLASSES = new Set(Object.values(SIEGE_MACHINE_CLASSES));
 
 /** Server-owned selection phase before EVERY round, including the first. */

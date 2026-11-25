@@ -12,7 +12,7 @@ export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
 // Asset paths for canonical lightweight machine previews
 const MACHINE_ASSETS = Object.freeze({
-  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb',
+  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb?v=bab81d9861a80e83',
   biBye: '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',
   fightFlight: '/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb',
 });
@@ -121,9 +121,9 @@ export class SiegeWorkshopScene {
     this.root.visible = Boolean(visible);
     if (!visible) this.stopPreview();
     if (visible) {
-      if (!this.machinePivot.children.length || (!this.cache.has(this.activeMachineId) && !this.inFlight.has(this.activeMachineId))) {
-        this.selectMachine(this.activeMachineId);
-      }
+      // (a machine chosen while the workshop was hidden got only its stand-in: fetch the real one now)
+      if (!this.machinePivot.children.length) this.selectMachine(this.activeMachineId);
+      else if (!this.cache.has(this.activeMachineId)) this.loadAuthored(this.activeMachineId);
       if (!this.knight && !this.knightLoading) {
         this.knightLoading = createSpellbladeAsset({kind:'thirdPerson'}).then(instance => {
           if (!instance) return;
@@ -478,7 +478,7 @@ export class SiegeWorkshopScene {
 
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
-    if (this.activeMachineId === id && this.machinePivot.children.length) return;
+    if (this.activeMachineId === id && this.machinePivot.children.length===1 && this.machinePivot.children[0]?.userData?.machineId===id) return;
     this.stopPreview();
     this.activeMachineId = id;
     this.currentYaw = REST_YAW[id];
@@ -491,11 +491,11 @@ export class SiegeWorkshopScene {
 
     // Attach cached GLTF if available, or fallback
     const cached = this.cache.get(id);
-    if (cached) {
+    if (cached?.userData?.machineId===id) {
       this.machinePivot.add(cached);
     } else {
       const fallback = this.fallbacks.get(id);
-      if (fallback) this.machinePivot.add(fallback);
+      if (fallback?.userData?.machineId===id) this.machinePivot.add(fallback);
       if (this.root.visible) {
         this.loadAuthored(id);
       }
@@ -532,7 +532,9 @@ export class SiegeWorkshopScene {
         new THREE.Vector3(this.root.position.x-radius,this.root.position.y,this.root.position.z-radius),
         new THREE.Vector3(this.root.position.x+radius,this.root.position.y+modelBounds.max.y,this.root.position.z+radius));
     })() : new THREE.Box3().setFromObject(this.machinePivot);
-    if(this.knight&&!this.performance.active)bounds.union(this.knightBounds);
+    // (a knight measured as NaN would frame the camera on nothing: leave him out rather than lose the machine)
+    const knightMeasured=[...this.knightBounds.min.toArray(),...this.knightBounds.max.toArray()].every(Number.isFinite);
+    if(this.knight&&!this.performance.active&&knightMeasured)bounds.union(this.knightBounds);
     const demonstration=this.performance.bounds();
     if(demonstration)bounds.union(demonstration);
     if (bounds.isEmpty()) return null;
@@ -540,7 +542,9 @@ export class SiegeWorkshopScene {
   }
 
   loadAuthored(id) {
-    if (this.cache.has(id)) return Promise.resolve(this.cache.get(id));
+    const cached=this.cache.get(id);
+    if (cached?.userData?.machineId===id) return Promise.resolve(cached);
+    if(cached)this.cache.delete(id);
     if (this.inFlight.has(id)) return this.inFlight.get(id);
 
     const assetPath = MACHINE_ASSETS[id];
@@ -551,6 +555,13 @@ export class SiegeWorkshopScene {
         appUrl(assetPath),
         async (gltf) => {
           if(id==='soFist'){
+            // Do not accept an unrelated or stale model as the ram. The actual
+            // authored ram must contain its mechanical fist attachment.
+            if(!gltf.scene.getObjectByName('Armored_Fist')){
+              this.inFlight.delete(id);
+              console.error('Siege Workshop: incorrect ram model; retaining ram fallback');
+              resolve(null);return;
+            }
             try{
               const donor=await new Promise((resolveDonor,rejectDonor)=>
                 this.loader.load(appUrl(SO_FIST_ARGON_V26),resolveDonor,undefined,rejectDonor));
@@ -601,7 +612,7 @@ export class SiegeWorkshopScene {
           this.inFlight.delete(id);
 
           // If still active machine, swap out fallback
-          if (this.activeMachineId === id) {
+          if (this.activeMachineId === id && model.userData.machineId===id) {
             while (this.machinePivot.children.length > 0) {
               this.machinePivot.remove(this.machinePivot.children[0]);
             }
