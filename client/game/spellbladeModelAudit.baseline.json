@@ -1,0 +1,53 @@
+{
+  "tears": {
+    "Breastplate chest~head": {
+      "edges": 303,
+      "worstCm": 9.7
+    },
+    "Breastplate chest~pelvis": {
+      "edges": 1705,
+      "worstCm": 29.4
+    },
+    "Breastplate chest~spine": {
+      "edges": 1549,
+      "worstCm": 21.1
+    },
+    "Breastplate pelvis~spine": {
+      "edges": 1385,
+      "worstCm": 11.9
+    },
+    "Breastplate pelvis~thigh.L": {
+      "edges": 3042,
+      "worstCm": 25.6
+    },
+    "Breastplate pelvis~thigh.R": {
+      "edges": 2140,
+      "worstCm": 25.3
+    },
+    "Greave.L foot.L~shin.L": {
+      "edges": 588,
+      "worstCm": 20.3
+    },
+    "Greave.L pelvis~thigh.L": {
+      "edges": 3642,
+      "worstCm": 25.7
+    },
+    "Greave.L shin.L~thigh.L": {
+      "edges": 1802,
+      "worstCm": 28.9
+    },
+    "Greave.R foot.R~shin.R": {
+      "edges": 1202,
+      "worstCm": 12.4
+    },
+    "Greave.R pelvis~thigh.R": {
+      "edges": 2584,
+      "worstCm": 25.9
+    },
+    "Greave.R shin.R~thigh.R": {
+      "edges": 2615,
+      "worstCm": 19.5
+    }
+  },
+  "throughTotal": 2
+}
