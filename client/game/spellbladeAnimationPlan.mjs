@@ -451,9 +451,10 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (state === 'attack') {
     const attack = attackPlan(player, serverNow, { localTime });
     // on the move (or in the air) the legs keep their gait and only the body above them swings: a whole-body strike
-    // planted its feet while the knight ran on (every planted frame skated). Standing, the strike has the whole body.
+    // planted its feet while the knight ran on (every planted frame skated). Sunder's slams too: they planted his feet
+    // and skated them through every Sundering run. Standing, the strike has the whole body.
     const moving = locomotionState(player);
-    if (moving === 'idle' || player.attackSlam) return attack;
+    if (moving === 'idle') return attack;
     const locomotion = resolveSpellbladeAnimationPlan({ state: moving, player, serverNow, localTime });
     return { ...locomotion, layers: { locomotion, posture: attack, sword: attack, sorcery: attack }, moving: true };
   }
@@ -478,7 +479,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const sunder = ULTIMATES.sunder;
     const share = Math.max(0, Math.min(1, 1 - (finite(brace.commitAt, serverNow) - serverNow) / sunder.startupSec));
     const eased = share * share * (3 - 2 * share);
-    return fixed('Slash_3', Math.max(0, sunder.firstSlamLead - SWORD_STRIKE_TIMES[0] + SLAM_CONTACT) * eased);
+    return onTheMove(player, fixed('Slash_3', Math.max(0, sunder.firstSlamLead - SWORD_STRIKE_TIMES[0] + SLAM_CONTACT) * eased), serverNow, localTime);
   }
 
   if (state === 'cast') {
