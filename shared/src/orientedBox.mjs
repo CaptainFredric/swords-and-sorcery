@@ -22,3 +22,22 @@ export function orientedBoxHit(start,end,box,grow=0) {
 export function boxNearest(box,point) {
  return boxWorld(box,boxLocal(box,point).map((v,i)=>Math.max(-box.size[i]/2,Math.min(box.size[i]/2,v))));
 }
+// An axis-aligned solid's own face axes are the world axes: test those first in plain arithmetic. It is the same
+// separating-axis test the general path makes on them (same tolerance), without building closures and arrays for
+// each of the many world solids a carriage is checked against every sub-step.
+// Boxes whose bounding spheres do not meet are disjoint, and the separating-axis test reports disjoint boxes as
+// separated: the same answer, from one distance (for rotated boxes, such as other machines' volumes).
+export function spheresApart(a,b){
+ const ra=Math.hypot(a.size[0],a.size[1],a.size[2])/2,rb=Math.hypot(b.size[0],b.size[1],b.size[2])/2;
+ const dx=b.center[0]-a.center[0],dy=b.center[1]-a.center[1],dz=b.center[2]-a.center[2],r=ra+rb;
+ return dx*dx+dy*dy+dz*dz>r*r;
+}
+export function alignedSeparated(a,b){
+ if(b.axes)return spheresApart(a,b);
+ const A=a.axes,sa=a.size,sb=b.size;
+ for(let k=0;k<3;k++){
+  const reach=(Math.abs(A[0][k])*sa[0]+Math.abs(A[1][k])*sa[1]+Math.abs(A[2][k])*sa[2]+sb[k])/2;
+  if(Math.abs(b.center[k]-a.center[k])>=reach-.002)return true;
+ }
+ return false;
+}

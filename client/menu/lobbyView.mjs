@@ -27,7 +27,9 @@ export function modeLabel(mode) {
   if (mode === 'RESTLESS_DAY') return 'RESTLESS DAY';
   if (mode === 'EDGE_OF_VICTORY') return 'EDGE OF VICTORY';
   if (mode === 'SIEGE_BLADES') return 'SIEGE BLADES';
-  return 'FREE-FOR-ALL';
+  if (mode === 'RENOWN_TRIALS') return 'RAMPAGE TO RENOWN';
+  if (mode === 'FFA' || !mode) return 'FREE-FOR-ALL';
+  return String(mode).replaceAll('_', ' ');
 }
 
 function clock(seconds) {

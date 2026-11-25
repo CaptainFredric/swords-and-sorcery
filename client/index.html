@@ -536,14 +536,22 @@
         <button id="mettle-list-return" class="back-button companion-return" type="button">← MODES OF METTLE</button>
         <p class="eyebrow">PREPARE FOR BATTLE</p>
         <h2>BATTLE ORDERS</h2>
-        <p class="panel-copy">Your chosen battle parameters. These start at their recommended defaults.</p>
         <label class="field-label" for="breakthrough-right-name">SPELLBLADE NAME</label>
         <input id="breakthrough-right-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
           <span>BATTLE SIZE</span>
           <button type="button" class="vote-chip" role="radio" data-size="1">1V1</button>
           <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
-          <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small>(RECOMMENDED)</small></button>
+          <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small data-size-recommended>(RECOMMENDED)</small></button>
+        </div>
+
+        <div id="breakthrough-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
+          <span>BATTLEFIELD</span>
+          <button type="button" class="vote-chip mine" role="radio" data-arena="bastion-breach">BASTION BREACH</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="high-grounds">THE HIGH GROUNDS</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="restless-day">RESTLESS DAY</button>
         </div>
 
         <div id="siege-format" class="vote-row solo-arena" role="radiogroup" aria-label="Format" hidden>
@@ -567,28 +575,12 @@
           <button type="button" class="vote-chip" role="radio" data-endless-rounds="0">UNLIMITED</button>
         </div>
 
-        <div id="siege-machine" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Machine" hidden>
-          <span>INITIAL MACHINE</span>
-          <button type="button" class="vote-chip mine" role="radio" data-machine="random">CHOOSE IN ARENA</button>
-          <button type="button" class="vote-chip" role="radio" data-machine="so-fist-ication">SO-FIST-ICATION</button>
-          <button type="button" class="vote-chip" role="radio" data-machine="bi-bye-llista">BI-BYE-LLISTA</button>
-          <button type="button" class="vote-chip" role="radio" data-machine="fight-and-flight">FIGHT-AND-FLIGHT</button>
-        </div>
-
         <div id="siege-clash-wrap" class="vote-row solo-arena" role="radiogroup" aria-label="Clash Starts" hidden>
           <span>CLASH STARTS</span>
           <button type="button" class="vote-chip mine" role="radio" data-clash="on">ENABLED <small>(12% IN 1V1)</small></button>
           <button type="button" class="vote-chip" role="radio" data-clash="off">DISABLED</button>
         </div>
 
-        <div id="breakthrough-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
-          <span>BATTLEFIELD</span>
-          <button type="button" class="vote-chip mine" role="radio" data-arena="bastion-breach">BASTION BREACH</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="high-grounds">THE HIGH GROUNDS</button>
-          <button type="button" class="vote-chip" role="radio" data-arena="restless-day">RESTLESS DAY</button>
-        </div>
 
 
         <div id="breakthrough-team" class="vote-row solo-arena" role="radiogroup" aria-label="Allegiance">
@@ -646,8 +638,11 @@
           </select></label>
           <label>ARENA<select name="worldId" class="game-input"></select></label>
           <label data-score-field>FIRST TO<input name="scoreToWin" type="number" inputmode="numeric" class="game-input" min="1" max="100" value="10"></label>
-          <label>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
-          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option><option value="5">5V5</option></select></label>
+          <label data-time-field>MATCH TIME · MINUTES<input name="minutes" type="number" inputmode="decimal" class="game-input" min="1" max="30" value="6"></label>
+          <label data-team-field hidden>SIDES<select name="teamSize" class="game-input"><option value="1" hidden disabled>1V1</option><option value="2">2V2</option><option value="3" selected>3V3</option><option value="5" hidden disabled>5V5</option></select></label>
+          <label data-siege-field="format" hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
+          <label data-siege-field="rounds" hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
+          <label data-siege-field="cap" hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
           <label data-bot-field hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">SPELLBLADE</option></select></label>
           <button type="submit" class="join-button">RAISE PUBLIC ROOM</button>
           <button type="button" id="room-create-cancel" class="back-button">CANCEL</button>
@@ -696,8 +691,11 @@
         <form id="private-settings-form" class="private-settings-form lobby-config">
           <label>ARENA<select name="worldId" class="game-input" aria-label="Private arena"></select></label>
           <label data-private-score>FIRST TO · KILLS<input name="scoreToWin" class="game-input" type="number" inputmode="numeric" min="1" max="100" value="10" /></label>
-          <label>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="numeric" min="1" max="30" value="6" /></label>
-          <label data-private-size hidden>BATTLE SIZE<select name="teamSize" class="game-input"><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-private-time>MATCH TIME · MINUTES<input name="minutes" class="game-input" type="number" inputmode="numeric" min="1" max="30" value="6" /></label>
+          <label data-private-size hidden>BATTLE SIZE<select name="teamSize" class="game-input"><option value="1" data-siege-only hidden>1V1</option><option value="2">2V2</option><option value="3" selected>3V3</option></select></label>
+          <label data-private-format hidden>FORMAT<select name="format" class="game-input"><option value="MATCH" selected>MATCH</option><option value="ENDLESS">ENDLESS EXHIBITION</option></select></label>
+          <label data-private-rounds hidden>ROUNDS<select name="matchRounds" class="game-input"><option value="3" selected>3 ROUNDS</option><option value="5">5 ROUNDS</option><option value="7">7 ROUNDS</option></select></label>
+          <label data-private-cap hidden>ROUND CAP<select name="endlessRoundCap" class="game-input"><option value="10">10 ROUNDS</option><option value="25" selected>25 ROUNDS</option><option value="50">50 ROUNDS</option><option value="0">NO CAP</option></select></label>
           <label data-private-team hidden>YOUR SIDE<select name="team" class="game-input"><option value="AUTO" selected>AUTO</option><option value="ATTACKERS">ATTACKERS</option><option value="DEFENDERS">DEFENDERS</option></select></label>
           <label data-private-bot hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">THE SPELLBLADE</option></select></label>
         </form>

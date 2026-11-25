@@ -945,57 +945,82 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
    mode which asks only once before the match. Keep all three machines visible
    at once in the shortest landscape mobile viewport. */
 .hud.siege-choosing { z-index: 30; }
+/* while the machines are drafted, nothing of the round behind it competes with the choice: the on-foot gauges,
+   abilities and kill feed are put away; a spoken line's subtitle stays, below the panel */
+.hud.siege-choosing .bottom-hud, .hud.siege-choosing .hud-status-stack, .hud.siege-choosing .kill-feed { visibility:hidden; }
+.hud.siege-choosing .subtitle { z-index:41; bottom:max(8px,env(safe-area-inset-bottom)); }
 .sb-machine-picker { position:absolute; inset:0; z-index:40; display:grid; place-items:center;
-  pointer-events:auto; isolation:isolate; color:#e7dfce; font-family:system-ui,sans-serif; }
+  pointer-events:auto; isolation:isolate; color:#eadcb6; font-family:"Alegreya Sans",ui-sans-serif,system-ui,sans-serif; }
 .sb-machine-picker[hidden] { display:none !important; }
 .sb-draft-backdrop { position:absolute; inset:0; z-index:-1;
-  background:radial-gradient(ellipse at center,rgba(20,22,24,.76),rgba(6,8,10,.94)); }
-.sb-draft-content { width:min(960px,calc(100% - 32px)); max-height:calc(100% - 24px);
-  overflow-y:auto; padding:clamp(10px,2vh,24px); background:linear-gradient(165deg,#242724,#121614 67%);
-  border:1px solid #8d7c5c; border-top:3px solid #d2b878;
-  box-shadow:0 18px 60px #000b,inset 0 1px #d6c18e22; }
-.sb-draft-eyebrow { margin:0 0 4px; font:700 clamp(9px,1.6vh,12px)/1.2 system-ui;
-  color:#c7b48b; letter-spacing:.19em; }
-.sb-draft-content h2 { margin:0; color:#f0e3c7; font:900 clamp(18px,4vh,33px)/1.1 system-ui;
-  letter-spacing:.045em; }
-.sb-draft-instruction { margin:5px 0 clamp(7px,1.7vh,18px); color:#b8b7a9;
-  font-size:clamp(10px,1.75vh,13px); }
-.sb-draft-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(5px,1.6vw,16px); }
-.sb-draft-card { min-width:0; display:flex; flex-direction:column; align-items:stretch;
-  gap:clamp(3px,.75vh,8px); padding:clamp(6px,1.4vw,15px); text-align:left;
-  border:1px solid #696756; border-bottom:3px solid #867658; border-radius:2px;
-  background:linear-gradient(180deg,#2d3231,#1c2220 63%,#151b18); color:#e9e1cd;
-  cursor:pointer; transition:background .12s,border-color .12s,box-shadow .12s; }
-.sb-draft-card:hover,.sb-draft-card:focus-visible { border-color:#dcc38c; background:#35403a; outline:none; }
-.sb-draft-card.selected { border-color:#f4d488; border-bottom-color:#ffde8f;
-  background:linear-gradient(180deg,#414236,#242e27); box-shadow:inset 0 0 0 1px #eccb7466,0 0 16px #cfaa4c38; }
-.sb-draft-art { display:grid; place-items:center; width:100%; aspect-ratio:2.25;
-  border:1px solid #847b6359; background:radial-gradient(ellipse at 50% 60%,#57625b55,#111915);
-  overflow:hidden; }
-.sb-draft-art svg { display:block; width:100%; height:100%; max-width:270px; }
-.sb-draft-role { color:#cbb786; font-size:clamp(8px,1.6vh,10px); font-weight:800; letter-spacing:.13em; }
-.sb-draft-card strong { font-size:clamp(11px,2.55vh,18px); line-height:1.1; font-weight:900; }
-.sb-draft-card small { color:#b5b7b0; line-height:1.3; font-size:clamp(9px,1.7vh,12px); min-height:2.6em; }
-.sb-draft-key { align-self:flex-start; color:#d8c18d; border-top:1px solid #9b8b6044;
-  padding-top:4px; margin-top:auto; font:800 clamp(8px,1.35vh,10px)/1 system-ui; letter-spacing:.1em; }
-.sb-draft-footer { display:flex; justify-content:space-between; align-items:center; gap:12px;
-  margin-top:clamp(7px,2vh,20px); padding-top:clamp(6px,1.5vh,14px); border-top:1px solid #8b806455;
-  font-size:clamp(10px,1.8vh,14px); font-weight:800; letter-spacing:.045em; }
-.sb-draft-footer b { color:#f4d18b; font-size:1.45em; font-variant-numeric:tabular-nums; }
-@media (max-height:440px) {
- .sb-draft-content {padding:7px 12px;}
- .sb-draft-art {aspect-ratio:3;}
- .sb-draft-card small {min-height:0;}
- .sb-draft-instruction {margin:3px 0 6px;}
- .sb-draft-footer {margin-top:6px;padding-top:5px;}
+  background:radial-gradient(ellipse at 50% 45%,rgba(26,20,14,.72),rgba(8,6,4,.93)); }
+/* an armory rack: dark oak and iron, brass at the edge, a rivet at each corner */
+.sb-draft-content { position:relative; width:min(1040px,calc(100% - 32px)); max-height:calc(100% - 20px); overflow-y:auto;
+  padding:clamp(12px,2.4vh,26px) clamp(14px,2.4vw,30px) clamp(14px,2.6vh,28px);
+  background:linear-gradient(180deg,#2b231c,#1a1511 70%,#14100d);
+  border:1px solid #6d5734; outline:1px solid #2a2117; outline-offset:-6px;
+  box-shadow:0 20px 70px #000c,inset 0 1px #e8c98a2e,inset 0 0 0 5px #120e0b; }
+.sb-draft-content::before { content:""; position:absolute; inset:9px; pointer-events:none;
+  background:
+    radial-gradient(circle at 0 0,#d8b46e 0 2px,#6b5430 2.5px 3.5px,transparent 4px) 0 0/100% 100% no-repeat,
+    radial-gradient(circle at 100% 0,#d8b46e 0 2px,#6b5430 2.5px 3.5px,transparent 4px) 0 0/100% 100% no-repeat,
+    radial-gradient(circle at 0 100%,#d8b46e 0 2px,#6b5430 2.5px 3.5px,transparent 4px) 0 0/100% 100% no-repeat,
+    radial-gradient(circle at 100% 100%,#d8b46e 0 2px,#6b5430 2.5px 3.5px,transparent 4px) 0 0/100% 100% no-repeat; }
+.sb-draft-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:clamp(8px,2vh,20px); }
+.sb-draft-eyebrow { margin:0 0 3px; font:700 clamp(10px,1.6vh,12px)/1.2 "Alegreya Sans",system-ui,sans-serif;
+  color:#c99c52; letter-spacing:.22em; }
+.sb-draft-content h2 { margin:0; color:#f1e4c3; font:400 clamp(22px,4.6vh,38px)/1.05 "IM Fell English SC",Georgia,serif;
+  letter-spacing:.04em; text-shadow:0 2px 0 #0008; }
+.sb-draft-status { margin:5px 0 0; color:#bfae8a; font:500 clamp(11px,1.8vh,14px)/1.25 "Alegreya Sans",system-ui,sans-serif; letter-spacing:.03em; }
+/* the countdown: the first thing read after the machines */
+.sb-draft-clock { flex:none; display:grid; justify-items:center; align-content:center; min-width:clamp(62px,9vh,92px);
+  aspect-ratio:1; padding:4px; border:2px solid #b8904f; border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#3a2d1f,#17110c 72%); box-shadow:inset 0 0 0 3px #1a130d,inset 0 0 0 4px #7a5f37,0 4px 14px #0009; }
+.sb-draft-clock b { color:#f3d48e; font:400 clamp(26px,5.4vh,46px)/1 "IM Fell English SC",Georgia,serif; font-variant-numeric:tabular-nums; }
+.sb-draft-clock small { color:#b4955e; font:800 clamp(8px,1.2vh,10px)/1.1 "Alegreya Sans",system-ui,sans-serif; letter-spacing:.2em; }
+.sb-machine-picker.sb-draft-closing .sb-draft-clock { border-color:#e6b45c; animation:sb-draft-pulse .9s ease-in-out infinite; }
+@keyframes sb-draft-pulse { 50% { box-shadow:inset 0 0 0 3px #1a130d,inset 0 0 0 4px #7a5f37,0 0 18px #e0a74a66; } }
+.sb-draft-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(8px,1.6vw,18px); }
+.sb-draft-card { position:relative; min-width:0; display:flex; flex-direction:column; align-items:stretch; gap:0; padding:0;
+  text-align:left; color:#eadcb6; cursor:pointer; border-radius:3px; overflow:hidden;
+  border:1px solid #4e3f2b; background:linear-gradient(180deg,#221b15,#16110d);
+  box-shadow:inset 0 1px #f0d39a14,0 3px 8px #0007;
+  transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease,filter .14s ease; }
+@media (hover:hover) { .sb-draft-card:hover { transform:translateY(-2px); border-color:#9c7b45; } }
+.sb-draft-card:focus-visible { outline:2px solid #ecc97f; outline-offset:2px; }
+/* the chosen machine: a brass frame, warm but not bright */
+.sb-draft-card.selected { border-color:#c99c52;
+  box-shadow:inset 0 0 0 2px #8c6a37,inset 0 0 0 3px #e2bf7a66,0 0 0 1px #c99c5288,0 6px 22px #c99c522e; }
+.sb-draft-choices:has(.selected) .sb-draft-card:not(.selected) { filter:saturate(.72) brightness(.86); }
+.sb-draft-art { display:block; width:100%; aspect-ratio:1.6;
+  background:radial-gradient(ellipse at 50% 64%,#5d4d36 0,#2a2118 58%,#1a140f 100%);
+  border-bottom:1px solid #4a3b28; }
+.sb-draft-art img { display:block; width:100%; height:100%; object-fit:contain; transition:transform .2s ease; }
+.sb-draft-card.selected .sb-draft-art img { transform:scale(1.035); }
+@media (hover:hover) { .sb-draft-card:hover .sb-draft-art img { transform:scale(1.035); } }
+.sb-draft-text { display:grid; gap:1px; padding:clamp(7px,1.3vh,12px) clamp(9px,1.2vw,14px) clamp(8px,1.5vh,13px); }
+.sb-draft-card strong { font:400 clamp(15px,2.9vh,23px)/1.05 "IM Fell English SC",Georgia,serif; letter-spacing:.035em; color:#f3e6c6; }
+.sb-draft-role { color:#c99c52; font:700 clamp(10px,1.65vh,12px)/1.2 "Alegreya Sans",system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; }
+.sb-draft-card small { color:#b9a989; font:500 clamp(11px,1.8vh,13px)/1.3 "Alegreya Sans",system-ui,sans-serif; letter-spacing:.04em; }
+.sb-draft-key { position:absolute; top:8px; left:8px; display:grid; place-items:center; width:22px; height:22px;
+  border:1px solid #9c7b45; border-radius:3px; background:#120d0acc; color:#e9c98a;
+  font:800 11px/1 "Alegreya Sans",system-ui,sans-serif; }
+.sb-draft-card.selected .sb-draft-key { background:#c99c52; color:#1a130d; border-color:#ecc97f; }
+@media (hover:none) { .sb-draft-key { display:none; } }
+/* a phone held sideways: all three machines at once, no scrolling */
+@media (max-height:460px) {
+ .sb-draft-content { padding:8px 12px 10px; width:calc(100% - 16px); }
+ .sb-draft-content::before { inset:5px; }
+ .sb-draft-head { margin-bottom:6px; }
+ .sb-draft-status { margin-top:2px; }
+ .sb-draft-art { aspect-ratio:1.95; }
+ .sb-draft-text { padding:5px 8px 6px; }
 }
 @media (max-width:560px) {
  .sb-draft-content { width:calc(100% - 12px); }
- .sb-draft-choices {gap:5px;}
- .sb-draft-card {padding:5px;}
- .sb-draft-card strong {font-size:10px;}
- .sb-draft-card small {font-size:8px;}
- .sb-draft-footer {font-size:9px;}
+ .sb-draft-choices { gap:6px; }
+ .sb-draft-card strong { font-size:13px; }
+ .sb-draft-card small { font-size:10px; }
 }
 
 /* A small portrait of the actual contraption replaces the temporary schematic. */

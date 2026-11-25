@@ -187,16 +187,17 @@ test('Private room rules and settings support Siege Blades 1v1, 2v2, 3v3', () =>
   assert.equal(PRIVATE_MODE_DEFAULTS.SIEGE_BLADES.teamSize, 1);
 
   // Valid 1v1
-  const prev1 = privateRoomPreview('SIEGE_BLADES', { teamSize: 1, minutes: 3, worldId: 'high-grounds' });
+  const prev1 = privateRoomPreview('SIEGE_BLADES', { teamSize: 1, worldId: 'high-grounds' });
   assert.equal(prev1.ok, true);
   assert.equal(prev1.settings.teamSize, 1);
-  assert.ok(prev1.summary.includes('SIEGE BLADES · 1V1 · 3 MIN'));
+  // (a Siege room plays rounds on the mode's own clock: its summary names the rounds, never a match time)
+  assert.ok(prev1.summary.includes('SIEGE BLADES · 1V1 · 3 ROUNDS'), prev1.summary);
 
   // Valid 3v3
-  const prev3 = privateRoomPreview('SIEGE_BLADES', { teamSize: 3, minutes: 6, worldId: 'blackbell-foundry' });
+  const prev3 = privateRoomPreview('SIEGE_BLADES', { teamSize: 3, format: 'ENDLESS', endlessRoundCap: 10, worldId: 'blackbell-foundry' });
   assert.equal(prev3.ok, true);
   assert.equal(prev3.settings.teamSize, 3);
-  assert.ok(prev3.summary.includes('SIEGE BLADES · 3V3 · 6 MIN'));
+  assert.ok(prev3.summary.includes('SIEGE BLADES · 3V3 · ENDLESS · CAP 10'), prev3.summary);
 
   // Invalid arena (e.g. ruined-keep)
   const prevBadArena = privateRoomPreview('SIEGE_BLADES', { worldId: 'ruined-keep' });
@@ -247,14 +248,16 @@ test('Machine draft has three distinct recognizable selectable portraits, descri
     'so-fist-ication','bi-bye-llista','fight-and-flight']);
   const html=siegePickerMarkup();
   assert.equal((html.match(/data-siege-pick=/g)||[]).length,3);
-  assert.equal((html.match(/role="img"/g)||[]).length,3);
+  assert.equal((html.match(/role="radio"/g)||[]).length,3,'a radio group of three');
   assert.equal((html.match(/<img src=/g)||[]).length,3);
   assert.match(html,/data-sb-draft-seconds>6/);
   for(const machine of SIEGE_MACHINE_CARDS)assert.ok(html.includes('/siege-portraits/'+machine.id+'.svg'));
   for(const machine of SIEGE_MACHINE_CARDS){
     assert.ok(html.includes(machine.name));
+    assert.ok(html.includes(machine.role));
     assert.ok(html.includes(machine.description));
   }
+  assert.doesNotMatch(html,/\.glb/);
   assert.equal(siegePickerSeconds(18,10),8);
   assert.equal(siegePickerSeconds(18,17.3),1);
   assert.equal(siegePickerSeconds(18,20),0);
