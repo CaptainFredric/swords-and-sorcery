@@ -6,11 +6,14 @@ import {areAllies} from '../src/teams.mjs';
 import {structureWorld,structureForSolid,damageStructure} from './structures.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
-import {soFistStriker,soFistFrame,soFistPose,SO_FIST_SCALE} from './soFistGeometry.mjs';
+import {soFistStriker,soFistFrame,soFistPose,soFistFirstHit,SO_FIST_SCALE} from './soFistGeometry.mjs';
 import {SO_FIST_LIFT,soFistUpperPoint} from './soFistElevation.mjs';
 import {damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
+import {damageSoFistication} from './soFistication.mjs';
+import {getFleetMachines,getMachineKind} from './fleetGeometry.mjs';
+import {applyMachineImpact} from './siegeImpact.mjs';
 import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {skillOperator} from './siegeSkills.mjs';
 
@@ -204,18 +207,24 @@ function projectileImpact(room,b,f,hit,now){
      z:f.velocity.z*(guarded?.26:.55)},8);
    interruptHitActions(room,hit.victim,f.ownerId,now,'long-arm-to-the-jaw');
   }
- }else if(hit.kind==='ballista'){
+ }else if(hit.kind==='ballista'||hit.kind==='flight'||hit.kind==='ram'){
+  const target=hit.target;
+  if(!target)return;
   f.hitMachines??=[];
-  if(f.hitMachines.includes('ballista'))return;
-  f.hitMachines.push('ballista');
-  damageBiByeLlista(room,room.biByeLlista,damage,f.ownerId,'long-arm-to-the-jaw',now,
-   {componentId:hit.box.componentId,point:at});
- }else if(hit.kind==='flight'){
-  f.hitMachines??=[];
-  if(f.hitMachines.includes('flight'))return;
-  f.hitMachines.push('flight');
-  damageFightFlight(room,room.fightFlight,damage,f.ownerId,'long-arm-to-the-jaw',now,
-   {componentId:hit.componentId??hit.box.componentId,point:at});
+  if(f.hitMachines.includes(target.id))return;
+  f.hitMachines.push(target.id);
+  const compId=hit.componentId??hit.box?.componentId??(hit.kind==='ballista'?'hull':hit.kind==='ram'?'hull':'main');
+  if(hit.kind==='ballista'){
+   damageBiByeLlista(room,target,damage,f.ownerId,'long-arm-to-the-jaw',now,{componentId:compId,point:at});
+  }else if(hit.kind==='ram'){
+   damageSoFistication(room,target,damage,f.ownerId,'long-arm-to-the-jaw',now,{componentId:compId,point:at});
+  }else{
+   damageFightFlight(room,target,damage,f.ownerId,'long-arm-to-the-jaw',now,{componentId:compId,point:at});
+  }
+  const spd=Math.hypot(f.velocity.x,f.velocity.y,f.velocity.z);
+  if(spd>1){
+   applyMachineImpact(room,target,now,{normal:{x:f.velocity.x/spd,z:f.velocity.z/spd},speed:Math.min(14,spd*.52),point:at});
+  }
  }else if(hit.kind==='wall'){
   const structure=structureForSolid(room.world,hit.solid);
   if(structure)damageStructure(room,structure.id,damage,f.ownerId,
@@ -298,18 +307,24 @@ export function stepDetachedRamFist(room,b,dt,now,world=room.world){
     f.state==='rolling'?null:hitGround(previous,next,world)];
   if(f.state==='flying'||f.state==='rolling'){
    hits.push(hitActors(room,b,previous,next));
-   const ballista=room.biByeLlista;
-   // Use the REAL articulated component OBBs. getBiByeSolids only provides
-   // broad-phase AABBs and loses component IDs / physical openings.
-   if(ballista&&ballista.health>0&&!ballista.retired&&!f.hitMachines?.includes('ballista'))
-    for(const box of biByeHitVolumes(ballista,at)){
-     const hit=orientedBoxHit(vec(previous),vec(next),box,RAM_FIST.radius);
-     if(hit)hits.push({...hit,kind:'ballista'});
+   for(const machine of getFleetMachines(room)){
+    if(!machine||machine.id===b.id||machine.health<=0||machine.retired||machine.mode==='DESTROYED')continue;
+    if(f.hitMachines?.includes(machine.id))continue;
+    if(b.team&&machine.team===b.team)continue;
+    if(f.ownerId&&machine.operatorId&&areAllies(room,f.ownerId,machine.operatorId))continue;
+    const mk=getMachineKind(machine);
+    if(mk==='ballista'){
+     for(const box of biByeHitVolumes(machine,at)){
+      const hit=orientedBoxHit(vec(previous),vec(next),box,RAM_FIST.radius);
+      if(hit)hits.push({...hit,kind:'ballista',target:machine});
+     }
+    }else if(mk==='flight'){
+     const hit=fightFlightFirstHit(machine,vec(previous),vec(next),RAM_FIST.radius);
+     if(hit)hits.push({...hit,kind:'flight',target:machine});
+    }else if(mk==='ram'){
+     const hit=soFistFirstHit(machine,vec(previous),vec(next),at,RAM_FIST.radius);
+     if(hit)hits.push({...hit,kind:'ram',target:machine});
     }
-   const flight=room.fightFlight;
-   if(flight&&flight.health>0&&!flight.retired&&!f.hitMachines?.includes('flight')){
-    const hit=fightFlightFirstHit(flight,vec(previous),vec(next),RAM_FIST.radius);
-    if(hit)hits.push({...hit,kind:'flight'});
    }
   }
   const earliest=hits.filter(Boolean).sort((a,b)=>a.t-b.t)[0];

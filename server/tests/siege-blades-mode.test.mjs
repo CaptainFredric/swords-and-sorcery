@@ -387,3 +387,72 @@ test('Authoritative Bot Controllers step machine weapons and steering in Siege B
 test('machine selection is exactly six seconds',()=>{
   assert.equal(SIEGE_SELECTION_SECONDS,6);
 });
+
+test('Overtime zone contracts radius/altitude over time and rejects elevated high-bridge contest', () => {
+  const room = new Room('sb-ot-contract', { mode: GAME_MODES.SIEGE_BLADES, worldId: 'high-grounds' });
+  room.state = 'PLAYING';
+  room.siegeBlades = createSiegeBladesState(room, { format: 'MATCH', rounds: 3 });
+  const a = room.addPlayer({ id: 'a', token: 'a', team: TEAMS.ATTACKERS }, 0);
+  const b = room.addPlayer({ id: 'b', token: 'b', team: TEAMS.DEFENDERS }, 0);
+  a.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.FLIGHT;
+  b.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.RAM;
+  provisionSiegeBladesFleet(room, 0);
+  const ma = room.machines.get(a.operatingFightFlightId);
+  const mb = room.machines.get(b.operatingRamId);
+  const zc = room.siegeBlades.zone.center;
+  const baseY = room.siegeBlades.zone.centerY ?? 0;
+
+  // Attacker stands in zone on elevated bridge (+5.5m above centerY); Defender stays off-zone
+  ma.x = zc.x; ma.z = zc.z; ma.y = baseY + 5.5; ma.grounded = true;
+  mb.x = zc.x + 28; mb.z = zc.z; mb.y = baseY;
+  stepSiegeBlades(room, 1 / 30, 181);
+  assert.equal(room.siegeBlades.overtimeActive, true);
+  const initialRadius = room.siegeBlades.zone.radius;
+  const initialAlt = room.siegeBlades.zone.altitudeLimit;
+  assert.equal(room.siegeBlades.zone.holdSec, 0, 'High bridge far above zoneBaseY cannot capture zone');
+
+  // After 25s of Overtime, both radius and altitudeLimit contract gradually
+  stepSiegeBlades(room, 1 / 30, 205);
+  assert.ok(room.siegeBlades.zone.radius < initialRadius, 'Overtime zone radius must contract');
+  assert.ok(room.siegeBlades.zone.altitudeLimit < initialAlt, 'Overtime altitude limit must contract');
+
+  // Descending to ground plane inside contracted zone starts hold timer
+  ma.y = baseY + 0.2;
+  if (ma.position) ma.position.y = ma.y;
+  for (let i = 1; i <= 25; i++) stepSiegeBlades(room, 1 / 30, 205 + i / 30);
+  assert.ok(room.siegeBlades.zone.holdSec > 0.6, `Contesting on fighting plane inside zone advances holdSec (got ${room.siegeBlades.zone.holdSec})`);
+});
+
+test('Finger Flick and Long Arm hit enemy Fight-and-Flight stored in room.machines', async () => {
+  const { flickTipWorld } = await import('../../shared/sim/soFistFlick.mjs');
+  const { flickSoFistication } = await import('../../shared/sim/soFistication.mjs');
+  const { fightFlightHitVolumes } = await import('../../shared/sim/fightFlightComponents.mjs');
+  const room = new Room('sb-ram-vs-flight', { mode: GAME_MODES.SIEGE_BLADES, worldId: 'high-grounds' });
+  room.state = 'PLAYING';
+  room.siegeBlades = createSiegeBladesState(room, { format: 'ENDLESS', teamSize: 1, clashStarts: false });
+  const pa = room.addPlayer({ id: 'pa', token: 'pa', team: TEAMS.ATTACKERS }, 0);
+  const pb = room.addPlayer({ id: 'pb', token: 'pb', team: TEAMS.DEFENDERS }, 0);
+  pa.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.RAM;
+  pb.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.FLIGHT;
+  provisionSiegeBladesFleet(room, 0);
+  const ram = room.machines.get(pa.operatingRamId);
+  const fl = room.machines.get(pb.operatingFightFlightId);
+  assert.ok(ram && fl, 'Siege Blades fleet provisioned ram and flight in room.machines');
+  ram.x = 0; ram.y = 0; ram.z = -3.2; ram.heading = Math.PI;
+  fl.x = 0; fl.y = 0; fl.z = 0; fl.heading = 0;
+  const tip = flickTipWorld(ram, 0.75);
+  const targetVol = fightFlightHitVolumes(fl).find(v => v.componentId === 'main' && v.size[1] > 1);
+  fl.x += tip[0] - targetVol.center[0];
+  fl.z += tip[2] - targetVol.center[2] + 0.45;
+  fl.position = { x: fl.x, y: fl.y, z: fl.z };
+  const beforeHP = [fl.health, fl.rotorHP, fl.braceLHP, fl.braceRHP];
+  assert.equal(flickSoFistication(room, ram, 2), true, 'Finger Flick starts cleanly');
+  let sawImpact = false;
+  for (let i = 1; i <= 28; i++) {
+    stepRoom(room, 1 / 30, 2 + i / 30, room.world);
+    if (room.events.some(e => (e.type === 'soFistFlickMachineImpact' && e.kind === 'flight') || (e.type === 'soFistFlickImpact' && e.victimId === 'pb'))) sawImpact = true;
+  }
+  assert.ok(sawImpact, 'Finger Flick in room.machines impacts enemy Fight-and-Flight or its open pilot');
+  assert.ok(pb.health < 100 || [fl.health, fl.rotorHP, fl.braceLHP, fl.braceRHP].some((hp, i) => hp < beforeHP[i]),
+    'Finger Flick deals real damage to Fight-and-Flight fleet encounter');
+});

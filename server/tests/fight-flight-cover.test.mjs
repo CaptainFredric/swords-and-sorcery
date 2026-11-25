@@ -83,3 +83,43 @@ test('sword contacting real brace routes mitigation to machine Steel, not rider 
  assert.ok(m.siegeSteel.blockedDamage>0);
  assert.equal(room.events.filter(e=>e.type==='swordHit'&&e.targetId===pilot.id).length,0);
 });
+
+test('mounted Fight-and-Flight pilot in room.machines swings through own braces/rotor without self-clang across flight states',()=>{
+ // 1. Grounded pilot swinging laterally directly across their own left brace
+ const g=setup();
+ g.room.fightFlight=null;
+ g.room.machines=new Map([[g.m.id,g.m]]);
+ g.attacker.position={x:0,y:0,z:-1.65};
+ g.pilot.yaw=g.pilot.input.yaw=0;
+ g.attacker.yaw=g.attacker.input.yaw=Math.PI;
+ assert.equal(beginAttack(g.room,g.pilot.id,10),true);
+ stepRoom(g.room,.01,10.4,world);
+ assert.equal(g.room.events.filter(e=>e.type==='fightFlightComponentHit').length,0,'must not strike own Fight-and-Flight hardware');
+ assert.equal(g.room.events.filter(e=>e.type==='wallClang'&&e.playerId===g.pilot.id).length,0,'must not clang own machine');
+ assert.ok(g.room.events.some(e=>e.type==='swordHit'&&e.playerId===g.pilot.id&&e.targetId===g.attacker.id),'hits enemy standing beside cockpit');
+
+ // 2. Airborne hovering pilot swinging laterally past right brace
+ const a=setup();
+ a.room.fightFlight=null;
+ a.room.machines=new Map([[a.m.id,a.m]]);
+ a.m.grounded=false;a.m.mode='AIRBORNE';a.m.y=3;a.m.position={x:0,y:3,z:0};
+ a.pilot.position={x:0,y:3,z:0};a.pilot.velocity={x:0,y:0,z:0};
+ a.attacker.position={x:1.65,y:3,z:0};
+ a.pilot.yaw=a.pilot.input.yaw=-Math.PI/2;
+ assert.equal(beginAttack(a.room,a.pilot.id,11),true);
+ stepRoom(a.room,.01,11.4,world);
+ assert.equal(a.room.events.filter(e=>e.type==='fightFlightComponentHit').length,0,'airborne swing ignores own machine');
+ assert.ok(a.room.events.some(e=>e.type==='swordHit'&&e.playerId===a.pilot.id&&e.targetId===a.attacker.id));
+
+ // 3. Enemy Fight-and-Flight remains hittable while occupied machine stays excluded
+ const eTest=setup();
+ eTest.room.fightFlight=null;
+ eTest.room.machines=new Map([[eTest.m.id,eTest.m]]);
+ const enemyFlight=createFightFlight({id:'enemy-flight',x:0,y:0,z:1.8,heading:Math.PI/2});
+ eTest.room.machines.set(enemyFlight.id,enemyFlight);
+ eTest.pilot.yaw=eTest.pilot.input.yaw=Math.PI;
+ assert.equal(beginAttack(eTest.room,eTest.pilot.id,12),true);
+ stepRoom(eTest.room,.01,12.4,world);
+ assert.ok(eTest.room.events.some(event=>event.type==='fightFlightComponentHit'&&event.machineId===enemyFlight.id),'enemy Fight-and-Flight remains hittable');
+ assert.equal(eTest.room.events.some(event=>event.type==='fightFlightComponentHit'&&event.machineId===eTest.m.id),false,'own machine stays excluded');
+});

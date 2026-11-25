@@ -1,3 +1,4 @@
+import { getFleetMachines, getFleetSolids } from './fleetGeometry.mjs';
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 // Fight-and-Flight: server-authoritative Gate A locomotion. One actual machine per lifecycle.
@@ -34,7 +35,7 @@ export function fightFlightSolids(m){
     center:[m.x,m.y+(m.crouched?1:1.15),m.z],size:[1.4,m.crouched?2:2.3,1.35]}];
 }
 const extraSolids=(room,m,world=room.world)=>[
-  ...(world?.solids??[]),...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),
+  ...(world?.solids??[]),...getFleetSolids(room,m?.id),
 ];
 function collisionFree(p,solids,height=FIGHT_FLIGHT.height,radius=FIGHT_FLIGHT.radius){
   const q=resolvePlayerWorld(p,radius,solids,height);
@@ -403,7 +404,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*impairedSpeed;
   const dz=run?-Math.cos(thrustHeading)*runHorizontal:
     (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*impairedSpeed;
-  const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25*(room.mode==='SIEGE_BLADES'?1.2:1)));
+  const driftScale=now<(m.siegeImpactDriftUntil??-Infinity)?.22:1;
+  const response=(1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25*(room.mode==='SIEGE_BLADES'?1.2:1))))*driftScale;
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
     // Already committed momentum and gravity, not the live rider's jump/aim.
@@ -496,6 +498,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   if(siege){
     m.velocity.x=cap(m.velocity.x+siege.x,-24,24);
     m.velocity.z=cap(m.velocity.z+siege.z,-24,24);
+    if((siege.y??0)>0){
+      m.velocity.y=Math.max(m.velocity.y,siege.y);
+      if(m.grounded&&siege.y>.5){
+        m.grounded=false;m.mode='AIRBORNE';m.y+=.04;m.neutralHoverAt=now;m.neutralHoverFromRise=false;
+      }
+    }
     m.externalSiegeImpulse=null;
   }
   const flick=m.externalFlickImpulse;
@@ -507,9 +515,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     room.events?.push({type:'fightFlightFlickDeflected',machineId:m.id,at:now});
   }
   m.edgeBlocked=false;
-  const solids=extraSolids(room,m,world);
-  const steps=Math.max(1,Math.ceil(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)*dt/.25));
   const h=m.crouched?FIGHT_FLIGHT.crouchHeight:FIGHT_FLIGHT.height;
+  const allSolids=extraSolids(room,m,world);
+  const solids=(now<(m.siegeImpactDriftUntil??-Infinity)&&!collisionFree(m,allSolids,h))
+    ? allSolids.filter(s=>s.kind!=='siege-chassis')
+    : allSolids;
+  const steps=Math.max(1,Math.ceil(Math.hypot(m.velocity.x,m.velocity.y,m.velocity.z)*dt/.25));
   for(let i=0;i<steps;i++){
     const previous={x:m.x,y:m.y,z:m.z},step=dt/steps;
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};

@@ -5,7 +5,7 @@ import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
-import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
+import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,shuntSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
 import {boardHellpingHand,exitHellpingHand} from './soFistHellpingHand.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
@@ -569,6 +569,13 @@ export function applyRoomCommand(room, player, message, time) {
       if(!player.alive||!player.operatingRamId||b?.operatorId!==player.id)
         return {rejected:'Operate SO-FIST-ICATION to flick.'};
       return flickSoFistication(room,b,time)?{}:{rejected:'The armored hand is unavailable or recovering.'};
+    }
+    case 'ramShunt': {
+      const b = player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : room.soFistication;
+      if(!player.alive||!player.operatingRamId||b?.operatorId!==player.id)
+        return {rejected:'Operate SO-FIST-ICATION to shunt.'};
+      const dir=Number.isFinite(message.direction)?message.direction:((player.input?.forward??0)<-.25?-1:1);
+      return shuntSoFistication(room,b,time,dir)?{}:{rejected:'Shunt cooling down, low Drive Pressure, or drive disabled.'};
     }
     case 'guard': {
       if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded&&!combatActionPolicy(player,time).concurrent)return {};

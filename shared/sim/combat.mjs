@@ -247,6 +247,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.damageTakenThisLife = 0;
   player.killfeedPelting=null; // a repeater barrage cannot persist across lives
   player.killfeedDamageContributors=[];
+  player.killfeedElementalSources=[];
   player.killfeedCircleChase=null;
   player.killfeedInsideCircles={};
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
@@ -1013,8 +1014,12 @@ function openStrike(room, player, strike, nowSec) {
  */
 export const PILOT_GUARD = Object.freeze({ reach: 0.85, low: 0.45, high: 1.85, parts: Object.freeze(['braceL', 'braceR', 'main']) });
 
+function occupiedMachineId(player) {
+  return player?.operatingFightFlightId || player?.operatingBallistaId || player?.operatingRamId || null;
+}
+
 export function pilotGuardTakes(room, attacker, met, atSec) {
-  const machine = room.fightFlight;
+  const machine = (met?.solid?.machineId ? room.machines?.get(met.solid.machineId) : null) || room.fightFlight;
   if (!machine?.grounded || !met?.solid?.componentId || !String(met.solid.id ?? '').startsWith('fight-flight-')) return null;
   if (!PILOT_GUARD.parts.includes(met.solid.componentId)) return null;
   const pilot = room.players.get(machine.operatorId);
@@ -1037,7 +1042,7 @@ function sweepStrike(room, player, nowSec, world) {
   const until = Math.min(nowSec, window.to);
   // Incoming blades must actually meet rotor/braces/chassis before a covered
   // rider. The mounted knight may swing *out* through their own hardware.
-  const solids = [...(world.solids ?? []), ...getFleetHitVolumes(room, player.id, nowSec)];
+  const solids = [...(world.solids ?? []), ...getFleetHitVolumes(room, occupiedMachineId(player), nowSec)];
   const blade = live.slam ? SLAM_STRIKE : live.kind ?? live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
@@ -1154,7 +1159,7 @@ function lethalIncomingCounter(room, defender, opponent, atSec) {
   const toAt = Math.min(atSec + .18, win.to);
   if (!(toAt > fromAt + 1e-9)) return false;
   const blade = active.slam ? SLAM_STRIKE : active.kind ?? active.strike;
-  const solids = [...(room.world?.solids ?? []), ...getFleetHitVolumes(room, opponent.id, atSec)];
+  const solids = [...(room.world?.solids ?? []), ...getFleetHitVolumes(room, occupiedMachineId(opponent), atSec)];
   const target = transformFor(defender, atSec);
   const bodies = [{ id: defender.id, base: target.position, top: postureOf(target).crown }];
   const enemy = transformFor(opponent, atSec);
@@ -1549,6 +1554,28 @@ function challengeContact(player, nowSec, extra = {}) {
   };
 }
 
+const KILLFEED_DAMAGE_ELEMENT = Object.freeze({
+  fireball: 'fire', burn: 'fire', coreflagration: 'fire',
+  'fight-flight-burning-ground': 'fire', ember: 'fire', vortexFire: 'fire', vortexBlaze: 'fire',
+  one_hit_ground_fire: 'fire', one_hit_air_fire: 'fire', one_hit_charge_fire: 'fire',
+  frostfire: 'frost', 'bibye-conditioning': 'frost', 'bibye-shockwave': 'frost',
+  gale: 'gale', vortex: 'gale', one_hit_vortex: 'gale',
+  line_of_conduct: 'lightning', electrical_backlash: 'lightning', one_hit_lightning_ground: 'lightning',
+  rupture: 'steel',
+});
+
+function killfeedElementsForDamage(source, infusionTiers) {
+  const elements = new Set();
+  const direct = elementForSpell(source) ?? KILLFEED_DAMAGE_ELEMENT[source] ?? null;
+  if (direct) elements.add(direct);
+  if (infusionTiers && typeof infusionTiers === 'object') {
+    for (const el of ['fire', 'frost', 'gale', 'lightning', 'steel']) {
+      if (Number(infusionTiers[el]) >= 1) elements.add(el);
+    }
+  }
+  return [...elements];
+}
+
 function guardChallengeContact(room, defender, attacker, nowSec) {
   recordChallengeFact(room, { type: 'guardContact', playerId: defender.id, enemyId: attacker.id,
     chivalry: combatActionPolicy(defender, nowSec).concurrent, at: nowSec });
@@ -1625,6 +1652,13 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     if(attackerId&&attackerId!==victimId&&room.players.has(attackerId))
       recent.push({id:attackerId,at:nowSec});
     victim.killfeedDamageContributors=recent.slice(-12);
+    const hitElements = killfeedElementsForDamage(source, infusionTiers);
+    if (hitElements.length) {
+      const recentEls = (victim.killfeedElementalSources ?? []).filter(
+        entry => nowSec - entry.at <= 3.0 && !hitElements.includes(entry.element));
+      for (const el of hitElements) recentEls.push({ element: el, at: nowSec });
+      victim.killfeedElementalSources = recentEls.slice(-10);
+    }
   }
   // HP lost inside a hostile Disaster field takes Guard stamina with it, by what is left of the field (the field a
   // knight stands in is read once a tick, stepOneHitFields: one field, one loss, however many overlap)
@@ -1801,8 +1835,14 @@ export function killPlayer(room, victimId, attackerId, source, nowSec, killVaria
   }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
+  const recentElementalCauses = [...new Set(
+    (victim.killfeedElementalSources ?? [])
+      .filter(entry => nowSec - entry.at <= 3.0)
+      .map(entry => entry.element)
+  )];
   const death = { type: 'death', victimId, killerId: credited, source,
     ...(killFacts.infusionTiers?{infusionTiers:{...killFacts.infusionTiers}}:{}),
+    ...(recentElementalCauses.length>=2?{elementalCauses:recentElementalCauses}:{}),
     ...(special?{killContext:special}:{}),
     ...(sameKiller?{sameKillerDeaths:victim.killfeedConsecutiveDeaths}:{}),
     ...(killFacts.excessDamage>=GAME.maxHealth?{extremeOverkill:true}:{}),
@@ -4082,7 +4122,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       // geometry, not merely static terrain. Techniques must see those same
       // authoritative surfaces (and not the coarse rider movement hulls).
       const bladeWorld={...world,solids:[...(world.solids??[]),
-        ...getFleetHitVolumes(room,player.id,nowSec)]};
+        ...getFleetHitVolumes(room,occupiedMachineId(player),nowSec)]};
       stepLiveSwordTechnique(room,player,nowSec,bladeWorld,(action,contact)=>
         resolveTechniqueContact(room,player,action,contact,nowSec));
     }

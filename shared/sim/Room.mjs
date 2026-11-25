@@ -1203,6 +1203,7 @@ export class Room {
       player.killfeedConsecutiveDeaths=0;
       player.killfeedPelting=null;
       player.killfeedDamageContributors=[];
+      player.killfeedElementalSources=[];
       player.killfeedCircleChase=null;
       player.killfeedInsideCircles={};
       // startMatch resets all actor combat state, including Prowess. Restore
