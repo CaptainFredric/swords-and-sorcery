@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "sourceRevision": "208d34cee15fb19eaa35726b8047acabe46fded8",
+  "sourceRevision": "c3f04e250c0e757d4b41ade8c4ac9772e02c09ca",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=208d34cee15fb19eaa35726b8047acabe46fded8",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=208d34cee15fb19eaa35726b8047acabe46fded8",
-    "sha256": "208d34cee15fb19eaa35726b8047acabe46fded830a6438087f5633a0f8fa826",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=c3f04e250c0e757d4b41ade8c4ac9772e02c09ca",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=c3f04e250c0e757d4b41ade8c4ac9772e02c09ca",
+    "sha256": "c3f04e250c0e757d4b41ade8c4ac9772e02c09ca2b2b0eaf44ce9392e9523d49",
     "motionOverrides": [],
-    "bytes": 10708156,
+    "bytes": 10722244,
     "jointCount": 84,
     "meshCount": 19,
     "clips": [
@@ -193,8 +193,8 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=208d34cee15fb19eaa35726b8047acabe46fded8&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=208d34cee15fb19eaa35726b8047acabe46fded8&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=c3f04e250c0e757d4b41ade8c4ac9772e02c09ca&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=c3f04e250c0e757d4b41ade8c4ac9772e02c09ca&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
     "sha256": "19f161e8eb2b2388ef6c477f721f54fec2dd45b670d0880717d8141e15bd924f",
     "bytes": 2764244,
     "jointCount": 41,
