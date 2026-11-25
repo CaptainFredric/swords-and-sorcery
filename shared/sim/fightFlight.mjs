@@ -393,7 +393,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
   const affliction=siegeDisasterImpairment(m,now);
   const speed=m.grounded?(input.sprint&&!m.crouched?FIGHT_FLIGHT.sprintSpeed:m.crouched?1.7:FIGHT_FLIGHT.groundSpeed):FIGHT_FLIGHT.airSpeed;
-  const impairedSpeed=speed*affliction.speed;
+  const modeMobility=room.mode==='SIEGE_BLADES'?1.12:1;
+  const impairedSpeed=speed*affliction.speed*(m.crouched?1:modeMobility);
   const run=m.offensiveRun&&!m.grounded;
   const flightPitch=m.runFlightPitch??0;
   const runHorizontal=VALKYRIE_RUN.speed*Math.cos(flightPitch);
@@ -402,7 +403,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     (-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*impairedSpeed;
   const dz=run?-Math.cos(thrustHeading)*runHorizontal:
     (-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*impairedSpeed;
-  const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
+  const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25*(room.mode==='SIEGE_BLADES'?1.2:1)));
   if(!m.terminalDive){m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;}
   if(m.terminalDive){
     // Already committed momentum and gravity, not the live rider's jump/aim.
