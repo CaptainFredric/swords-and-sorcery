@@ -20,6 +20,8 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
+//   node scripts/transplant-spellblade-clips.mjs --rebind-strays [--apply]
+//     (torso vertices bound to a limb among neighbours that are not given their neighbours' weights)
 //   node scripts/transplant-spellblade-clips.mjs --add-couters [--apply]
 //     (a faceted couter over each elbow joint, rigid on the elbow bone, in the gauntlet's own steel and bronze)
 //   node scripts/transplant-spellblade-clips.mjs --first-person <file.glb> --sha <sha256> [--apply]
@@ -541,6 +543,64 @@ function reweightOverruns(baseFile, { band = 0.04, margin = 0.02 } = {}) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+// Strays: torso vertices bound wholly to an arm's bone among neighbours bound to the chest. The breastplate has eight
+// (six right, two left) on its flanks at armpit height bound to the upper arm: an arm raised overhead dragged each up
+// with it, slivers half a metre long from the cuirass to the arm. And a strip down each side of the chest under the
+// shoulder (51 right, 42 left) is bound to the pauldron, which turns most of the way with a raised arm: the cuirass's
+// side tore 20 cm open against the chest beside it. A cuirass stays with the chest while the pauldron lifts over it.
+// Each is given its neighbours' weights instead (repeated, so a stray beside a stray takes them second-hand).
+const STRAYS = Object.freeze([{ mesh: 'Breastplate', limbs: /^(upper_arm|forearm|hand|pauldron)\.[LR]$/ }]);
+function rebindStrays(baseFile) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
+  const bin = Buffer.from(base.bin);
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], size = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }[a.componentType];
+    const n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? size * n, size }; };
+  const get = (x, i, c) => { const at = x.o + i * x.stride + c * x.size;
+    const v = x.a.componentType === 5126 ? bin.readFloatLE(at) : x.a.componentType === 5125 ? bin.readUInt32LE(at) : x.a.componentType === 5123 ? bin.readUInt16LE(at) : bin.readUInt8(at);
+    return x.a.normalized ? v / (x.a.componentType === 5121 ? 255 : 65535) : v; };
+  const set = (x, i, c, value) => { const at = x.o + i * x.stride + c * x.size;
+    if (x.a.componentType === 5126) bin.writeFloatLE(value, at);
+    else if (x.a.componentType === 5123) bin.writeUInt16LE(x.a.normalized ? Math.round(value * 65535) : value, at);
+    else bin.writeUInt8(x.a.normalized ? Math.round(value * 255) : value, at); };
+  const names = skin.joints.map((j) => doc.nodes[j].name);
+  const report = [];
+  for (const spec of STRAYS) {
+    const mesh = doc.meshes.find((m) => m.name === spec.mesh);
+    if (!mesh) throw Error('No mesh ' + spec.mesh);
+    let fixed = 0;
+    for (const prim of mesh.primitives) {
+      const J = view(prim.attributes.JOINTS_0), W = view(prim.attributes.WEIGHTS_0), I = view(prim.indices);
+      const slots = (i) => [0, 1, 2, 3].map((c) => ({ j: get(J, i, c), w: get(W, i, c) })).filter((s) => s.w > 0);
+      const limbShare = (i) => slots(i).reduce((t, s) => t + (spec.limbs.test(names[s.j]) ? s.w : 0), 0);
+      const near = new Map();
+      for (let t = 0; t < I.a.count; t += 3) {
+        const tri = [get(I, t, 0), get(I, t + 1, 0), get(I, t + 2, 0)];
+        for (const a of tri) for (const b of tri) if (a !== b) (near.get(a) ?? near.set(a, new Set()).get(a)).add(b);
+      }
+      let strays = [...near.keys()].filter((i) => limbShare(i) > 0.5);
+      for (let pass = 0; pass < 64 && strays.length; pass += 1) {
+        const left = [];
+        for (const i of strays) {
+          const from = [...near.get(i)].filter((u) => limbShare(u) <= 0.5);
+          if (!from.length) { left.push(i); continue; }
+          const sum = new Map();
+          for (const u of from) for (const s of slots(u)) sum.set(s.j, (sum.get(s.j) ?? 0) + s.w / from.length);
+          const out = [...sum].map(([j, w]) => ({ j, w })).sort((a, b) => b.w - a.w).slice(0, 4);
+          const total = out.reduce((t, s) => t + s.w, 0);
+          for (let c = 0; c < 4; c += 1) { set(J, i, c, out[c] ? out[c].j : 0); set(W, i, c, out[c] ? out[c].w / total : 0); }
+          fixed += 1;
+        }
+        strays = left;
+      }
+      if (strays.length) throw Error(`${spec.mesh}: ${strays.length} strays with no bound neighbour`);
+    }
+    report.push({ mesh: spec.mesh, vertices: fixed });
+  }
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -671,6 +731,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--add-couters')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addCouters(join(dir, file));
+} else if (process.argv.includes('--rebind-strays')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = rebindStrays(join(dir, file));
 } else if (process.argv.includes('--reweight-overruns')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = reweightOverruns(join(dir, file));
