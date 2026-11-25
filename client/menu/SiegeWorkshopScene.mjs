@@ -12,7 +12,7 @@ export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
 // Asset paths for canonical lightweight machine previews
 const MACHINE_ASSETS = Object.freeze({
-  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb',
+  soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb?v=bab81d9861a80e83',
   biBye: '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',
   fightFlight: '/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb',
 });
@@ -553,6 +553,13 @@ export class SiegeWorkshopScene {
         appUrl(assetPath),
         async (gltf) => {
           if(id==='soFist'){
+            // Do not accept an unrelated or stale model as the ram. The actual
+            // authored ram must contain its mechanical fist attachment.
+            if(!gltf.scene.getObjectByName('Armored_Fist')){
+              this.inFlight.delete(id);
+              console.error('Siege Workshop: incorrect ram model; retaining ram fallback');
+              resolve(null);return;
+            }
             try{
               const donor=await new Promise((resolveDonor,rejectDonor)=>
                 this.loader.load(appUrl(SO_FIST_ARGON_V26),resolveDonor,undefined,rejectDonor));
