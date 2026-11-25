@@ -5,6 +5,7 @@ import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {FlightRigAnimation} from './FlightRigAnimation.mjs';
 import {valkyrieHaloExpiry,valkyrieSmokeHaloState} from './valkyrieSmokeHalo.mjs';
+import {valkyrieFlameMaterial,updateValkyrieFlame} from './valkyrieFireVisual.mjs';
 import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection,flightRepeaterPitchLimits} from '../../shared/src/flightRepeaterAim.mjs';
 import {ramHitMaterial} from './ramHitFlash.mjs';
 import {createQuarrelDetail,ornamentQuarrelSlot,disposeQuarrelDetail} from './flightQuarrelDetail.mjs';
@@ -27,7 +28,8 @@ export class FightFlightRenderer{
     this.burnRoot=everywhere(new THREE.Group());this.scene.add(this.burnRoot);
     this.burnGeometry=new THREE.RingGeometry(.94,1,48);
     this.burnCoreGeometry=new THREE.CircleGeometry(1,48);
-    this.burnFlameGeometry=new THREE.ConeGeometry(.18,.72,5);
+    this.burnFlameGeometry=new THREE.CylinderGeometry(.025,.22,.72,9,1,true);
+    this.burnRimGeometry=new THREE.CylinderGeometry(1,1,1,96,1,true);
     this.burnSmokeGeometry=new THREE.IcosahedronGeometry(1,1);
     this.burnCrackGeometry=new THREE.PlaneGeometry(1,.06);
     this.burnZones=new Map();
@@ -455,11 +457,13 @@ export class FightFlightRenderer{
       crack.scale.set(.17+.075*(i%4),.72,1);
       crack.renderOrder=4;scar.add(crack);cracks.push(crack);
     }
+    // One animated, ragged curtain just INSIDE the exact ground marker.
+    // The low scattered interior tongues remain readable through combat.
+    const rim=new THREE.Mesh(this.burnRimGeometry,valkyrieFlameMaterial(true));
+    rim.renderOrder=5;group.add(rim);
     const flames=[];
-    for(let i=0;i<20;i++){
-      const mesh=new THREE.Mesh(this.burnFlameGeometry,new THREE.MeshBasicMaterial({
-        color:i%5===0?0xffed9a:i%3===0?0xffb045:i%2?0xed6124:0xff872f,
-        transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}));
+    for(let i=0;i<16;i++){
+      const mesh=new THREE.Mesh(this.burnFlameGeometry,valkyrieFlameMaterial(false,i*2.399963));
       mesh.rotation.y=i*2.4;mesh.renderOrder=5;
       group.add(mesh);flames.push(mesh);
     }
@@ -470,7 +474,7 @@ export class FightFlightRenderer{
         depthWrite:false,side:THREE.DoubleSide}));
       cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
     }
-    return {group,scar,edge,core,glow,cracks,flames,soot};
+    return {group,scar,edge,core,glow,cracks,rim,flames,soot};
   }
   drawBurnZones(zones,now){
     const active=new Set();
@@ -491,6 +495,7 @@ export class FightFlightRenderer{
       const duration=Math.max(.1,zone.expiresAt-zone.startedAt);
       const remaining=Math.max(0,Math.min(1,(zone.expiresAt-now)/duration));
       const extinguish=Math.min(1,remaining/.16);
+      const age=Math.max(0,now-zone.startedAt);
       const radius=Number.isFinite(zone.radius)?Math.max(.1,zone.radius):4;
       // The brightening flare forecasts the next ACTUAL server fire tick.
       // Those ticks become less frequent with age; a constant strobe would
@@ -505,26 +510,31 @@ export class FightFlightRenderer{
       visual.edge.material.opacity=(.22+.43*remaining)*pulse*extinguish;
       for(const [i,crack] of visual.cracks.entries())
         crack.material.opacity=(.16+.5*remaining)*(1+.18*Math.sin(now*3+i))*extinguish;
+      const rimHeight=(.88+radius*.16)*(.46+.54*remaining);
+      visual.rim.position.y=rimHeight*.5;
+      visual.rim.scale.set(radius*.975,rimHeight,radius*.975);
+      updateValkyrieFlame(visual.rim.material,age,remaining,extinguish);
       for(let i=0;i<visual.flames.length;i++){
         const flame=visual.flames[i],angle=i*2.399963;
-        const distance=radius*(.18+.64*((i*7)%19)/19);
-        const flicker=.71+.29*Math.sin(now*(9+(i%5))+.88*i);
-        const height=(.47+.09*radius)*flicker*(.32+.68*remaining)*extinguish;
-        flame.position.set(Math.sin(angle)*distance,height*.46,
-          Math.cos(angle)*distance);
-        flame.rotation.y=angle+Math.sin(now*1.5+i)*.13;
-        flame.scale.set(.7+radius*.04,height/.72,.7+radius*.04);
-        flame.material.opacity=(.2+.58*remaining)*flicker*extinguish;
+        const distance=radius*(.12+.65*Math.sqrt(((i*7)%17)/17));
+        const flicker=.81+.19*Math.sin(age*(4+(i%4))+.88*i);
+        const height=(.25+.045*radius)*flicker*(.38+.62*remaining);
+        flame.position.set(Math.sin(angle)*distance,height*.5,Math.cos(angle)*distance);
+        flame.rotation.y=angle+Math.sin(age+i)*.13;
+        flame.scale.set(.85+radius*.035,height/.72,.85+radius*.035);
+        updateValkyrieFlame(flame.material,age*.72,remaining,extinguish);
       }
       for(let i=0;i<visual.soot.length;i++){
         const cloud=visual.soot[i],angle=i*2.399963;
-        const phase=((now*.38+i/visual.soot.length)%1+1)%1;
-        const distance=radius*(.19+.45*((i*5)%13)/13);
-        cloud.position.set(Math.sin(angle)*distance+.25*Math.sin(now+i),
-          .18+phase*(.95+radius*.21),
-          Math.cos(angle)*distance+.25*Math.cos(now+i));
-        cloud.scale.setScalar(.17+phase*(.33+radius*.035));
-        cloud.material.opacity=.19*remaining*(1-phase)**1.4*extinguish;
+        const phase=(age*.48+i/visual.soot.length)%1;
+        const born=age-phase/.48;
+        const distance=radius*(.25+.58*((i*5)%13)/13);
+        const spread=distance+phase*radius*.13;
+        cloud.position.set(Math.sin(angle)*spread+.34*phase*Math.sin(age+i),
+          .18+phase*(1.3+radius*.34),
+          Math.cos(angle)*spread+.34*phase*Math.cos(age+i));
+        cloud.scale.setScalar(.10+phase*(.50+radius*.065));
+        cloud.material.opacity=born<0?0:.22*Math.sqrt(remaining)*Math.min(1,phase/.12)*(1-phase)**1.5*extinguish;
       }
       if(visual.light){
         visual.light.intensity=1.2*remaining*extinguish*(.92+.08*Math.sin(now*11));
@@ -625,7 +635,7 @@ export class FightFlightRenderer{
     this.quarrelPrototype?.traverse(n=>{if(n.isMesh)n.geometry?.dispose();});
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
     this.warmTerminalGroup?.traverse(node=>{if(node.isMesh)node.material.dispose();});this.warmTerminalGroup=null;
-    this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();
+    this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();this.burnRimGeometry.dispose();
     this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);
     this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
