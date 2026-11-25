@@ -542,7 +542,9 @@ export class SiegeWorkshopScene {
   }
 
   loadAuthored(id) {
-    if (this.cache.has(id)) return Promise.resolve(this.cache.get(id));
+    const cached=this.cache.get(id);
+    if (cached?.userData?.machineId===id) return Promise.resolve(cached);
+    if(cached)this.cache.delete(id);
     if (this.inFlight.has(id)) return this.inFlight.get(id);
 
     const assetPath = MACHINE_ASSETS[id];
