@@ -478,7 +478,7 @@ export class SiegeWorkshopScene {
 
   selectMachine(id) {
     if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
-    if (this.activeMachineId === id && this.machinePivot.children.length) return;
+    if (this.activeMachineId === id && this.machinePivot.children.length===1 && this.machinePivot.children[0]?.userData?.machineId===id) return;
     this.stopPreview();
     this.activeMachineId = id;
     this.currentYaw = REST_YAW[id];
@@ -491,11 +491,11 @@ export class SiegeWorkshopScene {
 
     // Attach cached GLTF if available, or fallback
     const cached = this.cache.get(id);
-    if (cached) {
+    if (cached?.userData?.machineId===id) {
       this.machinePivot.add(cached);
     } else {
       const fallback = this.fallbacks.get(id);
-      if (fallback) this.machinePivot.add(fallback);
+      if (fallback?.userData?.machineId===id) this.machinePivot.add(fallback);
       if (this.root.visible) {
         this.loadAuthored(id);
       }
@@ -603,7 +603,7 @@ export class SiegeWorkshopScene {
           this.inFlight.delete(id);
 
           // If still active machine, swap out fallback
-          if (this.activeMachineId === id) {
+          if (this.activeMachineId === id && model.userData.machineId===id) {
             while (this.machinePivot.children.length > 0) {
               this.machinePivot.remove(this.machinePivot.children[0]);
             }
