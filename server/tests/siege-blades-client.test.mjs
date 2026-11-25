@@ -248,6 +248,9 @@ test('Machine draft has three distinct recognizable selectable portraits, descri
   const html=siegePickerMarkup();
   assert.equal((html.match(/data-siege-pick=/g)||[]).length,3);
   assert.equal((html.match(/role="img"/g)||[]).length,3);
+  assert.equal((html.match(/<img src=/g)||[]).length,3);
+  assert.match(html,/data-sb-draft-seconds>6/);
+  for(const machine of SIEGE_MACHINE_CARDS)assert.ok(html.includes('/siege-portraits/'+machine.id+'.svg'));
   for(const machine of SIEGE_MACHINE_CARDS){
     assert.ok(html.includes(machine.name));
     assert.ok(html.includes(machine.description));
