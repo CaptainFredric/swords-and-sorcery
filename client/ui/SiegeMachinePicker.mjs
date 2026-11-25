@@ -2,9 +2,9 @@
 // actual accessible buttons. Network authority owns the countdown and pick;
 // local selection is shown immediately while the snapshot catches up.
 export const SIEGE_MACHINE_CARDS = Object.freeze([
-  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'ARMORED RAM',description:'Close the distance. Drive the mechanical fist into enemy machines.'}),
-  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'TWIN-BOLT BALLISTA',description:'Mobile firepower, heavy bolts, and a vicious built-in turning attack.'}),
-  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'FLYING REPEATER',description:'Climb, strafe, and spend flight charge on rapid-fire bolts.'}),
+  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'ARMORED RAM',description:'Charge into enemies and batter them with a steel fist.'}),
+  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'TWIN-BOLT BALLISTA',description:'Slow foes with frost; finish them with heavy bolts.'}),
+  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'FLYING REPEATER',description:'Take to the skies, strafe with bolts and strike with rotors.'}),
 ]);
 
 // Compact machine portraits, not load-bearing 3-D assets: the selection must
@@ -32,7 +32,7 @@ export function siegePickerMarkup(){
         <small>${machine.description}</small>
         <span class="sb-draft-key">PRESS ${index+1}</span>
       </button>`).join('')}</div>
-      <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>8</b>S</span></div>
+      <div class="sb-draft-footer"><span data-sb-draft-status>NO CHOICE · ASSIGN RANDOMLY</span><span>DEPLOYMENT IN <b data-sb-draft-seconds>6</b>S</span></div>
     </div>`;
 }
 
