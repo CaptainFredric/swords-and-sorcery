@@ -81,7 +81,8 @@ const onRamp = (world, x, z) => (world?.ramps ?? []).some((ramp) => x >= ramp.mi
  * by `killer` (where they stood, or null): { back, skyward, inconvenient }, or null when he is not felled on the
  * ground (a fall into the Abyss, a body in the air). world: the arena (its floors, its ramps).
  */
-export function deathPose(victim, killer = null, { source = null, world = null, at = 0 } = {}) {
+export function deathPose(victim, killer = null, { source = null, world = null, at = 0, whiteFlag = false } = {}) {
+  if (whiteFlag) return { back: false, skyward: false, inconvenient: false };
   const at3 = victim?.position;
   if (!at3 || source === 'abyss') return null;
   const ground = world ? surfaceHeightAt(at3.x, at3.z, at3.y, world) : at3.y;
@@ -93,12 +94,15 @@ export function deathPose(victim, killer = null, { source = null, world = null, 
     const yaw = victim.yaw ?? 0;
     back = distance > 1e-6 && (to.x * -Math.sin(yaw) + to.z * -Math.cos(yaw)) / distance >= POSE.fromFront;
   }
+  const inconvenient = Boolean(victim.tornGround) || (victim.burningUntil ?? 0) > at || onRamp(world, at3.x, at3.z);
   return {
     back,
     skyward: back && (victim.pitch ?? 0) >= POSE.skyward,
-    inconvenient: Boolean(victim.tornGround) || (victim.burningUntil ?? 0) > at || onRamp(world, at3.x, at3.z),
+    inconvenient,
   };
 }
+
+const FIRE_HAZARD_SOURCES = new Set(['burn', 'one_hit_ground_fire', 'one_hit_air_fire', 'one_hit_charge_fire', 'fight-flight-burning-ground']);
 
 // the Practice Yard's opponents that fight (shared/sim/practice.mjs PRACTICE_DUMMY_MODES): not the ones that stand,
 // guard or run
@@ -133,15 +137,23 @@ export class VoiceMoments {
     this.hurtInMatch = new Set();
     this.lastTargets = new Map(); // speaker -> last targeted/attacked opponent id
     this.damageStrikes = new Map(); // `${attacker}>${victim}` -> number of strikes against standing victim
+    this.constitutionBoasted = new Set(); // knights who boasted of constitution during current life
+    this.burnReactions = new Map(); // victim -> when fireReaction was last raised
   }
 
   /**
    * A blow landed (a `damage` event). matchPoint(id): whether that knight is one kill from winning a scored match.
    */
-  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false, matchPoint = () => false, practice = false, winStreak = () => 0 } = {}) {
+  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false, matchPoint = () => false, practice = false, winStreak = () => 0, isLaughing = () => false } = {}) {
     const { attackerId, victimId, source, at } = event;
-    if (!(event.amount > 0)) return [];
+    const victimKnight = knight(victimId);
+    const inDenial = Boolean(event.inDenial || victimKnight?.inDenial);
+    if (!(event.amount > 0) && !inDenial) return [];
     const groups = [];
+    if (inDenial && !(event.amount > 0)) {
+      groups.push(this.#lines(victimId, ['notDeadYetAssault'], { facts: ['inDenial'] }));
+      return groups.filter((group) => group.length);
+    }
     const other = Boolean(attackerId) && attackerId !== victimId;
     if (other) {
       this.threats.set(victimId, { by: attackerId, at });
@@ -181,6 +193,34 @@ export class VoiceMoments {
       const caught = new Set(recent.map((hit) => hit.victimId)).size;
       const before = new Set(recent.slice(0, -1).map((hit) => hit.victimId)).size;
       if (caught === MOMENTS.massive.caught && before < caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
+    }
+    if (event.hazard === 'fire' || FIRE_HAZARD_SOURCES.has(source)) {
+      const last = this.burnReactions.get(victimId) ?? -Infinity;
+      if (at - last >= 10 && event.health > 0) {
+        this.burnReactions.set(victimId, at);
+        groups.push(this.#lines(victimId, ['fireReaction']));
+      }
+    }
+    if (!event.ongoing && wild(source) && event.amount > 0 && event.amount <= 15 && event.health > 0) {
+      const minorUnhurt = event.amount <= 12 && event.health >= 65;
+      groups.push(this.#lines(victimId, ['stubToePain'], { facts: minorUnhurt ? ['minorUnhurt'] : [] }));
+    }
+    const victimWasLaughing = Boolean(isLaughing(victimId));
+    if (other && wild(source) && ((event.amount >= MOMENTS.hurtSounds.heavy && (victimKnight?.attackActive || victimKnight?.ultimateState?.phase || event.health <= 40 || (event.amount >= 30 && (victimKnight?.health ?? 100) >= 75))) || (victimWasLaughing && event.amount >= 10))) {
+      groups.push(this.#lines(victimId, ['violentReversal'], { facts: victimWasLaughing ? ['midLaugh'] : [] }));
+    }
+    if (other && (source === 'vortex' || source === 'one_hit_vortex' || event.hazard === 'vortex')) {
+      groups.push(this.#lines(attackerId, ['vortexCatch']));
+    }
+    const strikeKeyPair = other ? `${attackerId}>${victimId}` : null;
+    const prevStrikes = strikeKeyPair ? (this.damageStrikes.get(strikeKeyPair) ?? 0) : 0;
+    const staggered = (victimKnight?.staggerUntil ?? -Infinity) > at;
+    const frozen = (victimKnight?.oneHitFrozenUntil ?? -Infinity) > at;
+    if (event.health > 0 && (inDenial || event.incapacitated || staggered || frozen || (other && event.health <= 30 && prevStrikes >= 2))) {
+      groups.push(this.#lines(victimId, ['notDeadYetAssault'], { facts: inDenial ? ['inDenial'] : [] }));
+    }
+    if (other && source === 'sword' && event.health > 0) {
+      groups.push(this.#lines(attackerId, ['waitIStabbedSetup']));
     }
     const standing = event.health > 0;
     // (nearly felled: remembered, for felling the one who did it)
@@ -227,7 +267,7 @@ export class VoiceMoments {
         && !this.#excused(victimId, saidAgo);
       const heavy = other && event.amount >= MOMENTS.hurtSounds.heavy;
       const prowessDepleted = Boolean(event.prowessDepleted || event.prowessSpent || (event.prowess !== undefined && event.prowess <= 0 && (event.prowessBefore === undefined || event.prowessBefore > 0)));
-      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', prowessDepleted && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken']));
+      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', prowessDepleted && 'prowessDepleted', heavy && 'heavyHurt', 'blowTaken'], { facts: this.constitutionBoasted.has(victimId) ? ['constitutionBoasted'] : [] }));
     }
     return groups.filter((group) => group.length);
   }
@@ -238,7 +278,7 @@ export class VoiceMoments {
    * extra: what the runtime watched of it (rushed, fair, leader, chivalry; charging: the fallen charged a foe a moment
    * ago; pose: how he lies, deathPose; doomCut: he was spelling a threat).
    */
-  death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false, extra = {}, rand = null } = {}) {
+  death(event, { blow = null, knight = () => null, positionOf = () => null, world = null, practice = false, planFailed = false, extra = {}, rand = null } = {}) {
     // (extra, from the runtime's watch: passing, the fallen was sprinting across or past the one who shot them;
     // thirdParty, the fallen was trading blows with someone else and was shot from outside that fight; nap, his return
     // is to come and no comeback is under way)
@@ -289,6 +329,9 @@ export class VoiceMoments {
       flightElevated: Boolean(extra.flightElevated),
       quickMultikill: Boolean(extra.quickMultikill),
       quickCloseMultikill: Boolean(extra.quickCloseMultikill),
+      drawnOut: source === 'sword' && (this.strikes.get(`${killerId}>${victimId}`)?.length ?? 0) >= 3,
+      stopPretending: Boolean(killer && ((killer.health ?? 100) <= 35 || extra.leader || (this.fallsInARow.get(killerId) ?? 0) >= 2)),
+      lightningArrival: source === 'lightning',
     } : {};
     if (killerId) {
       const prevFoe = this.consecutiveFoe.get(killerId);
@@ -310,9 +353,18 @@ export class VoiceMoments {
     const overkill = Boolean(blow) && isOverkill(blow);
     // committed to an attack as he fell: mid-swing, dashing, or charging or rushing at a foe
     const committed = Boolean(victim && (victim.attackActive || (victim.dashUntil ?? -Infinity) > at)) || Boolean(extra.rushed) || Boolean(extra.charging);
+    let deathPoseMeta = extra.pose ?? null;
+    if (deathPoseMeta && !extra.whiteFlag && victim?.position) {
+      const ground = world ? surfaceHeightAt(victim.position.x, victim.position.z, victim.position.y, world) : victim.position.y;
+      const baseFloor = world?.floors?.length ? Math.min(...world.floors.map((f) => f.y)) : ground;
+      const hill = onRamp(world, victim.position.x, victim.position.z) || (ground !== null && baseFloor !== null && ground > baseFloor + 1.2);
+      deathPoseMeta = { ...deathPoseMeta, hill, flatBack: Boolean(deathPoseMeta.back && !deathPoseMeta.inconvenient && !hill) };
+    } else if (extra.whiteFlag) {
+      deathPoseMeta = { back: false, skyward: false, inconvenient: false, whiteFlag: true };
+    }
     const fall = deathMoment({
       victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed,
-      chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), committed, pose: extra.pose ?? null, doomCut: Boolean(extra.doomCut), moment,
+      chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), committed, pose: deathPoseMeta, doomCut: Boolean(extra.doomCut), moment,
       victimWasSpeaking: Boolean(extra.victimWasSpeaking),
       // (a nap: his return to come (never the fall that ends the match), and never the yard)
       nap: Boolean(extra.nap) && !practice && !event.decisive && Number.isFinite(event.respawnAt) && event.respawnAt > at,
@@ -334,6 +386,7 @@ export class VoiceMoments {
    */
   respawn(event, { practice = false, saidAgo = () => Infinity } = {}) {
     const id = event.playerId;
+    if (id) this.constitutionBoasted.delete(id);
     if (practice || !id || this.#excused(id, saidAgo)) return [];
     const falls = this.fallsInARow.get(id) ?? 0;
     const by = this.fellTo.get(id) ?? [];
@@ -366,26 +419,52 @@ export class VoiceMoments {
   }
 
   /** A gust caught knights (a `galeBlast`'s `affected`): the jibe, the thrown, and anyone it rescued. */
-  galeCaught(event, { knight = () => null } = {}) {
+  galeCaught(event, { knight = () => null, speakingCheck = null, positionOf = () => null, isLaughing = () => false } = {}) {
     const groups = [];
     // (how fitting the jibe is, the moment says itself: likelier the harder the gust threw them)
     const jibe = galeTauntScale(event.affected ?? []);
-    if (jibe > 0) groups.push(this.#lines(event.playerId, { galeDisplacement: jibe }));
+    const speakingVictim = (event.affected ?? []).find((c) => !c.guarded && c.id !== event.playerId && (speakingCheck ? speakingCheck(c.id) : false));
+    if (speakingVictim) {
+      groups.push(this.#lines(event.playerId, ['galeSilentTreatment'], { facts: ['victimSpoke'], disruptedSpeaker: speakingVictim.id }));
+    }
+    const casterPos = positionOf(event.playerId) ?? knight(event.playerId)?.position;
+    const displacedFar = (event.affected ?? []).some((c) => {
+      if (c.guarded || c.id === event.playerId || !(c.pressure >= 0.5)) return false;
+      const victimPos = positionOf(c.id) ?? knight(c.id)?.position;
+      if (!casterPos || !victimPos) return false;
+      const dist = Math.hypot(victimPos.x - casterPos.x, (victimPos.z ?? 0) - (casterPos.z ?? 0));
+      return dist >= 3.2;
+    });
+    if (displacedFar) {
+      groups.push(this.#lines(event.playerId, ['displacedBeyondReach'], { facts: ['selfDisplaced'] }));
+    } else if (jibe > 0) {
+      groups.push(this.#lines(event.playerId, { galeDisplacement: jibe }));
+    }
+    if (event.contestedZone) {
+      groups.push(this.#lines(event.playerId, ['galeContestedClear']));
+    }
     for (const caught of event.affected ?? []) {
       if (caught.guarded || !(caught.pressure >= 0.5)) continue;
       this.gusts.set(`${event.playerId}>${caught.id}`, event.at);
       groups.push(...this.#rescues(caught.id, event.playerId, event.at, knight));
       if (caught.id !== event.playerId) groups.push(this.#lines(caught.id, ['galeVictimDisplacement']));
-      if (caught.pressure >= MOMENTS.launch) groups.push(this.#lines(caught.id, ['launched']));
+      if (caught.pressure >= MOMENTS.launch) {
+        const laughing = Boolean(isLaughing(caught.id));
+        groups.push(this.#lines(caught.id, laughing ? ['violentReversal', 'launched'] : ['launched'], { facts: laughing ? ['midLaugh'] : [] }));
+      }
     }
     return groups.filter((group) => group.length);
   }
 
-  /** A knight's balance broke (a `staggerBreak`): the one who broke it, and anyone it rescued. */
-  staggerBreak(event, { knight = () => null } = {}) {
+  /** A knight's balance broke (a `staggerBreak`): the one who broke it, anyone it rescued, and sudden reversal for the broken. */
+  staggerBreak(event, { knight = () => null, isLaughing = () => false } = {}) {
     const groups = [];
     // (a Sundering blow that breaks a knight is force settling the argument)
     if (event.by) groups.push(this.#lines(event.by, ['staggerBreakInflicted', sundering(knight(event.by), event.at) && 'sunderStaggerBreak']));
+    if (event.playerId) {
+      const laughing = Boolean(isLaughing(event.playerId));
+      groups.push(this.#lines(event.playerId, ['violentReversal'], { facts: laughing ? ['midLaugh'] : [] }));
+    }
     groups.push(...this.#rescues(event.playerId, event.by ?? null, event.at, knight));
     return groups.filter((group) => group.length);
   }
@@ -522,6 +601,8 @@ export class VoiceMoments {
     this.hurtInMatch.clear();
     this.lastTargets.clear();
     this.damageStrikes.clear();
+    this.constitutionBoasted.clear();
+    this.burnReactions.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -565,5 +646,83 @@ export class VoiceMoments {
     for (const map of [this.strikes, this.gusts]) {
       for (const key of [...map.keys()]) if (key.endsWith(`>${id}`)) map.delete(key);
     }
+  }
+
+  constitutionSpoken(speaker) {
+    if (speaker) this.constitutionBoasted.add(speaker);
+  }
+
+  hazardCreated(playerId, hazardKind = 'fire') {
+    return [this.#lines(playerId, ['persistentHazardCreated'])];
+  }
+
+  allyHazardApproach(speakerId) {
+    return [this.#lines(speakerId, ['allyHazardApproach'])];
+  }
+
+  burialPursuit(speakerId) {
+    return [this.#lines(speakerId, ['burialPursuit'])];
+  }
+
+  disasterRanged(speakerId) {
+    return [this.#lines(speakerId, ['galeInfusedDisasterRange'])];
+  }
+
+  fireHazardDamage(event) {
+    const { victimId, source, at } = event;
+    if (!victimId || !(event.health > 0)) return [];
+    if (event.hazard !== 'fire' && !FIRE_HAZARD_SOURCES.has(source)) return [];
+    const last = this.burnReactions.get(victimId) ?? -Infinity;
+    if (at - last < 10) return [];
+    this.burnReactions.set(victimId, at);
+    return [this.#lines(victimId, ['fireReaction'])];
+  }
+
+  inDenial(event) {
+    if (!event?.playerId) return [];
+    return [this.#lines(event.playerId, ['notDeadYetAssault'], { facts: ['inDenial'] })];
+  }
+
+  reversal(speakerId, { laughing = false } = {}) {
+    if (!speakerId) return [];
+    return [this.#lines(speakerId, ['violentReversal'], { facts: laughing ? ['midLaugh'] : [] })];
+  }
+
+  selfDisplacedRange(speakerId) {
+    if (!speakerId) return [];
+    return [this.#lines(speakerId, ['displacedBeyondReach'], { facts: ['selfDisplaced'] })];
+  }
+
+  disasterArrival(speakerId, { flatBack = false, faceplant = false } = {}) {
+    if (faceplant) return [this.#lines(speakerId, ['disasterDisplacement'])];
+    return [this.#lines(speakerId, ['lightningSlamArrival', 'disasterDisplacement'], { facts: flatBack ? ['flatBack'] : [] })];
+  }
+
+  disasterPredicament(speakerId) {
+    return [this.#lines(speakerId, ['disasterPredicament'])];
+  }
+
+  flightTerminalCommitted(operatorId) {
+    return [this.#lines(operatorId, ['fightFlightTerminalCommitted'])];
+  }
+
+  criticalCrashApproach(operatorId) {
+    return [this.#lines(operatorId, ['criticalCrashApproach'])];
+  }
+
+  whirlStarted(playerId) {
+    return [this.#lines(playerId, ['whirlActivated'])];
+  }
+
+  dieOverThereSetup(speakerId) {
+    return [this.#lines(speakerId, ['dieOverThereSetup'])];
+  }
+
+  targetFrozen(attackerId) {
+    return [this.#lines(attackerId, ['targetFrozen'])];
+  }
+
+  hillRetreat(playerId) {
+    return [this.#lines(playerId, ['hillRetreat'])];
   }
 }
