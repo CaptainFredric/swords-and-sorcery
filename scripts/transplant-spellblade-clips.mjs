@@ -20,7 +20,7 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
-//   node scripts/transplant-spellblade-clips.mjs --turn-pauldrons 0.5 [--apply]
+//   node scripts/transplant-spellblade-clips.mjs --turn-pauldrons 0.75 [--apply]
 //     (each pauldron turned that share of the way about its shoulder joint onto the arm's line)
 //   node scripts/transplant-spellblade-clips.mjs --add-json-meshes tools/blender/characters/spellblade/upper-arm/rerebrace.json [--apply]
 //     (meshes made in Blender, each rigid on one bone, in the gauntlet's material)
@@ -711,7 +711,7 @@ function fillCore(baseFile, spec = CORE_FILL) {
 // straight down (each one's middle 15 cm below its shoulder joint, directly under it), while the rig's arms slant 30-40
 // degrees out of them; the upper arm itself had nothing but the hollow bell #557 took out, so a raised sword arm's
 // forearm hung in the air from the Armory's camera. Designed in Blender against renders of the game's own poses
-// (lab.py, with the game's pauldron rule): each pauldron turned half way about its shoulder joint toward the arm's line
+// (lab.py, with the game's pauldron rule): each pauldron turned three quarters of the way about its shoulder joint toward the arm's line
 // (rigid on its own bone, so it moves exactly as before, only sitting truer), and a plated rerebrace tube along each
 // upper arm, rigid on it, from under the pauldron into the couter (rerebrace.json, written by export.py). The game's
 // pauldron follow is raised to match (pauldronFollow.mjs).
