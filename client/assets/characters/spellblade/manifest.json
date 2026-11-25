@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "sourceRevision": "01c2fe40e50e9be76e84adcb4e9795113fe4364c",
+  "sourceRevision": "99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af1",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=01c2fe40e50e9be76e84adcb4e9795113fe4364c",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=01c2fe40e50e9be76e84adcb4e9795113fe4364c",
-    "sha256": "01c2fe40e50e9be76e84adcb4e9795113fe4364c9fba68afefaee67da8f71ae5",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af1",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade.glb.gz?v=99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af1",
+    "sha256": "99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af17fbf2c6cbb235ec070897f58",
     "motionOverrides": [],
     "bytes": 12431372,
     "jointCount": 84,
@@ -193,8 +193,8 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=01c2fe40e50e9be76e84adcb4e9795113fe4364c&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
-    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=01c2fe40e50e9be76e84adcb4e9795113fe4364c&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af1&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
+    "gzipUrl": "/client/assets/characters/spellblade/spellblade-fp.glb.gz?v=99c6e1e2895cc995be54bd1ff0d48e3bf5fb2af1&asset=19f161e8eb2b2388ef6c477f721f54fec2dd45b6",
     "sha256": "19f161e8eb2b2388ef6c477f721f54fec2dd45b670d0880717d8141e15bd924f",
     "bytes": 2764244,
     "jointCount": 41,
