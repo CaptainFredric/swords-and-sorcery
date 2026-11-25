@@ -132,3 +132,35 @@ test('snapshot auras use the exact combat exposure, expire, and distinguish over
   ally.position={x:0,y:0,z:0};ally.alive=false;
   assert.equal(state(ally,12),null,'no aura on a corpse');
 });
+
+test('returning pilot receives their own Valkyrie protection, even without a team',()=>{
+  const {room,pilot,enemy}=battle();
+  pilot.team=null;room.flightBurnZones[0].team=null;
+  pilot.alive=false;
+  const view=()=>serializeSnapshot(room,12,pilot.id).players.find(x=>x.id===pilot.id).valkyrieFlames;
+  assert.equal(view(),null);
+  // Model a new life of the same player identity outside, then entering.
+  pilot.alive=true;pilot.health=100;pilot.spawnProtectionUntil=0;
+  pilot.position={x:8,y:0,z:0};
+  assert.equal(view(),null);
+  pilot.position.x=0;
+  assert.deepEqual(view(),{alliedUntil:20,hostileUntil:0});
+  applyDamage(room,enemy.id,pilot.id,110,'sword',12);
+  assert.equal(pilot.health,1);
+  assert.equal(pilot.alive,true);
+  assert.equal(room.events.filter(e=>e.type==='damage'&&e.victimId===pilot.id).at(-1).inDenial,true);
+});
+
+test('In Denial voice fact is restricted to actually prevented lethal damage',()=>{
+  const {room,ally,enemy}=battle();
+  const hit=(damage,now)=>{
+    applyDamage(room,enemy.id,ally.id,damage,'sword',now);
+    return room.events.filter(e=>e.type==='damage'&&e.victimId===ally.id).at(-1);
+  };
+  assert.equal(hit(10,12).inDenial,undefined,'ordinary damage is not a prevented death');
+  assert.equal(hit(200,12.1).inDenial,true);
+  assert.equal(hit(20,12.2).inDenial,true,'another lethal hit at one HP still reaches the voice hook');
+  ally.position.x=6;
+  assert.equal(hit(20,12.3).inDenial,undefined);
+  assert.equal(ally.alive,false);
+});
