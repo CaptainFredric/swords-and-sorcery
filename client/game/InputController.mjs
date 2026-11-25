@@ -132,9 +132,11 @@ export class InputController {
     // Context-sensitive shared defaults:
     // - E: Sharp Turn when mounted on ballista; otherwise Dash / ram hydraulic pitch.
     // - X: Deploy/Retract when mounted on ballista; otherwise Technique / Flick / Flight Bolt.
+    // - B: Upper/main focus on ballista; accessible Skill shortcut on Fight-and-Flight.
     if(this.mountedBallista&&this.bindings.siegeSweep?.includes(code))return 'siegeSweep';
     if(this.mountedBallista&&this.bindings.deploy?.includes(code))return 'deploy';
     if(this.mountedBallista&&this.bindings.ballistaFocus?.includes(code))return 'ballistaFocus';
+    if(this.mountedFlight&&this.bindings.ballistaFocus?.includes(code))return 'siegeSkill';
     if((!this.mountedBallista)&&this.bindings.siegeWeapon?.includes(code))return 'siegeWeapon';
     if(this.bindings.dash?.includes(code))return 'dash';
     return this.actionOf.get(code);

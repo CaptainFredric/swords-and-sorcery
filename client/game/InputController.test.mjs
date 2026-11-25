@@ -630,6 +630,8 @@ test('mounted X triggers Finger Flick on Ram, Bolt on Flight, Technique on foot,
  input.mountedRam=false;input.mountedFlight=true;
  down('KeyX');up('KeyX');
  assert.deepEqual(sent.slice(-2),[{type:'fightFlightFire',down:true},{type:'fightFlightFire',down:false}],'flight retains held X repeater fire');
+ down('KeyB');up('KeyB');
+ assert.deepEqual(sent.at(-1),{type:'siegeSkill',yaw:input.yaw,pitch:input.pitch},'flight KeyB shortcut still activates Fire Away / mounted Skill');
  input.mountedFlight=false;input.mountedBallista=true;
  down('KeyX');up('KeyX');
  assert.deepEqual(sent.at(-1),{type:'bibyeToggleDeploy'},'ballista KeyX cleanly routes to Deploy / Retract');
