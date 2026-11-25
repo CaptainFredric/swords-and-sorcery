@@ -20,6 +20,8 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
+//   node scripts/transplant-spellblade-clips.mjs --drop-bells [--apply]
+//     (the gauntlets' hollow upper-arm flares taken out, with their own material and textures)
 //   node scripts/transplant-spellblade-clips.mjs --rebind-strays [--apply]
 //     (torso vertices bound to a limb among neighbours that are not given their neighbours' weights)
 //   node scripts/transplant-spellblade-clips.mjs --add-couters [--apply]
@@ -601,6 +603,56 @@ function rebindStrays(baseFile) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+// The bells: each gauntlet's second part (its own material, SpellbladeLeftGauntlet2: 1,225 vertices right, 1,128 left)
+// is a wide hollow flare on the upper arm, set to one side of the bone. At rest it lies buried inside the other plates
+// and adds nothing; with the arm raised (the sword arm in Slash_3, the GuardCuts, the Chivalry guard) its open mouth
+// faces out, a ragged dark ring where the upper arm should be. The gauntlet's first part already carries the upper
+// arm's banded plates, so the bells are taken out, and their material and its three textures with them.
+const BELLS = Object.freeze({ meshes: ['Gauntlet.L', 'Gauntlet.R'], material: 'SpellbladeLeftGauntlet2' });
+function dropBells(baseFile, spec = BELLS) {
+  const base = glb(baseFile), doc = structuredClone(base.doc);
+  const material = doc.materials.findIndex((m) => m.name === spec.material);
+  if (material < 0) throw Error('No material ' + spec.material);
+  const report = [];
+  for (const name of spec.meshes) {
+    const mesh = doc.meshes.find((m) => m.name === name);
+    if (!mesh) throw Error('No mesh ' + name);
+    const keep = mesh.primitives.filter((p) => p.material !== material);
+    if (keep.length === mesh.primitives.length) throw Error(`${name} has no ${spec.material} part`);
+    if (!keep.length) throw Error(`${name} would be left empty`);
+    report.push({ mesh: name, removedVertices: mesh.primitives.filter((p) => p.material === material).reduce((t, p) => t + doc.accessors[p.attributes.POSITION].count, 0) });
+    mesh.primitives = keep;
+  }
+  // the material, then whatever textures and images only it used, renumbered out
+  const usesMaterial = doc.meshes.some((m) => m.primitives.some((p) => p.material === material));
+  if (!usesMaterial) {
+    const textureRefs = (node, visit) => {
+      if (!node || typeof node !== 'object') return;
+      for (const [key, value] of Object.entries(node)) {
+        if (/Texture$/.test(key) && value && typeof value.index === 'number') visit(value);
+        else textureRefs(value, visit);
+      }
+    };
+    const gone = doc.materials[material];
+    doc.materials.splice(material, 1);
+    for (const m of doc.meshes) for (const p of m.primitives) if (p.material > material) p.material -= 1;
+    const dropped = new Set(); textureRefs(gone, (ref) => dropped.add(ref.index));
+    const stillUsed = new Set(); for (const m of doc.materials) textureRefs(m, (ref) => stillUsed.add(ref.index));
+    const removeTextures = [...dropped].filter((t) => !stillUsed.has(t)).sort((a, b) => b - a);
+    const removeImages = new Set(removeTextures.map((t) => doc.textures[t].source));
+    for (const t of removeTextures) doc.textures.splice(t, 1);
+    for (const m of doc.materials) textureRefs(m, (ref) => { ref.index -= removeTextures.filter((t) => t < ref.index).length; });
+    for (const t of doc.textures) if (removeImages.has(t.source)) removeImages.delete(t.source);
+    const images = [...removeImages].sort((a, b) => b - a);
+    for (const i of images) doc.images.splice(i, 1);
+    for (const t of doc.textures) t.source -= images.filter((i) => i < t.source).length;
+    report.push({ material: spec.material, textures: removeTextures.length, images: images.length });
+  }
+  const bin = compact(doc, base.bin);
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -731,6 +783,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--add-couters')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addCouters(join(dir, file));
+} else if (process.argv.includes('--drop-bells')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = dropBells(join(dir, file));
 } else if (process.argv.includes('--rebind-strays')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = rebindStrays(join(dir, file));
