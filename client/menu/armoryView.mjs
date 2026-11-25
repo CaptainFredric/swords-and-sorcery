@@ -114,10 +114,10 @@ export const ARMORY_SUMMARIES = Object.freeze({
   gale:'Shove foes, bend projectiles, or launch yourself with wind.',
   steel:'Harden your armor and turn your Dash into a battering ram.',
   line_of_conduct:'Strike with lightning; leave a conductive line in its wake.',
-  sunder:'Turn every sword strike into a ground-splitting, Guard-breaking slam.',
-  vortex:'Spin sword and flame together. Attack for fire; Guard for faster cuts.',
-  chivalry:'Attack, Guard, Dash and cast together; wield three prepared spells.',
-  one_hit_of_wonders:'Gather elemental infusions in combat; unleash them in one colossal slam.',
+  sunder:'Turn sword strikes into earth-shattering slams that break through Guard.',
+  vortex:'Become a whirling storm of steel and flame. Favor either as you fight.',
+  chivalry:'Combine swordplay and sorcery without restraint. Wield three spells.',
+  one_hit_of_wonders:'Gather the elements through combat. Bring them crashing down together.',
 });
 
 export function armoryView(equipped, ultimate = 'sunder', technique = 'rigid_riposte') {
