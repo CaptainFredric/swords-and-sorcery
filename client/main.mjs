@@ -37,7 +37,7 @@ import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmospher
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
-import { armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
+import { ARMORY_SUMMARIES, armoryView, preparedArmoryView, SWORD_TECHNIQUES } from './menu/armoryView.mjs';
 import {iconSvg} from './ui/icons.mjs';
 import {siegeArmoryView} from './menu/siegeArmoryView.mjs';
 import {practiceSiegeCopy,practiceSiegeParagraphs} from './menu/practiceSiegeStory.mjs';
@@ -2207,6 +2207,10 @@ function bannerOrdered(items, category, key) {
     .map(entry => entry.item);
 }
 
+// Separate sibling buttons: touching Info never selects or previews the equipment.
+function compactEquipmentRow(card, id, category, name) {
+  return `<div class="equipment-row">${card}<button class="equipment-info" type="button" data-equipment-info="${id}" data-info-category="${category}" aria-label="Details: ${escapeHtml(name)}" title="Equipment details">i</button></div>`;
+}
 function renderInspectorLists() {
   const currentSpell = settings.get('loadout.spell');
   const currentUlt = settings.get('loadout.ultimate');
@@ -2223,10 +2227,9 @@ function renderInspectorLists() {
       const isSelected = tech.id === armoryLocation.highlightedItem && armoryLocation.category === 'technique';
       const unavailable=Boolean(tech.disabled);
       const isJustEquipped = isEquipped && lastEquippedCategory === 'technique' && lastEquippedItemId === tech.id;
-      const factsText = typeof tech.facts === 'function' ? tech.facts(GAME) : tech.facts;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${unavailable ? ' disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${unavailable ? 'aria-disabled="true"' : ''}>
+      return compactEquipmentRow(`<button type="button" class="spell-card${isSelected ? ' selected' : ''}${isEquipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}${unavailable ? ' disabled' : ''}" role="radio" aria-checked="${isEquipped}" data-technique="${tech.id}" ${unavailable ? 'aria-disabled="true"' : ''}>
         <span class="spell-mark">${tech.mark}</span><span class="spell-name">${escapeHtml(tech.name)}</span>${isEquipped ? '<i>EQUIPPED</i>' : (unavailable ? '<i>UNAVAILABLE</i>' : '')}
-        <small>${escapeHtml(tech.line)}</small><em>${escapeHtml(factsText)}</em></button>`;
+        <small>${escapeHtml(ARMORY_SUMMARIES[tech.id] ?? tech.line)}</small></button>`,tech.id,'technique',tech.name);
     }).join('');
   }
 
@@ -2240,9 +2243,9 @@ function renderInspectorLists() {
     spellsContainer.innerHTML = sortedSpells.map((spell) => {
       const isSelected = spell.id === armoryLocation.highlightedItem && armoryLocation.category === 'sorcery';
       const isJustEquipped = spell.equipped && lastEquippedCategory === 'sorcery' && lastEquippedItemId === spell.id;
-      return `<button type="button" class="spell-card${isSelected ? ' selected' : ''}${spell.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
+      return compactEquipmentRow(`<button type="button" class="spell-card${isSelected ? ' selected' : ''}${spell.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
         <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
-        <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`;
+        <small>${escapeHtml(ARMORY_SUMMARIES[spell.id] ?? spell.line)}</small></button>`,spell.id,'sorcery',spell.name);
     }).join('');
   }
 
@@ -2256,9 +2259,9 @@ function renderInspectorLists() {
     ultimatesContainer.innerHTML = sortedUlts.map((u) => {
       const isSelected = u.id === armoryLocation.highlightedItem && armoryLocation.category === 'masterstroke';
       const isJustEquipped = u.equipped && lastEquippedCategory === 'masterstroke' && lastEquippedItemId === u.id;
-      return `<button type="button" class="spell-card ultimate-card${isSelected ? ' selected' : ''}${u.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
+      return compactEquipmentRow(`<button type="button" class="spell-card ultimate-card${isSelected ? ' selected' : ''}${u.equipped ? ' equipped' : ''}${isJustEquipped ? ' just-equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
         <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
-        <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`;
+        <small>${escapeHtml(ARMORY_SUMMARIES[u.id] ?? u.line)}</small></button>`,u.id,'masterstroke',u.name);
     }).join('');
   }
 }
@@ -2474,7 +2477,34 @@ function highlightInspectorItem(category, itemId) {
   updateInspectorDetailCard();
 }
 
+let inspectorDetailReturn = null;
+function setInspectorDetail(open) {
+  const inspector = $('#armory-inspector');
+  const scroll = inspector.querySelector('.inspector-scroll');
+  inspector.classList.toggle('show-equipment-detail',open);
+  if(open)scroll.scrollTop=0;
+}
+function closeEquipmentDetails() {
+  const target=inspectorDetailReturn;
+  inspectorDetailReturn=null;
+  setInspectorDetail(false);
+  if(target){
+    $('#armory-inspector .inspector-scroll').scrollTop=target.scroll;
+    document.querySelector(`[data-equipment-info="${target.id}"]`)?.focus({preventScroll:true});
+  }
+}
+$('#armory-inspector').addEventListener('click',event=>{
+  const info=event.target.closest('[data-equipment-info]');
+  if(!info)return;
+  inspectorDetailReturn={id:info.dataset.equipmentInfo,scroll:$('#armory-inspector .inspector-scroll').scrollTop};
+  highlightInspectorItem(info.dataset.infoCategory,info.dataset.equipmentInfo);
+  setInspectorDetail(true);
+  $('#equipment-detail-back').focus({preventScroll:true});
+});
+$('#equipment-detail-back').addEventListener('click',closeEquipmentDetails);
 function openInspector(category, itemId = null) {
+  inspectorDetailReturn=null;
+  setInspectorDetail(false);
   armoryLocation.inspectorOpen = true;
   armoryLocation.category = category;
   if (!itemId) {
@@ -2509,7 +2539,7 @@ function openInspector(category, itemId = null) {
 
   renderInspectorLists();
   updateInspectorDetailCard();
-  scrollToEquippedItem(category, { smooth: false });
+  $('#armory-inspector .inspector-scroll').scrollTop=0;
 
   if (category === 'sorcery') {
     menuScene?.showSpell(itemId);
@@ -2517,6 +2547,8 @@ function openInspector(category, itemId = null) {
 }
 
 function closeInspector() {
+  inspectorDetailReturn=null;
+  setInspectorDetail(false);
   armoryLocation.inspectorOpen = false;
   saveArmoryLocation(armoryLocation);
   const inspector = $('#armory-inspector');
@@ -2726,7 +2758,7 @@ function renderArmory() {
 
 function renderPreparedArmory() {
   const root = $('#armory-prepared');
-  const chivalry = settings.get('loadout.ultimate') === 'chivalry';
+  const chivalry = settings.get('loadout.ultimate') === 'chivalry' && armoryLocation.category==='masterstroke' && armoryLocation.highlightedItem==='chivalry';
   root.classList.toggle('hidden', !chivalry);
   if (!chivalry) return;
   const starting = settings.get('loadout.spell');
@@ -2748,7 +2780,8 @@ $('#armory-inspector-categories').addEventListener('click', event => {
 $('#armory-equip-btn')?.addEventListener('click', () => {
   const cat = armoryLocation.category;
   const id = armoryLocation.highlightedItem;
-  equipInspectorItem(cat, id, { animate: true });
+  equipInspectorItem(cat, id, { animate: false });
+  closeEquipmentDetails();
 });
 
 $('#armory-techniques').addEventListener('click', (event) => {
