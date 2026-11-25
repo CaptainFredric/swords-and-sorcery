@@ -148,14 +148,14 @@ try {
   await cdp.send('Page.navigate',{url:base+'/?debug'});
   await until(()=>evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),
     'full Three.js main menu',190);
-  await click('#solo-button');
+  await click('#breakthrough-button');
   await evaluate("document.querySelector('#player-name').value='Trial Knight',true");
-  await click('#renown-trials-mode');
-  assert.equal(await evaluate("document.querySelector('#solo-selected-title')?.textContent"),'RAMPAGE TO RENOWN');
-  assert.equal(await evaluate("document.querySelector('#renown-arena [aria-checked=true]').dataset.renownArena"), 'court-of-merit');
-  if (alternate) await click('#renown-arena [data-renown-arena="castleward"]');
+  await click('[data-mettle-mode="RENOWN_TRIALS"]');
+  assert.equal(await evaluate("document.querySelector('[data-mettle-mode=RENOWN_TRIALS]').classList.contains('selected')"),true);
+  assert.equal(await evaluate("document.querySelector('#mettle-renown-arena [aria-checked=true]').dataset.renownArena"), 'court-of-merit');
+  if (alternate) await click('#mettle-renown-arena [data-renown-arena="castleward"]');
   await shot('00-launch');
-  await click('#renown-trials-mode'); // second activation launches actual selected pursuit
+  await click('[data-mettle-mode="RENOWN_TRIALS"]'); // second activation launches actual selected pursuit
   // (from the launch: the server can start the wave before a slow page has even joined its room; the wait spans the
   // join's 240 tries and the wave's own 160)
   const firstWave=holdWave(1,'live first wave',400);

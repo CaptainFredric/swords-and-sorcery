@@ -45,10 +45,10 @@ async function menu(p) {
 }
 
 async function solo(p, mode, id) {
-  await p.locator('#solo-button').click();
+  await p.locator(mode==='bot-duel'?'#duel-button':'#solo-button').click();
   await p.locator('#solo-menu [data-name-copy]').first().fill('Arena Knight');
-  await p.locator('#'+mode).click();
-  const details=p.locator('#solo-details');
+  if(mode!=='bot-duel')await p.locator('#'+mode).click();
+  const details=p.locator(mode==='bot-duel'?'#bot-duel':'#solo-details');
   if(await details.isVisible()) await details.click();
   await p.locator('#solo-arena [data-arena="'+id+'"]').click();
   await p.locator('#solo-launch').click();
@@ -170,6 +170,8 @@ async function online() {
     await p.locator('#player-name').fill(p===host?'Court Host':'Court Guest');
   }
   server.roomManager.duelsMade=2;
+  await host.locator('#duel-button').click();
+  await guest.locator('#duel-button').click();
   await host.locator('#seek-duel').click();
   await guest.locator('#seek-duel').click();
   const duel=await Promise.all([host,guest].map(p=>snapshot(p,'DUEL','court-of-merit')));

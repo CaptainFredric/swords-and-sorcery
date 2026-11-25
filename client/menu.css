@@ -1269,6 +1269,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   /* (the yard's own sound and subtitle switches only where there is room for them: the Settings have both) */
   .yard-toggle { display: none; }
 }
+/* Leave the yard plaque its own space below the narrow front door. */
+@container app (max-width: 520px) and (min-height: 501px) {
+  #menu > .banner-panel { max-height: calc(100% - 96px - var(--safe-b, 0px)); }
+}
 /* a short screen (a phone on its side): the controls smaller, the tab nearer the top */
 @container app (max-height: 500px) {
   .herald-tab { top: 74px; }
@@ -1784,36 +1788,6 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   background:rgba(201,156,82,.10);border-color:#ebc67d;
 }
 
-/* --- Siege Blades: a forged nameplate in the banner ---------------------------------------------------------------
-   The same red-and-iron command, set in a weathered steel frame with a rivet at each corner and light running across
-   the metal: it reads as the machine mode without leaving the banner's language. */
-.menu-command.siege-nameplate {
-  border: 2px solid transparent;
-  background:
-    linear-gradient(180deg, #4a1914, #2b0f0c) padding-box,
-    linear-gradient(115deg, #3d3a36 0%, #8e8a82 18%, #4b4843 34%, #6f6b64 52%, #34312d 70%, #85817a 88%, #3b3834 100%) border-box;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 220, 170, .12), 0 2px 5px rgba(0, 0, 0, .45);
-}
-.menu-command.siege-nameplate::after {
-  content: ""; position: absolute; inset: 4px; pointer-events: none;
-  background:
-    radial-gradient(circle at 0 0, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
-    radial-gradient(circle at 100% 0, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
-    radial-gradient(circle at 0 100%, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
-    radial-gradient(circle at 100% 100%, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px);
-}
-.menu-command.siege-nameplate span { color: var(--heraldry-brass-light); text-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
-.menu-command.siege-nameplate small { color: rgba(234, 220, 182, .74); }
-.menu-command.siege-nameplate::before { background: #a8a39a; }
-.menu-command.siege-nameplate:hover {
-  border-color: transparent;
-  background:
-    linear-gradient(180deg, #5a1e18, #321210) padding-box,
-    linear-gradient(115deg, #4a4741 0%, #b3ad9f 18%, #5b5851 34%, #8e897f 52%, #403d38 70%, #aaa498 88%, #47443f 100%) border-box;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), 0 0 0 1px rgba(236, 201, 127, .3), 0 4px 12px rgba(0, 0, 0, .45);
-}
-.menu-command.siege-nameplate:hover::before { background: var(--heraldry-brass-light); }
-
 /* Compact selection rows and an explicit inspection view. Detailed stats never
    push equipment off the end of the list. Both actions have separate hit areas. */
 #armory-inspector .inspector-list { min-height:0; }
@@ -1839,3 +1813,64 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
  #armory-inspector .equipment-row .spell-name {font-size:13px;}
  #armory-inspector .equipment-row small {font-size:11px;}
 }
+
+/* Duel and training use the established paired standards, not a new screen.
+   Desktop shows the rival setup alongside the two obvious launch choices;
+   narrow shells reveal the settings standard on demand. */
+#solo-menu[data-purpose="duel"] [data-training-only],
+#solo-menu[data-purpose="training"] [data-duel-only],
+#solo-menu [hidden] { display:none !important; }
+#solo-menu .duel-options { display:none; }
+#solo-menu[data-purpose="duel"] #solo-selected-title { color:var(--heraldry-brass-light); }
+#solo-menu[data-purpose="duel"] #duel-start-now { margin-bottom:8px; }
+@container app (max-width:640px) {
+  #solo-menu[data-purpose="duel"] .duel-options { display:block; }
+}
+@container app (max-height:500px) {
+  #solo-menu[data-purpose="duel"] .side-screen-inner .panel-copy { margin-bottom:6px; }
+  #solo-menu[data-purpose="duel"] .side-screen-inner .mode-choice { min-height:44px; padding-block:5px; margin-bottom:5px; }
+}
+
+/* A footer separate from the scroller: the cue never overlays a command.
+   Only its chevron gently dips; reduced-motion users get a static arrow. */
+.banner-panel.has-scroll-cue > .banner-scroll {
+  margin-bottom:calc(var(--hem) + 54px);
+}
+.banner-panel > .menu-scroll-cue {
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  left:18px;right:18px;bottom:calc(var(--hem) + 12px);
+  min-height:38px;padding:5px 10px;animation:none;
+  background:linear-gradient(180deg,#63271e,#471c17);
+  box-shadow:0 -4px 10px #45171155;
+  font-size:11px;letter-spacing:.09em;
+}
+.banner-panel > .menu-scroll-cue[hidden] { display:none; }
+.scroll-cue-chevron {flex:none;animation:menu-chevron-dip 2.8s ease-in-out infinite;}
+@keyframes menu-chevron-dip {
+  0%,65%,100% {transform:translateY(0);}
+  76%,87% {transform:translateY(3px);}
+  81% {transform:translateY(0);}
+}
+@media (prefers-reduced-motion:reduce) {.scroll-cue-chevron {animation:none;}}
+
+/* On a phone turned sideways, never let the name field or ornamental
+   headings consume the entire first screen before the Duel command. */
+@container app (max-height:500px) {
+  #menu .command-rail > #duel-button { order:-1; }
+  #menu .game-brand {margin-bottom:7px;}
+  #menu .game-brand .crest {width:22px;height:27px;margin-bottom:2px;}
+  #menu .game-brand h1 {font-size:22px;}
+  #menu .command-rail > .name-block {margin-bottom:3px;}
+  #solo-menu[data-purpose="duel"] > .side-screen-inner > .banner-scroll {
+    display:flex;flex-direction:column;
+  }
+  #solo-menu[data-purpose="duel"] > .side-screen-inner > .banner-scroll > * {flex-shrink:0;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-back {margin-bottom:4px;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-eyebrow,
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-intro {display:none;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner #solo-heading {font-size:22px;margin-bottom:7px;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner [data-duel-only] {order:1;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner :is(label,#solo-name,.error-copy) {order:2;}
+  #solo-menu[data-purpose="duel"] .side-screen-inner label {margin-top:4px;}
+}
+#solo-menu .error-copy:empty {display:none;}
