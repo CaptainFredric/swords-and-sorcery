@@ -1,4 +1,18 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
+import {valkyrieFlameAllied,valkyrieFlameContains} from './valkyrieFlames.mjs';
+
+// Snapshot the same spatial/team rules as combat; clients only animate these
+// authoritative flags, never guess through walls or below another floor.
+function valkyrieVisualExposure(room,p,now){
+  if(!p.alive)return null;
+  let alliedUntil=0,hostileUntil=0;
+  for(const z of room.flightBurnZones??[]){
+    if(!valkyrieFlameContains(room,z,p,now))continue;
+    if(valkyrieFlameAllied(room,z,p))alliedUntil=Math.max(alliedUntil,z.expiresAt);
+    else hostileUntil=Math.max(hostileUntil,z.expiresAt);
+  }
+  return alliedUntil||hostileUntil?{alliedUntil,hostileUntil}:null;
+}
 import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
 import {mountFightFlight,fightFlightMountProblem,dismountFightFlight,FIGHT_FLIGHT} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
@@ -363,6 +377,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
+      valkyrieFlames: valkyrieVisualExposure(room,p,nowSec),
       oneHitInfusions: { fire:0,frost:0,gale:0,lightning:0,steel:0, ...(p.oneHitInfusions ?? {}) },
       shaken: p.shaken ? { ...p.shaken } : null,
       electricalBacklash: p.electricalBacklash ? { ...p.electricalBacklash } : null,

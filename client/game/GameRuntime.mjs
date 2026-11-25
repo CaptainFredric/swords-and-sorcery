@@ -9,6 +9,7 @@ import { EdgeBoundaryRenderer } from '../worlds/EdgeBoundaryRenderer.mjs';
 import { MachineFleetRenderer } from '../worlds/MachineFleetRenderer.mjs';
 import { edgePresentedRadius } from '../../shared/src/edgeBoundary.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
+import {ValkyrieKnightAuras} from '../worlds/valkyrieFireVisual.mjs';
 import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {FlightDashPresentation,flightDashChasePose} from './flightDashPresentation.mjs';
 import {stableFlightCockpitEye,flightReticleOrigin,finiteFlightLook} from './flightCameraSafety.mjs';
@@ -239,6 +240,7 @@ export class GameRuntime {
     this.edgeRenderer = new EdgeBoundaryRenderer(this.scene);
     this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.flightRenderer=new FightFlightRenderer(this.scene);
+    this.valkyrieAuras=new ValkyrieKnightAuras(this.scene);
     this.fleetRenderer = new MachineFleetRenderer(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
@@ -4499,6 +4501,8 @@ export class GameRuntime {
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
+    this.valkyrieAuras.update(this.socket.serverNow(),this.latestSnapshot?.players,
+      id=>this.#bodyPosition(id),this.remotePlayers.self?.root?.visible?null:this.playerId);
     // my own Whirl's revolutions, heard as each begins (another knight's are RemotePlayers' onWhirlTurn)
     const ownTurn = whirlRevolution(this.localAuth?.swordTechnique, this.socket.serverNow());
     if (ownTurn > 0 && ownTurn !== this.ownWhirlTurn) {
@@ -4976,7 +4980,7 @@ export class GameRuntime {
     this.running = false;
     clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
-    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.fleetRenderer?.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.valkyrieAuras.dispose();this.fleetRenderer?.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AFFLICTIONS, afflictionView } from './afflictionView.mjs';
+import { ICONS, iconSvg } from './icons.mjs';
 
 const player = overrides => ({ id: 'me', alive: true, ...overrides });
 const find = (effects, id) => effects.find(effect => effect.id === id);
@@ -86,4 +87,27 @@ test('dead, missing, or invalid snapshots have no interactive afflictions', () =
   const torn = afflictionView(player({tornGround:true}),10);
   assert.equal(torn[0].name,'Torn Ground');
   assert.equal(torn[0].strength,1);
+});
+
+test('Valkyrie afflictions appear on entry, hold full potency, and expire independently', () => {
+  const local = player({health:100,valkyrieFlames:{alliedUntil:17,hostileUntil:14}});
+  const both = afflictionView(local,12);
+  assert.deepEqual(both.map(e=>e.id),['inDisgrace','inDenial']);
+  assert.ok(both.every(e=>e.strength===1&&e.steady));
+  assert.deepEqual(afflictionView({...local,health:1},13.99).map(e=>e.strength),[1,1]);
+  assert.deepEqual(afflictionView(local,14).map(e=>e.id),['inDenial']);
+  assert.deepEqual(afflictionView(local,17),[]);
+  assert.deepEqual(afflictionView({...local,valkyrieFlames:null},12),[],'exiting clears both');
+  assert.deepEqual(afflictionView({...local,alive:false},12),[],'no icon on death');
+  assert.deepEqual(afflictionView(player({valkyrieFlames:{alliedUntil:0,hostileUntil:14},prowess:0}),12).map(e=>e.id),['inDisgrace'],'zero Prowess does not end hostile exposure');
+});
+
+test('each Affliction has distinct, registered artwork shared with Castle Chronicles', () => {
+  const glyphs=Object.values(AFFLICTIONS).map(e=>{
+    assert.ok(ICONS[e.icon],e.name+' must not silently use a fallback glyph');
+    assert.ok(iconSvg(e.icon).includes(ICONS[e.icon]));
+    return ICONS[e.icon];
+  });
+  assert.equal(glyphs.length,12);
+  assert.equal(new Set(glyphs).size,glyphs.length);
 });

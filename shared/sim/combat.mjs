@@ -1612,6 +1612,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   // Valkyrie's sacrifice protects allies' LAST HP only while they are
   // physically in its active ground fire. Existing Steel mitigation, damage
   // events, knockback and other effects resolve normally before this floor.
+  // Feed the existing In Denial voice reaction only when the flames
+  // actually avert a lethal hit, not merely on entry or ordinary damage.
+  const inDenial=valkyrieFlames.allied&&finalAmount>0&&finalAmount>=victim.health;
   if(valkyrieFlames.allied&&finalAmount>0)
     finalAmount=Math.min(finalAmount,Math.max(0,victim.health-1));
   const taken = Math.min(victim.health, finalAmount);
@@ -1676,6 +1679,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     }
   }
   const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  if (inDenial) event.inDenial = true;
   if (ongoing) event.ongoing = true;
   if (finalSteel > 0.005) {
     if (source !== 'burn') event.steel = finalSteel;

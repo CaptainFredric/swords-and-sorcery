@@ -1784,6 +1784,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="shaken"],
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="rupture"] {color:#d9b99a;}
 #chronicles-affliction-list .chronicles-affliction-icon[data-effect="staggered"] {color:#e9afa1;}
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="inDenial"] { color: #f6ce79; }
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="inDisgrace"] { color: #f48b59; }
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="burning"] { color: #ffae72; }
+#chronicles-affliction-list .chronicles-affliction-icon[data-effect="tornGround"] { color: #c0b8a8; }
 #chronicles-affliction-list .chronicles-affliction-icon:is(.selected,:hover) {
   background:rgba(201,156,82,.10);border-color:#ebc67d;
 }
