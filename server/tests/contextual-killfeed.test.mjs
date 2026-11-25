@@ -125,3 +125,16 @@ test('leaving a live capture circle toward a low-health enemy can authorize the 
  applyDamage(returned.room,'b','a',200,'sword',10.2);
  assert.equal(lastDeath(returned.room).abandonedCaptureCircle,undefined);
 });
+
+test('elemental damage convergence within 3s before death records elementalCauses and expires stale hits',()=>{
+ const {room,b}=battle();
+ applyDamage(room,'a','b',20,'frostfire',10.0);
+ applyDamage(room,'a','b',20,'gale',11.0);
+ applyDamage(room,'a','b',90,'fireball',12.0);
+ assert.deepEqual(lastDeath(room).elementalCauses,['frost','gale','fire']);
+
+ const stale=battle();
+ applyDamage(stale.room,'a','b',20,'frostfire',10.0);
+ applyDamage(stale.room,'a','b',200,'fireball',14.5); // >3s after frostfire
+ assert.equal(lastDeath(stale.room).elementalCauses,undefined);
+});

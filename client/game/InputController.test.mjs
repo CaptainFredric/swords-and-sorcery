@@ -619,7 +619,7 @@ test('mobile focus does not invoke native pointer lock or fullscreen and ignores
   assert.ok(resets > 0, 'backgrounding the page must clear touch input');
 });
 
-test('mounted X triggers exactly one Finger Flick and never ballista focus or piston fire',()=>{
+test('mounted X triggers Finger Flick on Ram, Bolt on Flight, Technique on foot, and Deploy/Retract on Ballista',()=>{
  const {input,down,up}=setup(),sent=[];
  input.socket.send=message=>sent.push(message);
  input.mountedRam=true;input.enabled=true;
@@ -627,9 +627,14 @@ test('mounted X triggers exactly one Finger Flick and never ballista focus or pi
  assert.deepEqual(sent,[{type:'ramFlick'}]);
  down('KeyX');up('KeyX');
  assert.deepEqual(sent,[{type:'ramFlick'},{type:'ramFlick'}],'each deliberate key press requests one flick; the server owns cooldown');
- input.mountedRam=false;input.mountedBallista=true;
+ input.mountedRam=false;input.mountedFlight=true;
  down('KeyX');up('KeyX');
- assert.deepEqual(sent.at(-1),{type:'bibyeWeaponFocus'},'ballista retains its own X action');
+ assert.deepEqual(sent.slice(-2),[{type:'fightFlightFire',down:true},{type:'fightFlightFire',down:false}],'flight retains held X repeater fire');
+ input.mountedFlight=false;input.mountedBallista=true;
+ down('KeyX');up('KeyX');
+ assert.deepEqual(sent.at(-1),{type:'bibyeToggleDeploy'},'ballista KeyX cleanly routes to Deploy / Retract');
+ down('KeyB');up('KeyB');
+ assert.deepEqual(sent.at(-1),{type:'bibyeWeaponFocus'},'ballista KeyB cleanly routes to weapon focus');
  input.dispose();
 });
 
@@ -833,6 +838,19 @@ test('custom E/C hydraulic action bindings remain mounted-only and cannot dismou
   assert.equal(input.movement().ramLower,true);
   assert.equal(input.movement().crouch,false);
   up('KeyT');up('Space');input.mountedRam=false;input.dispose();
+});
+
+test('mounted Ram Space quick-tap sends ramShunt while Space+E/C lift does not',()=>{
+  const {input,down,up}=setup(),sent=[];
+  input.socket.send=m=>sent.push(m);
+  input.mountedRam=true;input.enabled=true;
+  down('Space');up('Space');
+  assert.deepEqual(sent,[{type:'ramShunt',direction:1}],'clean Space tap triggers forward Shunt');
+  down('Space');down('KeyE');up('KeyE');up('Space');
+  assert.equal(sent.length,1,'Space used as lift modifier with E never triggers accidental Shunt');
+  down('KeyS');down('KeyG');up('KeyG');up('KeyS');
+  assert.deepEqual(sent.at(-1),{type:'ramShunt',direction:-1},'holding reverse sends reverse Shunt');
+  input.dispose();
 });
 
 

@@ -1,8 +1,61 @@
 import {siegeSkillLabel} from './siegeSkillView.mjs';
-import {biByeCombatView} from './biByeControlView.mjs';
+import {biByeCombatView, biByeSweepCooldownView} from './biByeControlView.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { keyLabel, registry } from '../settings/settingsRegistry.mjs';
 import { BI_BYE_LLISTA_CONFIG } from '../../shared/sim/biByeLlista.mjs';
+import { BI_BYE_WEAPONS } from '../../shared/sim/biByeWeapons.mjs';
+
+export function biByeDesktopInstruments(b, now = 0, { bindings = registry.defaultBindings(), view = 'third' } = {}) {
+  if (!b || b.mode === 'DESTROYED') return null;
+  const key = action => bindings[action]?.[0] ? keyLabel(bindings[action][0]) : '—';
+  const condition = biByeCondition(b);
+  const combat = biByeCombatView(b, now);
+  const sweep = biByeSweepCooldownView(b, now);
+  const uprooted = Number.isFinite(b.outriggersDislodgedUntil) && now < b.outriggersDislodgedUntil;
+  const upperReady = Math.max(0, (b.smallBoltReadyAt ?? now) - now);
+  const reloadLeft = b.mainBoltLoaded === false ? Math.max(0, (b.reloadEndsAt ?? now) - now) : 0;
+  const deployLabel = b.mode === 'DEPLOYING' ? 'DEPLOYING'
+    : b.mode === 'DEPLOYED' ? 'RETRACT'
+    : b.mode === 'RETRACTING' ? 'RETRACTING'
+    : 'DEPLOY';
+  const deployState = uprooted ? 'UPROOTED'
+    : !condition.canDeploy ? 'DISABLED'
+    : (b.mode === 'DEPLOYING' || b.mode === 'RETRACTING') ? 'BUSY'
+    : 'READY';
+  const focusCode = bindings.ballistaFocus?.[0] ?? bindings.siegeWeapon?.[0];
+  const focusKey = focusCode ? keyLabel(focusCode) : '—';
+  const viewMode = view === 'clear' ? 'CLEAR' : view === 'sight' ? 'SIGHT' : 'VIEW';
+  return {
+    primary: {
+      key: 'LMB',
+      label: combat.primary.label,
+      remaining: b.sweep ? sweep.remaining : upperReady,
+      total: b.sweep ? sweep.total : BI_BYE_WEAPONS.upperRecock,
+      busy: Boolean(b.sweep),
+    },
+    secondary: {
+      key: b.skill?.id === 'boltToTheOccasion' ? 'RMB' : focusKey,
+      label: b.skill?.id === 'boltToTheOccasion'
+        ? (b.mainBoltLoaded !== false ? (sweep.remaining > .01 ? 'II LOCKED' : 'BOLT II') : 'RELOAD')
+        : (b.mode === 'DEPLOYED' ? `${b.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN'} FOCUS` : 'BOLT II'),
+      remaining: Math.max(reloadLeft, sweep.remaining),
+      total: reloadLeft > sweep.remaining ? BI_BYE_WEAPONS.heavyReload : sweep.total,
+      focusKey,
+      focusAvailable: b.mode === 'DEPLOYED',
+      focusTarget: b.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN',
+    },
+    deploy: {
+      key: key('deploy'),
+      label: deployLabel,
+      state: deployState,
+      disabled: !condition.canDeploy || uprooted || b.mode === 'DEPLOYING' || b.mode === 'RETRACTING',
+    },
+    view: {
+      key: key('siegeView'),
+      label: viewMode,
+    },
+  };
+}
 
 export function biByeHudView(local, snapshot, now, { bindings = registry.defaultBindings(), touch = false, view = 'third' } = {}) {
   const b = snapshot?.bibyeBallista;
@@ -40,8 +93,9 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy&&!uprooted&&
     (b.mode==='MOBILE'||b.mode==='DEPLOYED')
-    ? `[${key('deploy')}] ${b.mode === 'DEPLOYED' ? 'Pack' : 'Deploy'} · ` : "";
-  const focus = b.mode === 'DEPLOYED' ? `[${key('siegeWeapon')}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
+    ? `[${key('deploy')}] ${b.mode === 'DEPLOYED' ? 'Retract' : 'Deploy'} · ` : "";
+  const focusCode = bindings.ballistaFocus?.[0] ?? bindings.siegeWeapon?.[0];
+  const focus = b.mode === 'DEPLOYED' ? `[${focusCode ? keyLabel(focusCode) : 'UNBOUND'}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
   if(b.skill?.phase==='primed'&&b.mainBoltLoaded!==false&&upperReady&&!b.upperQueued&&!b.upperPending&&b.combinedUpperPendingAt==null&&b.coupling==='INDEPENDENT')status+=' · BOTH READY';
   if(b.combinedUpperPendingAt!=null)status+=' · BOLT I FOLLOW-THROUGH';
   if(!touch)status+=' · '+siegeSkillLabel(b,now);

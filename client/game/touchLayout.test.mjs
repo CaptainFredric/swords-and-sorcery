@@ -601,21 +601,34 @@ test('touch objective, killfeed, drive pressure and subtitles use separate mobil
 });
 
 
-test('mobile ballista puts VIEW above SWEEP, lowers primary fire controls and preserves safe wheel-and-skill lanes',async()=>{
+test('mobile ballista places LEAVE extreme upper-right, VIEW above Skill, Sweep between Heavy/Mobile and Bolt I without any overlaps',async()=>{
  const {DEFAULT_BALLISTA_LAYOUT,BI_BYE_MOUNTED_ACTIONS}=await import('./touchLayout.mjs');
  const layout=DEFAULT_BALLISTA_LAYOUT;
- assert.ok(layout.siegeView.bottom>layout.siegeSweep.bottom+layout.siegeSweep.size,
-  'VIEW sits a full touch row above the physical SWEEP action');
- assert.equal(layout.siegeWeapon.top,100);
- assert.equal(layout.deploy.top,100);
- const right=(item)=>({left:-(item.right+item.size),right:-item.right,
-  bottom:item.bottom,top:item.bottom+item.size});
+ assert.equal(layout.interact.right,8);
+ assert.equal(layout.interact.top,8);
+ assert.ok(layout.siegeView.bottom>layout.siegeSkill.bottom+layout.siegeSkill.size,
+  'VIEW sits cleanly above the equipped Skill button');
+ assert.ok(layout.siegeSweep.bottom>layout.attack.bottom+layout.attack.size&&
+  layout.deploy.bottom>layout.siegeSweep.bottom+layout.siegeSweep.size,
+  'SWEEP sits cleanly between primary Bolt I and Heavy/Mobile deploy without overlapping either');
+ const box=(item,vh=390)=>({
+  left:-(item.right+item.size),right:-item.right,
+  bottom:item.bottom??(vh-item.top-item.size),
+  top:(item.bottom??(vh-item.top-item.size))+item.size,
+ });
  const collide=(a,b)=>a.left<b.right&&a.right>b.left&&a.bottom<b.top&&a.top>b.bottom;
- const sweep=right(layout.siegeSweep);
- for(const name of ['siegeBoth','siegeSkill','spell','attack']){
-  const other=layout[name];if(other?.bottom===undefined)continue;
-  assert.equal(collide(sweep,right(other)),false,'SWEEP clears '+name);
+ const names=['attack','siegeSkill','siegeBoth','siegeSweep','deploy','siegeWeapon','siegeView','spell','interact'];
+ for(let i=0;i<names.length;i++){
+  for(let j=i+1;j<names.length;j++){
+   assert.equal(collide(box(layout[names[i]]),box(layout[names[j]])),false,
+    `${names[i]} must never overlap ${names[j]}`);
+  }
  }
- assert.ok(BI_BYE_MOUNTED_ACTIONS.siegeWeapon.top>
-  56,'actual mobile UPPER control is below the previous killfeed lane');
+ // Upper-right killfeed reserve zone (top 52..152) must stay free of all mounted bottom buttons
+ for(const name of ['attack','siegeSkill','siegeBoth','siegeSweep','deploy','siegeWeapon','siegeView','spell']){
+  const b=layout[name];
+  assert.ok(390-(b.bottom+b.size)>=152,`${name} leaves clean upper-right killfeed space on mobile landscape`);
+ }
+ assert.ok(BI_BYE_MOUNTED_ACTIONS.siegeSweep.right<BI_BYE_MOUNTED_ACTIONS.siegeSkill.right,
+  'SWEEP sits farther right toward the thumb edge');
 });

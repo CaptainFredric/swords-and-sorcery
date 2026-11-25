@@ -87,7 +87,9 @@ export class SettingsStore {
       for (const other of this.registry.actionList()) {
         if (other.id === action || !this.keysFor(other.id).includes(code)) continue;
         const contextualPair=(action==='dash'&&other.id==='siegeSweep')||
-          (action==='siegeSweep'&&other.id==='dash');
+          (action==='siegeSweep'&&other.id==='dash')||
+          (action==='deploy'&&other.id==='siegeWeapon')||
+          (action==='siegeWeapon'&&other.id==='deploy');
         if(contextualPair)continue;
         this.bindings[other.id] = this.keysFor(other.id).filter((key) => key !== code);
         displaced??=other.id;

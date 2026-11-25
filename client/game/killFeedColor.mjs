@@ -76,14 +76,39 @@ export function killFeedAppearance(event){
  const cause=killFeedTone(event);
  // Self-deaths and falls remain neutral; a credited attack is required for
  // the colored attack composition. The Ascension summary is always gold.
- const infusions=['self','abyss','ascension'].includes(cause)?[]:
+ let infusions=['self','abyss','ascension'].includes(cause)?[]:
    killFeedInfusionTags(source,event?.infusionTiers);
+ if(!infusions.length&&!['self','abyss','ascension'].includes(cause)&&Array.isArray(event?.elementalCauses)){
+   const converged=KILLFEED_ELEMENTS.filter(element=>event.elementalCauses.includes(element));
+   if(converged.length>=2){
+     infusions=converged.map(element=>({tone:element,label:element.toUpperCase(),tier:1}));
+   }
+ }
  // The original physical cause still determines the color of the line if
  // only a single element is present; multiple sources get an ivory body and
  // individually colored words, so no tier is misleadingly treated as primary.
  const tone=infusions.length>1?'mixed':
    infusions.length===1?infusions[0].tone:cause;
  return {tone,infusions};
+}
+
+/** Letter-level elemental assignment for highlighted natural-causes tokens. */
+export function killFeedColoredLetters(text,infusions=[]){
+  const original=String(text??'');
+  const tones=[...new Set((Array.isArray(infusions)?infusions:[])
+    .map(entry=>typeof entry==='string'?entry:entry?.tone)
+    .filter(tone=>KILLFEED_ELEMENTS.includes(tone)))];
+  if(tones.length<2||!original.trim())return [];
+  const chars=[...original];
+  const visibleCount=chars.filter(ch=>/\S/u.test(ch)).length;
+  if(!visibleCount)return [];
+  let pos=0;
+  return chars.map(ch=>{
+    if(!/\S/u.test(ch))return {text:ch,tones:[]};
+    const tone=tones[pos%tones.length];
+    pos++;
+    return {text:ch,tones:[tone]};
+  });
 }
 
 /**
@@ -109,6 +134,13 @@ export function killFeedColoredWords(text,infusions=[]){
     const start=Math.floor(position*tones.length/count);
     const end=Math.max(start+1,Math.floor((position+1)*tones.length/count));
     position++;
-    return {text:token,tones:tones.slice(start,end)};
+    const assigned=tones.slice(start,end);
+    const trimmed=token.trim().toLowerCase();
+    const entry={text:token,tones:assigned};
+    if(/^(all-natural|natural)$/i.test(trimmed)){
+      const letterTones=killFeedColoredLetters(token,tones.map(tone=>({tone})));
+      if(letterTones.length)entry.letters=letterTones;
+    }
+    return entry;
   });
 }
