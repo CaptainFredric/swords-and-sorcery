@@ -233,6 +233,8 @@
 @keyframes veil-in { from { opacity: 0; } }
 
 /* --- the arena gate: black opens onto the arena with its name ------------------------------------------------- */
+/* (a Siege round opens on its machine draft, which names the arena itself) */
+body.siege-drafting .arena-gate { display: none; }
 .arena-gate { position: fixed; inset: 0; z-index: 45; display: grid; place-content: center; gap: 8px; text-align: center; pointer-events: none; background: #0c0806; color: var(--heraldry-cream); animation: gate-open 1.25s ease-in both; }
 .arena-gate p { margin: 0; font: 400 clamp(30px, 5cqw, 58px)/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; animation: gate-title 1.25s ease-out both; }
 .arena-gate small { color: var(--heraldry-brass-light); font: 800 11px/1 var(--font-script); letter-spacing: .3em; animation: gate-title 1.25s ease-out both; }
@@ -1781,6 +1783,36 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #chronicles-affliction-list .chronicles-affliction-icon:is(.selected,:hover) {
   background:rgba(201,156,82,.10);border-color:#ebc67d;
 }
+
+/* --- Siege Blades: a forged nameplate in the banner ---------------------------------------------------------------
+   The same red-and-iron command, set in a weathered steel frame with a rivet at each corner and light running across
+   the metal: it reads as the machine mode without leaving the banner's language. */
+.menu-command.siege-nameplate {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(180deg, #4a1914, #2b0f0c) padding-box,
+    linear-gradient(115deg, #3d3a36 0%, #8e8a82 18%, #4b4843 34%, #6f6b64 52%, #34312d 70%, #85817a 88%, #3b3834 100%) border-box;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 220, 170, .12), 0 2px 5px rgba(0, 0, 0, .45);
+}
+.menu-command.siege-nameplate::after {
+  content: ""; position: absolute; inset: 4px; pointer-events: none;
+  background:
+    radial-gradient(circle at 0 0, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
+    radial-gradient(circle at 100% 0, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
+    radial-gradient(circle at 0 100%, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px),
+    radial-gradient(circle at 100% 100%, #c9c3b6 0 1.6px, #4b4740 2px 2.8px, transparent 3.2px);
+}
+.menu-command.siege-nameplate span { color: var(--heraldry-brass-light); text-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+.menu-command.siege-nameplate small { color: rgba(234, 220, 182, .74); }
+.menu-command.siege-nameplate::before { background: #a8a39a; }
+.menu-command.siege-nameplate:hover {
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, #5a1e18, #321210) padding-box,
+    linear-gradient(115deg, #4a4741 0%, #b3ad9f 18%, #5b5851 34%, #8e897f 52%, #403d38 70%, #aaa498 88%, #47443f 100%) border-box;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), 0 0 0 1px rgba(236, 201, 127, .3), 0 4px 12px rgba(0, 0, 0, .45);
+}
+.menu-command.siege-nameplate:hover::before { background: var(--heraldry-brass-light); }
 
 /* Compact selection rows and an explicit inspection view. Detailed stats never
    push equipment off the end of the list. Both actions have separate hit areas. */

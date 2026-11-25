@@ -156,13 +156,17 @@ export function createSiegeBladesState(room, options = {}) {
 }
 
 export const SIEGE_SELECTION_SECONDS = 6;
+// After the first round each player's last machine is already chosen for them, so the draft is a chance to change it,
+// not a first decision: five seconds is ample for a key or a tap, and the battle resumes sooner.
+export const SIEGE_RESELECTION_SECONDS = 5;
+export const siegeSelectionSeconds = (roundNumber) => (roundNumber > 1 ? SIEGE_RESELECTION_SECONDS : SIEGE_SELECTION_SECONDS);
 const VALID_MACHINE_CLASSES = new Set(Object.values(SIEGE_MACHINE_CLASSES));
 
 /** Server-owned selection phase before EVERY round, including the first. */
 export function beginSiegeBladesSelection(room, nowSec) {
   const state = room.siegeBlades;
   if (!state) return false;
-  state.selectionEndsAt = nowSec + SIEGE_SELECTION_SECONDS;
+  state.selectionEndsAt = nowSec + siegeSelectionSeconds(state.roundNumber);
   state.selectionChoices = new Map();
   room.resetFleet(nowSec);
   state.spawnAssignments.clear();

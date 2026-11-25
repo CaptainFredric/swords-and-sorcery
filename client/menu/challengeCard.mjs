@@ -83,6 +83,8 @@ export function arenaGateCopy({ mode, worldId = 'castleward', scoreToWin = 10, t
     return { title, sub };
   }
   if (SOLO_FOES[mode]) return { title, sub: SOLO_FOES[mode] };
+  if (mode === 'SIEGE_BLADES') return { title, sub: `SIEGE BLADES · ${teamSize}V${teamSize}` };
+  if (mode === 'HIGH_GROUNDS') return { title, sub: `HIGH GROUNDS · ${teamSize}V${teamSize}` };
   if (mode === 'DUEL') return { title, sub: `DUEL · ${first}` };
   return { title, sub: `FREE-FOR-ALL · ${first}` };
 }

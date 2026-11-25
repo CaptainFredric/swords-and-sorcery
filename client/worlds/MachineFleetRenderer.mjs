@@ -2,6 +2,7 @@ import { SoFisticationRenderer } from './SoFisticationRenderer.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { FightFlightRenderer } from './FightFlightRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
+import { fleetRenderKind } from './fleetRenderKind.mjs';
 
 /**
  * MachineFleetRenderer manages Three.js rendering for multiple simultaneous
@@ -47,7 +48,7 @@ export class MachineFleetRenderer {
 
       activeIds.add(machine.id);
       let entry = this.fleet.get(machine.id);
-      const type = machine.type || (machine.kind ?? 'ram');
+      const type = fleetRenderKind(machine);
 
       if (!entry || entry.type !== type) {
         if (entry) {

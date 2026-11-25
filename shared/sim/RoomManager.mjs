@@ -1,5 +1,5 @@
 import { ARENAS, arenaForMode, GAME_MODES, publicRoomMode, getModePolicy } from '../src/modes.mjs';
-import { roomSettings } from '../src/roomSettings.mjs';
+import { roomSettings, SOLO_ONLY_MODES } from '../src/roomSettings.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
@@ -52,17 +52,21 @@ export class RoomManager {
   }
 
   /** All custom rooms share the same validated rules, whether visible in Open Rooms or invited by code. */
-  createCustomRoom({ isPrivate = true, mode = GAME_MODES.FFA, worldId, scoreToWin, matchSeconds, teamSize, botSkill, ...customSettings } = {}, nowSec = 0) {
+  createCustomRoom({ isPrivate = true, mode = GAME_MODES.FFA, worldId, scoreToWin, matchSeconds, teamSize, botSkill,
+    format, matchRounds, endlessRoundCap, clashStarts, siegeBladesSettings = null } = {}, nowSec = 0) {
+    if (SOLO_ONLY_MODES[mode]) throw new Error(SOLO_ONLY_MODES[mode]);
     if (!publicRoomMode(mode) && !(isPrivate && getModePolicy(mode).privateCustomRoom))
       throw new Error('That game mode is not available for this room type.');
     const baseline = { mode: GAME_MODES.FFA, worldId: WORLD_IDS.CASTLEWARD, scoreToWin: 10, policy: getModePolicy(GAME_MODES.FFA) };
-    const settings = roomSettings(baseline, { mode, ...(worldId ? { worldId } : {}),
-      ...(scoreToWin !== undefined ? { scoreToWin } : {}),
-      ...(matchSeconds !== undefined ? { matchSeconds } : {}),
-      ...(teamSize !== undefined ? { teamSize } : {}),
-      ...(botSkill !== undefined ? { botSkill } : {}) });
+    // (only validated rules reach the room: a client's other fields are not room settings)
+    const siege = siegeBladesSettings && typeof siegeBladesSettings === 'object' ? siegeBladesSettings : {};
+    const defined = (entries) => Object.fromEntries(Object.entries(entries).filter(([, v]) => v !== undefined));
+    const settings = roomSettings(baseline, { mode, ...defined({ worldId, scoreToWin, matchSeconds, teamSize, botSkill,
+      format: format ?? siege.format, matchRounds: matchRounds ?? siege.matchRounds,
+      endlessRoundCap: endlessRoundCap ?? siege.endlessRoundCap, clashStarts: clashStarts ?? siege.clashStarts }) });
     if (settings.error) throw new Error(settings.error);
-    const room = this.#createRoom({ isPrivate: Boolean(isPrivate), mode, worldId: settings.worldId, teamSize: settings.teamSize, ...customSettings, siegeBladesSettings: customSettings.siegeBladesSettings ?? customSettings }, nowSec);
+    const room = this.#createRoom({ isPrivate: Boolean(isPrivate), mode, worldId: settings.worldId, teamSize: settings.teamSize,
+      ...(settings.siegeBladesSettings ? { siegeBladesSettings: settings.siegeBladesSettings } : {}) }, nowSec);
     room.scoreToWin = settings.scoreToWin;
     room.policy.matchSeconds = settings.matchSeconds;
     if (room.policy.teamMode || mode === GAME_MODES.EDGE_OF_VICTORY) room.setBotSkill(settings.botSkill);

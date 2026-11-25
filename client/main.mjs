@@ -1,4 +1,4 @@
-import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
+import { stableLobbyMarkup, lobbyControls, arenaOptions, syncRuleForm, ruleFormSettings } from './menu/lobbyControls.mjs';
 import { ONE_HIT_PRESETS } from '../shared/src/oneHitInfusions.mjs';
 import {SIEGE_SKILL_OPTIONS,SIEGE_SKILL_NAMES} from '../shared/src/siegeLoadout.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
@@ -701,13 +701,11 @@ function updateLobby(message) {
 setInterval(() => { if (router.current === SCREEN_IDS.LOBBY) renderLobby(); }, 500);
 
 $('#lobby-settings').addEventListener('change', event => {
-  if (event.target.name !== 'mode') return;
-  const form=event.target.form,team=event.target.value==='BREAKTHROUGH'||event.target.value==='HIGH_GROUNDS';
-  form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
-  form.querySelector('[data-score-field]').hidden=event.target.value!=='FFA';
-  form.querySelector('[data-team-field]').hidden=!team;
-  form.querySelector('[data-bot-field]').hidden=!(team||event.target.value==='EDGE_OF_VICTORY');
-  form.elements.minutes.value=event.target.value==='HIGH_GROUNDS'?12:event.target.value==='BREAKTHROUGH'?5:6;
+  const form=event.target.form;
+  if (!form?.elements.mode) return;
+  if (event.target.name === 'mode') form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
+  if (event.target.name === 'mode' || event.target.name === 'format')
+    syncRuleForm(form,form.elements.mode.value,{resetTime:event.target.name==='mode'});
 });
 $('#lobby-settings').addEventListener('submit', event => {
   event.preventDefault();
@@ -717,14 +715,10 @@ $('#lobby-settings').addEventListener('submit', event => {
     socket.send({type:'swapPlayers',firstId:form.elements.firstId.value,secondId:form.elements.secondId.value});
     return;
   }
-  const minutes=Number(form.elements.minutes.value),score=Number(form.elements.scoreToWin.value);
   const mode=form.elements.mode?.value??latestLobby.mode;
-  if(!form.elements.minutes.value||!Number.isFinite(minutes)||minutes<1||minutes>30 || (mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
-    $('#lobby-error').textContent='Choose a valid match time (1–30 minutes) and, for Free-for-All, a score (1–100).';
-    return;
-  }
-  socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,
-    matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:form.elements.botSkill.value}:{teamSize:Number(form.elements.teamSize.value),botSkill:form.elements.botSkill.value})}});
+  const request=ruleFormSettings(form,mode);
+  if(request.error){$('#lobby-error').textContent=request.error;return;}
+  socket.send({type:'configureRoom',settings:request.settings});
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -842,14 +836,11 @@ roomJoinButton.addEventListener('click', () => {
 
 function syncPublicRoomForm() {
   const mode=roomCreateForm.elements.mode.value;
-  const team=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
   roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
-  roomCreateForm.querySelector('[data-score-field]').hidden=mode!=='FFA';
-  roomCreateForm.querySelector('[data-team-field]').hidden=!team;
-  roomCreateForm.querySelector('[data-bot-field]').hidden=!(team||mode==='EDGE_OF_VICTORY');
-  roomCreateForm.elements.minutes.value=mode==='HIGH_GROUNDS'?12:mode==='BREAKTHROUGH'?5:6;
+  syncRuleForm(roomCreateForm,mode,{resetTime:true});
 }
 roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
+roomCreateForm.elements.format.addEventListener('change',()=>syncRuleForm(roomCreateForm,roomCreateForm.elements.mode.value));
 $('#raise-room').addEventListener('click', () => {
   roomCreateForm.hidden = false;
   resetCompanionCrown(roomsMenu);
@@ -864,14 +855,9 @@ $('#room-create-cancel').addEventListener('click', () => {
 });
 roomCreateForm.addEventListener('submit', event => {
   event.preventDefault();
-  const f=roomCreateForm.elements,mode=f.mode.value,minutes=Number(f.minutes.value),score=Number(f.scoreToWin.value);
-  if (!Number.isFinite(minutes)||minutes<1||minutes>30||(mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
-    showMenuError('Choose a time from 1 to 30 minutes and a valid Free-for-All score.');
-    return;
-  }
-  const settings={mode,worldId:f.worldId.value,matchSeconds:Math.round(minutes*60),
-    ...(mode==='FFA'?{scoreToWin:score}:mode==='EDGE_OF_VICTORY'?{botSkill:f.botSkill.value}:{teamSize:Number(f.teamSize.value),botSkill:f.botSkill.value})};
-  runMenuAction(menuController.createPublic(nameInput.value,settings),SCREEN_IDS.ROOMS_MENU);
+  const request=ruleFormSettings(roomCreateForm,roomCreateForm.elements.mode.value);
+  if (request.error) { showMenuError(request.error); return; }
+  runMenuAction(menuController.createPublic(nameInput.value,request.settings),SCREEN_IDS.ROOMS_MENU);
 });
 // the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
 let endHeardFor = null;
@@ -1267,6 +1253,8 @@ function showBreakthroughSize() {
   for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
     const sizeVal = Number(chip.dataset.size);
     chip.hidden = sizeVal === 1 && !isSiege;
+    // (3v3 is Breakthrough's recommended battle; a Siege 3v3 is six machines at once, and is not offered as the default)
+    const tag = chip.querySelector('[data-size-recommended]'); if (tag) tag.hidden = isSiege;
     const on = sizeVal === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
@@ -1283,6 +1271,7 @@ breakthroughSize?.addEventListener('click', (event) => {
   }
   showBreakthroughSize();
   showSiegeControls();
+  showBreakthroughArena();
 });
 showBreakthroughSize();
 
@@ -1302,6 +1291,7 @@ siegeFormat?.addEventListener('click', (event) => {
   menuController.chooseSiegeFormat(chip.dataset.siegeFormat);
   showSiegeFormat();
   showSiegeControls();
+  showBreakthroughArena();
 });
 
 const siegeRounds = $('#siege-rounds');
@@ -1319,6 +1309,7 @@ siegeRounds?.addEventListener('click', (event) => {
   if (!chip) return;
   menuController.chooseSiegeRounds(Number(chip.dataset.siegeRounds));
   showSiegeRounds();
+  showBreakthroughArena();
 });
 
 const siegeEndlessRounds = $('#siege-endless-rounds');
@@ -1338,22 +1329,6 @@ siegeEndlessRounds?.addEventListener('click', (event) => {
   showSiegeEndlessRounds();
 });
 
-const siegeMachine = $('#siege-machine');
-function showSiegeMachine() {
-  if (!siegeMachine) return;
-  const chosen = menuController.siegeMachine();
-  for (const chip of siegeMachine.querySelectorAll('[data-machine]')) {
-    const on = chip.dataset.machine === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
-  }
-}
-siegeMachine?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-machine]');
-  if (!chip) return;
-  menuController.chooseSiegeMachine(chip.dataset.machine);
-  showSiegeMachine();
-});
 
 const siegeClash = $('#siege-clash-wrap');
 function showSiegeClash() {
@@ -1378,7 +1353,9 @@ function showSiegeControls() {
   const format = menuController.siegeFormat();
   if (siegeRounds) siegeRounds.hidden = !isSiege || format !== 'MATCH';
   if (siegeEndlessRounds) siegeEndlessRounds.hidden = !isSiege || format !== 'ENDLESS';
-  if (siegeMachine) siegeMachine.hidden = !isSiege;
+  // (no allegiance in Siege Blades: Azure and Crimson are assigned; a private room's host can still arrange them)
+  const allegiance = $('#breakthrough-team');
+  if (allegiance) allegiance.hidden = isSiege;
   const is1v1Endless = isSiege && format === 'ENDLESS' && menuController.siegeSize() === 1;
   if (siegeClash) siegeClash.hidden = !is1v1Endless;
 }
@@ -1433,17 +1410,16 @@ function showBreakthroughArena() {
   showSiegeFormat();
   showSiegeRounds();
   showSiegeEndlessRounds();
-  showSiegeMachine();
   showSiegeClash();
   if (breakthroughSubtitle) {
     breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : isSiege
-      ? 'SIEGE BLADES · ' + (chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS')
+      ? `SIEGE BLADES · ${chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS'} · ${menuController.siegeSize()}V${menuController.siegeSize()} · ${menuController.siegeFormat() === 'MATCH' ? `${menuController.siegeRounds()} ROUNDS` : 'ENDLESS'}`
       : chosen === 'outerworks' ? 'THE OUTERWORKS'
       : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
     breakthroughCopy.textContent = isSiege
-      ? 'Operate SO-FIST-ICATION, Bi-Bye-llista, or Fight-and-Flight across symmetrical battlegrounds. Choose your siege machine before every round. Matches play all selected rounds, with overtime engagement zones. Endless exhibition supports clash starts.'
+      ? 'Team battles in siege machines. Before every round, choose the ram, the ballista or the flying repeater; the last team with a machine standing takes the round.'
       : renown
       ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
       : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'
@@ -1549,10 +1525,11 @@ const privateActivation = createRepeatActivation({
 function privateFields(){
   const f=privateForm.elements;
   return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
-    teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value};
+    teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value,
+    format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value};
 }
 function renderPrivateMode({reset=true}={}){
-  const mode=privateModeSelected,teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS';
+  const mode=privateModeSelected,siege=mode==='SIEGE_BLADES',teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS'||siege;
   for(const button of privateChoices.querySelectorAll('[data-private-mode]')){
     const on=button.dataset.privateMode===mode;
     button.classList.toggle('selected',on);
@@ -1565,8 +1542,11 @@ function renderPrivateMode({reset=true}={}){
   // user's focus, particularly on mobile. Refill only when mode changes.
   if(reset||!f.worldId.options.length)
     f.worldId.innerHTML=arenaOptions(mode,oldArena);
+  // (1v1 is a Siege Blades size only)
+  for(const option of f.teamSize.querySelectorAll('[data-siege-only]'))option.hidden=option.disabled=!siege;
   if(reset){
-    f.minutes.value=defaults.minutes;
+    if(defaults.minutes!==undefined)f.minutes.value=defaults.minutes;
+    if(siege){f.format.value=defaults.format;f.matchRounds.value=defaults.matchRounds;f.endlessRoundCap.value=defaults.endlessRoundCap;}
     if(teamMode||mode==='EDGE_OF_VICTORY'){
       if(teamMode)f.teamSize.value=defaults.teamSize;
       if(teamMode)f.team.value=defaults.team;
@@ -1576,12 +1556,18 @@ function renderPrivateMode({reset=true}={}){
   privateForm.querySelector('[data-private-score]').hidden=mode!=='FFA';
   privateForm.querySelector('[data-private-bot]').hidden=!(teamMode||mode==='EDGE_OF_VICTORY');
   for(const attr of ['size','team','bot'])
-    privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY');
+    privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY')||(attr==='team'&&siege);
+  // Siege Blades plays rounds: its format and rounds replace the match time
+  const endless=siege&&f.format.value==='ENDLESS';
+  privateForm.querySelector('[data-private-time]').hidden=siege;
+  privateForm.querySelector('[data-private-format]').hidden=!siege;
+  privateForm.querySelector('[data-private-rounds]').hidden=!siege||endless;
+  privateForm.querySelector('[data-private-cap]').hidden=!endless;
   const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
     mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
     mode==='FFA'?'Every Spellblade for themselves. First to ten.':
     mode==='BREAKTHROUGH'?'Attack or defend successive fortress objectives.':
-    'Both armies attack and recapture outposts high above the abyss.';
+    siege?'Team battles in siege machines. Each round, choose the ram, the ballista or the flying repeater.':
     'Both armies attack and recapture outposts high above the abyss.';
   $('#private-mode-copy').textContent=note;
   const result=privateRoomPreview(mode,privateFields());
@@ -1842,8 +1828,9 @@ function playMettleBots() {
     teamSize: menuController.siegeSize(),
     worldId: menuController.breakthroughArena(),
     botSkill: menuController.breakthroughSkill(),
-    team: menuController.breakthroughTeam(),
-    machine: menuController.siegeMachine(),
+    // (sides are assigned, and each player chooses a machine in the draft before every round)
+    team: 'AUTO',
+    machine: 'random',
     matchRounds: menuController.siegeRounds(),
     endlessRoundCap: menuController.siegeEndlessRounds(),
     clashStarts: menuController.siegeClashStarts(),
@@ -1869,7 +1856,7 @@ $('#breakthrough-create-private')?.addEventListener('click', () => {
     const f=privateForm.elements;
     f.worldId.value=menuController.breakthroughArena();
     f.teamSize.value=String(menuController.siegeSize());
-    f.team.value=menuController.breakthroughTeam();
+    f.team.value='AUTO';
     f.botSkill.value=menuController.breakthroughSkill();
     renderPrivateMode({reset:false});
     privateMenu.dataset.panel='list';

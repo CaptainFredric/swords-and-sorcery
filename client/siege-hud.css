@@ -2,6 +2,8 @@
 .machine-gauge {
   position: absolute; z-index: 12; left: 50%; bottom: var(--safe-b, 0px);
   transform: translateX(-50%); width: min(410px, calc(100% - 230px));
+  /* (HUD.mjs: narrowed to the lane the ability tiles leave, or raised above them) */
+  max-width: var(--gauge-lane, none); margin-bottom: var(--gauge-lift, 0px);
   pointer-events: none; color: #f5e8c5; font-family: 'Alegreya Sans', sans-serif;
   font-variant-numeric: tabular-nums;
 }
@@ -286,4 +288,28 @@
    movable left stick and altitude rail; the measured caption lane follows. */
 .touch-ui .machine-gauge[data-kind="flight"] {
   left:calc(50% + clamp(16px,2cqw,28px));
+}
+
+/* A phone on its side is wide but short: 390 px tall, the desktop-width gauge took a fifth of the height in the middle
+   of the view. Same instruments, same readings, drawn at the compact size the narrow layouts already use. */
+@media (max-height: 480px) {
+  .machine-gauge { width: min(300px, 40%); }
+  .machine-health-main { padding: 3px 6px 4px; }
+  .machine-health-head b { font-size: 8px; letter-spacing: .03em; }
+  .machine-health-head output { font-size: 9px; }
+  .machine-health-track { height: 8px; margin-top: 3px; }
+  .machine-component { flex-basis: 84px; padding: 3px 4px 4px; }
+  .machine-gauge[data-kind="flight"] .flight-brace-widget { flex-basis: 42px; padding: 1px 2px 3px; }
+  .flight-brace-arch { max-height: 20px; }
+  .flight-brace-reading { font-size: 6px; }
+  .flight-brace-track { height: 3px; margin-top: 1px; }
+  .flight-rotor-mini { font-size: 7px; gap: 3px; margin-top: 3px; }
+  .flight-rotor-track { height: 6px; }
+  .bibye-parts { margin-top: 3px; padding-top: 2px; gap: 1px; }
+  .bibye-part-group { gap: 2px; }
+  .bibye-part-group > strong { flex-basis: 34px; font-size: 6px; }
+  .bibye-part-items { gap: 2px; }
+  .bibye-part { font-size: 6px; }
+  .bibye-part span { margin-bottom: 1px; }
+  .bibye-part-track { height: 3px; }
 }

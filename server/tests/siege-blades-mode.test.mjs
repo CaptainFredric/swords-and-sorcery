@@ -11,6 +11,7 @@ import {
   beginSiegeBladesSelection,
   selectSiegeBladesMachine,
   SIEGE_SELECTION_SECONDS,
+  SIEGE_RESELECTION_SECONDS,
   SIEGE_BLADES_FORMATS,
   SIEGE_MACHINE_CLASSES,
 } from '../../shared/sim/siegeBladesMode.mjs';
@@ -124,10 +125,11 @@ test('Match format plays exactly five rounds even after one team has an early ma
     if(i<4){
       resetSiegeBladesRound(room,now+2);
       assert.equal(room.getMachines().length,0,'between rounds the machines are unprovisioned');
-      assert.equal(room.siegeBlades.selectionEndsAt,now+2+SIEGE_SELECTION_SECONDS);
-      stepSiegeBlades(room,1/30,now+2+SIEGE_SELECTION_SECONDS+.05);
+      // (a later round's draft is shorter: each player's last machine is already chosen)
+      assert.equal(room.siegeBlades.selectionEndsAt,now+2+SIEGE_RESELECTION_SECONDS);
+      stepSiegeBlades(room,1/30,now+2+SIEGE_RESELECTION_SECONDS+.05);
       assert.equal(room.getMachines().length,2);
-      now+=2+SIEGE_SELECTION_SECONDS+.05;
+      now+=2+SIEGE_RESELECTION_SECONDS+.05;
     }
   }
   assert.equal(room.siegeBlades.scores[TEAMS.ATTACKERS],3);
@@ -202,11 +204,11 @@ test('Endless format runs score pause, timed machine draft, then atomically rese
   stepSiegeBlades(room,2.1,3.1);
   assert.equal(room.siegeBlades.roundNumber,2);
   assert.equal(room.getMachines().length,0);
-  assert.equal(room.siegeBlades.selectionEndsAt,3.1+SIEGE_SELECTION_SECONDS);
+  assert.equal(room.siegeBlades.selectionEndsAt,3.1+SIEGE_RESELECTION_SECONDS);
   assert.equal(p2.alive,true);
   assert.equal(room.siegeBlades.matchFinished,false);
   assert.equal(selectSiegeBladesMachine(room,p1,SIEGE_MACHINE_CLASSES.FLIGHT,4),true);
-  stepSiegeBlades(room,1/30,3.1+SIEGE_SELECTION_SECONDS+.05);
+  stepSiegeBlades(room,1/30,3.1+SIEGE_RESELECTION_SECONDS+.05);
   assert.equal(room.siegeBlades.selectionEndsAt,null);
   assert.equal(room.getMachines().length,2);
   assert.equal(room.getMachineForPlayer(p1.id)?.class,SIEGE_MACHINE_CLASSES.FLIGHT);
