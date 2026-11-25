@@ -16,8 +16,10 @@ export const SIEGE_MACHINE_PORTRAITS = Object.freeze({
   'bi-bye-llista':'/client/assets/props/siege-portraits/bi-bye-llista.svg',
   'fight-and-flight':'/client/assets/props/siege-portraits/fight-and-flight.svg',
 });
+let portraitsPreloaded=false;
 export function preloadSiegePortraits(){
-  if(typeof Image==='undefined')return;
+  if(portraitsPreloaded||typeof Image==='undefined')return;
+  portraitsPreloaded=true;
   for(const path of Object.values(SIEGE_MACHINE_PORTRAITS)){
     const image=new Image();image.src=appUrl(path);
   }
