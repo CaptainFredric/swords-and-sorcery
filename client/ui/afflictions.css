@@ -58,6 +58,10 @@
 .affliction-icon[data-effect="shaken"],
 .affliction-icon[data-effect="rupture"] { color: #d9b99a; }
 .affliction-icon[data-effect="staggered"] { color: #e9afa1; }
+.affliction-icon[data-effect="inDenial"] { color: #f6ce79; }
+.affliction-icon[data-effect="inDisgrace"] { color: #f48b59; }
+.affliction-icon[data-effect="burning"] { color: #ffae72; }
+.affliction-icon[data-effect="tornGround"] { color: #c0b8a8; }
 .affliction-icon.selected { background: #423c31; border-color: #f0d195; box-shadow: 0 0 0 1px #dcb97477; }
 .affliction-icon:focus-visible, .affliction-dismiss:focus-visible {
   outline: 2px solid #f7d58a;
