@@ -17,8 +17,8 @@ export class LocalSwordChain {
     // { startedAt, committed, landed, variant } while a chain is under way
     this.chain = null;
     this.restartAt = -Infinity;
-    // the last chain that ran its whole course ({ variant, restartAt }): one begun straight on from it takes the other
-    // form (SWORD_CHAINS), by the server's own rule (nextChainVariant)
+    // the chain before ({ variant, restartAt }), however it ended: the next takes the other form (SWORD_CHAINS), by the
+    // server's own rule (nextChainVariant)
     this.run = null;
   }
 
@@ -74,8 +74,8 @@ export class LocalSwordChain {
    */
   cancel(now = null) {
     if (this.chain && Number.isFinite(now)) this.restartAt = Math.max(this.restartAt, nextStrikeDue(this.chain, now));
+    if (this.chain) this.run = { variant: this.chain.variant, restartAt: this.restartAt };
     this.chain = null;
-    this.run = null;
     this.held = false;
     this.queued = false;
   }
@@ -101,8 +101,8 @@ export class LocalSwordChain {
       } else {
         // let go: the swing under way has played out (and the next could not have begun sooner than now)
         this.chain = null;
-        this.run = null;
         this.restartAt = Math.max(this.restartAt, chain.startedAt + next.at);
+        this.run = { variant: chain.variant, restartAt: this.restartAt };
         return null;
       }
     }

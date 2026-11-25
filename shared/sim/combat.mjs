@@ -279,8 +279,8 @@ function startSwordChain(player, nowSec) {
   // a chain begun Sundering is swung as slams to its end (the ground splits under them only while Sundering)
   player.attackSlam = sundering(player, nowSec);
   player.attackChivalry = combatActionPolicy(player, nowSec).concurrent;
-  // its form: straight on from a chain that ran its course, the other one; otherwise the falling chain (a Sundering
-  // chain is slams, and Chivalry's guarded cuts keep the falling one's)
+  // its form: the other one from the chain before (a Sundering chain is slams, and Chivalry's guarded cuts keep the
+  // falling one's)
   player.attackVariant = player.attackSlam || player.attackChivalry ? 0 : nextChainVariant(player.attackRun, nowSec);
   player.attackRun = null;
   player.attackNextStrike = 0;
@@ -321,8 +321,8 @@ function stopSwordChain(player, { keepSweep = false, letGo = false, done = false
   // how it ended, for the body that shows it (presentation only: a chain run to its end or let go plays its last
   // swing out; one broken off gives way at once to whatever broke it)
   if (player.attackActive) player.attackEnd = done ? 'done' : letGo ? 'letGo' : 'broken';
-  // (a chain that ran its whole course: the next, begun straight on from it, takes the other form)
-  player.attackRun = done && player.attackActive ? { variant: player.attackVariant ?? 0, restartAt: player.attackStartedAt + SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart } : null;
+  // (whatever ended it, the next chain takes the other form: nextChainVariant)
+  if (player.attackActive) player.attackRun = { variant: player.attackVariant ?? 0, restartAt: player.attackStartedAt + SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart };
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;

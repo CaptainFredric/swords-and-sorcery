@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
-import { beginAttack, stepRoom } from '../../shared/sim/combat.mjs';
+import { beginAttack, endAttack, stepRoom } from '../../shared/sim/combat.mjs';
 import { CHAIN_RUN_GRACE, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainVariant, strikeKind } from '../../shared/src/combat.mjs';
 import { LocalSwordChain } from '../../client/game/localSwordChain.mjs';
 import { describeContact } from '../../client/game/swordContactReadout.mjs';
@@ -16,11 +16,11 @@ const world = {
 test('the chain forms: the rising chain opens with the backhand and comes back down with the forehand; both end on the chop', () => {
   assert.deepEqual([0, 1, 2].map((s) => strikeKind(0, s)), [0, 1, 2]);
   assert.deepEqual([0, 1, 2].map((s) => strikeKind(1, s)), [1, 0, 2]);
-  // straight on from a chain that ran its course: the other form; anything else: the falling one
+  // each chain the other form from the one before, held through or pressed afresh, however long after; the first: falling
   assert.equal(nextChainVariant(null, 5), 0);
   assert.equal(nextChainVariant({ variant: 0, restartAt: 5 }, 5), 1);
   assert.equal(nextChainVariant({ variant: 1, restartAt: 5 }, 5 + CHAIN_RUN_GRACE), 0);
-  assert.equal(nextChainVariant({ variant: 0, restartAt: 5 }, 5 + CHAIN_RUN_GRACE + 0.01), 0);
+  assert.equal(nextChainVariant({ variant: 0, restartAt: 5 }, 60), 1);
 });
 
 test('held, the server and the arms alternate the forms in step: what is drawn is what is swung', () => {
@@ -46,11 +46,13 @@ test('held, the server and the arms alternate the forms in step: what is drawn i
   assert.deepEqual(server.map((c) => c.variant), [0, 1, 0, 1, 0, 1]);
   assert.deepEqual(local.map((c) => c.variant), server.map((c) => c.variant));
   server.forEach((c, i) => assert.ok(Math.abs(c.at - local[i].at) < 1 / 60 + 1e-9, 'the same chains, at the same moments'));
-  // tapping afresh after a pause: the falling chain again
+  // tapping afresh after a pause: the other form again (no two chains open the same way running)
   const fresh = new LocalSwordChain();
   fresh.press(0); fresh.release(); fresh.step(5);
   fresh.press(5);
-  assert.equal(fresh.step(5.01).variant, 0);
+  assert.equal(fresh.step(5.01).variant, 1);
+  fresh.release(); fresh.step(9); fresh.press(9);
+  assert.equal(fresh.step(9.01).variant, 0);
 });
 
 test('a blow is judged the same whatever the server tick: the blade meets the knight where it does, not where a step fell', () => {
@@ -93,4 +95,33 @@ test('the F3 debugger reads a contact out as the server judged it', () => {
   assert.match(line, /cutting/);
   assert.match(line, /peak/);
   assert.match(describeContact({ outcome: 'parry', heat: { reach: 0.3, dt: -0.06, qAngle: 0.2 } }), /parry.*hilt.*early/);
+});
+
+test('tapped afresh, the server and the arms alternate the opener in step: forehand, backhand, forehand', () => {
+  const room = new Room('TAPS');
+  room.world = world;
+  room.addPlayer({ id: 'a', token: 'ta', name: 'A' }, 0);
+  room.addPlayer({ id: 'b', token: 'tb', name: 'B' }, 0);
+  room.setReady('a', true, 0); room.setReady('b', true, 0);
+  room.tick(3.1);
+  const a = room.players.get('a');
+  Object.assign(room.players.get('b').position, { x: 18, y: 0, z: 18 });
+  const arms = new LocalSwordChain();
+  const server = [], local = [];
+  let now = 10;
+  for (let tap = 0; tap < 4; tap += 1) {
+    beginAttack(room, 'a', now); arms.press(now);
+    // one tap: let go at once, wait past the swing and a breath more
+    const until = now + 1.4;
+    let released = false;
+    for (; now < until; now += 1 / 60) {
+      if (!released && now > 0.05 + until - 1.4) { endAttack(room, 'a', now); arms.release(); released = true; }
+      stepRoom(room, 1 / 60, now, world);
+      const chain = arms.step(now);
+      if (a.attackActive && server.at(-1)?.at !== a.attackStartedAt) server.push({ at: a.attackStartedAt, variant: a.attackVariant });
+      if (chain && local.at(-1)?.at !== chain.startedAt) local.push({ at: chain.startedAt, variant: chain.variant });
+    }
+  }
+  assert.deepEqual(server.map((c) => c.variant), [0, 1, 0, 1]);
+  assert.deepEqual(local.map((c) => c.variant), [0, 1, 0, 1]);
 });
