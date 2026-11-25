@@ -20,6 +20,8 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
+//   node scripts/transplant-spellblade-clips.mjs --fill-core [--apply]
+//     (the chainmail core's torso widened to fill the open-sided cuirass, and the core made dark matte mail)
 //   node scripts/transplant-spellblade-clips.mjs --drop-bells [--apply]
 //     (the gauntlets' hollow upper-arm flares taken out, with their own material and textures)
 //   node scripts/transplant-spellblade-clips.mjs --rebind-strays [--apply]
@@ -653,6 +655,54 @@ function dropBells(baseFile, spec = BELLS) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
 }
 
+// The chainmail core under the cuirass: the breastplate is open down each side, and the core's torso tube (on the spine
+// and chest) is narrower than it, so with an arm raised the armhole looked straight through the body to the ground
+// behind, round the edge of a flat grey slab of core. The torso tube is widened to fill the cuirass from inside (it
+// stays hidden at rest), and the core is made matte and dark, so what shows in the armhole, and at the knees and
+// elbows, reads as mail in shadow, not as a grey panel.
+const CORE_FILL = Object.freeze({ mesh: 'InnerSkeletonCore', material: 'InnerChainmailCore', bones: ['spine', 'chest'], widen: [1.45, 1.25], shade: 0.25, metallic: 0.05, roughness: 1 });
+function fillCore(baseFile, spec = CORE_FILL) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0], bin = Buffer.from(base.bin);
+  const mesh = doc.meshes.find((m) => m.name === spec.mesh);
+  if (!mesh) throw Error('No mesh ' + spec.mesh);
+  const names = skin.joints.map((j) => doc.nodes[j].name);
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
+    const n = { VEC3: 3, VEC4: 4 }[a.type], size = { 5121: 1, 5123: 2, 5126: 4 }[a.componentType];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? size * n, size }; };
+  const get = (x, i, c) => { const at = x.o + i * x.stride + c * x.size;
+    return x.a.componentType === 5126 ? bin.readFloatLE(at) : x.a.componentType === 5123 ? bin.readUInt16LE(at) : bin.readUInt8(at); };
+  const report = [];
+  for (const prim of mesh.primitives) {
+    const P = view(prim.attributes.POSITION), J = view(prim.attributes.JOINTS_0), W = view(prim.attributes.WEIGHTS_0);
+    const torso = [];
+    for (let i = 0; i < P.a.count; i += 1) {
+      const w = [0, 1, 2, 3].map((c) => get(W, i, c));
+      if (spec.bones.includes(names[get(J, i, w.indexOf(Math.max(...w)))])) torso.push(i);
+    }
+    if (!torso.length) continue;
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const i of torso) for (let c = 0; c < 3; c += 1) { const x = get(P, i, c); lo[c] = Math.min(lo[c], x); hi[c] = Math.max(hi[c], x); }
+    const centre = [(lo[0] + hi[0]) / 2, 0, (lo[2] + hi[2]) / 2];
+    for (const i of torso) for (const [c, k] of [[0, spec.widen[0]], [2, spec.widen[1]]]) {
+      bin.writeFloatLE(centre[c] + (get(P, i, c) - centre[c]) * k, P.o + i * P.stride + c * 4);
+    }
+    // (the accessor's bounds follow)
+    const min = [0, 1, 2].map((c) => Math.min(...Array.from({ length: P.a.count }, (_, i) => get(P, i, c))));
+    const max = [0, 1, 2].map((c) => Math.max(...Array.from({ length: P.a.count }, (_, i) => get(P, i, c))));
+    P.a.min = min; P.a.max = max;
+    report.push({ mesh: spec.mesh, widened: torso.length });
+  }
+  const material = doc.materials.find((m) => m.name === spec.material);
+  if (!material) throw Error('No material ' + spec.material);
+  const pbr = material.pbrMetallicRoughness ?? (material.pbrMetallicRoughness = {});
+  const was = pbr.baseColorFactor ?? [1, 1, 1, 1];
+  pbr.baseColorFactor = [...was.slice(0, 3).map((x) => +(x * spec.shade).toFixed(4)), was[3]];
+  pbr.metallicFactor = spec.metallic; pbr.roughnessFactor = spec.roughness;
+  report.push({ material: spec.material, baseColor: pbr.baseColorFactor });
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -669,10 +719,12 @@ const COUTER = Object.freeze({
   band: 11,            // degrees either side of the equator in bronze, standing proud by `lip`
   lip: 1.07,
   segments: 10,
+  // each side's cop: the bone it rides, the joint it is centred on and the next one along, and its mesh's name
+  part: (side) => ({ bone: `elbow.${side}`, centre: `forearm.${side}`, toward: `hand.${side}`, name: `Gauntlet.${side}.Couter` }),
 });
 function addCouters(baseFile, spec = COUTER) {
   const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
-  if (doc.meshes.some((m) => /Couter/.test(m.name))) throw Error('The model already has couters');
+  if (doc.meshes.some((m) => m.name === spec.part('L').name || m.name === spec.part('R').name)) throw Error('The model already has ' + spec.part('L').name);
   const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
     return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0) }; };
   const ibm = view(skin.inverseBindMatrices);
@@ -696,11 +748,12 @@ function addCouters(baseFile, spec = COUTER) {
       ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
   const report = [];
   for (const side of ['L', 'R']) {
-    const elbow = bound(`elbow.${side}`), joint = bound(`forearm.${side}`).at, hand = bound(`hand.${side}`).at;
+    const part = spec.part(side);
+    const elbow = bound(part.bone), joint = bound(part.centre).at, hand = bound(part.toward).at;
     const along = unit(sub(hand, joint));
     const across = unit(cross(along, Math.abs(along[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), round = cross(along, across);
     // rings from the shoulder-side pole (-90°) to the hand-side pole (+90°), the band about the equator
-    const lats = [-90, -62, -38, -spec.band, spec.band, 38, 62, 90];
+    const lats = spec.band ? [-90, -62, -38, -spec.band, spec.band, 38, 62, 90] : [-90, -62, -38, -12, 12, 38, 62, 90];
     const point = (lat, k, lip = 1) => {
       const t = (lat * Math.PI) / 180, f = (2 * Math.PI * k) / spec.segments;
       const r = Math.cos(t) * spec.radius * lip, a = Math.sin(t) * spec.length;
@@ -716,7 +769,7 @@ function addCouters(baseFile, spec = COUTER) {
       for (let i = 1; i + 1 < pts.length; i += 1) tri.push(first, first + i, first + i + 1);
     };
     for (let r = 0; r + 1 < lats.length; r += 1) {
-      const banded = lats[r] === -spec.band;
+      const banded = Boolean(spec.band) && lats[r] === -spec.band;
       const lip = banded ? spec.lip : 1;
       for (let k = 0; k < spec.segments; k += 1) {
         const a = point(lats[r], k, lip), b = point(lats[r], k + 1, lip), c = point(lats[r + 1], k + 1, lip), d = point(lats[r + 1], k, lip);
@@ -747,11 +800,11 @@ function addCouters(baseFile, spec = COUTER) {
       indices: accessor(new Uint16Array(tri), 5123, 'SCALAR', tri.length, { target: 34963 }),
       material,
     };
-    const name = `Gauntlet.${side}.Couter`;
+    const name = part.name;
     doc.meshes.push({ name, primitives: [primitive] });
     doc.nodes.push({ name, mesh: doc.meshes.length - 1, skin: 0 });
     doc.nodes[rig].children.push(doc.nodes.length - 1);
-    report.push({ mesh: name, bone: `elbow.${side}`, vertices: count, triangles: tri.length / 3 });
+    report.push({ mesh: name, bone: part.bone, vertices: count, triangles: tri.length / 3 });
   }
   bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
   doc.buffers[0].byteLength = bin.length;
@@ -783,6 +836,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--add-couters')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addCouters(join(dir, file));
+} else if (process.argv.includes('--fill-core')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = fillCore(join(dir, file));
 } else if (process.argv.includes('--drop-bells')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = dropBells(join(dir, file));
