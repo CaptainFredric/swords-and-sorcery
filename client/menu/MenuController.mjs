@@ -109,6 +109,17 @@ export class MenuController {
     return chosen;
   }
 
+  /** Selected arena for Free-for-All ('castleward', 'ruined-keep', 'court-of-merit', 'blackbell-foundry'). */
+  ffaArena() {
+    return arenaForMode('FFA', this.storage?.getItem?.('ss-ffa-arena'));
+  }
+
+  chooseFfaArena(arena) {
+    const chosen = arenaForMode('FFA', arena);
+    this.storage?.setItem?.('ss-ffa-arena', chosen);
+    return chosen;
+  }
+
   /** Preferred side for Solo Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
   soloTeam() {
     return this.breakthroughTeam();
@@ -232,8 +243,9 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.createPublicRoom(name, settings));
   }
 
-  edgeOfVictory(rawName) {
-    return this.#withName(rawName,(name)=>this.socket.startSolo('EDGE_OF_VICTORY',name,'ruined-keep',this.botSkill()));
+  edgeOfVictory(rawName, botSkill = null) {
+    const skill = botSkill ? botSkillId(botSkill) : this.breakthroughSkill();
+    return this.#withName(rawName, (name) => this.socket.startSolo('EDGE_OF_VICTORY', name, 'ruined-keep', skill));
   }
 
   botDuel(rawName) {

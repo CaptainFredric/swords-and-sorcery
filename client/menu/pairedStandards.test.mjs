@@ -27,8 +27,27 @@ test('Private room chooses one of three modes and exposes actual host rules and 
  assert.match(main,/createPrivate\(nameInput\.value,preview\.settings,preview\.team\)/);
 });
 test('Relocated control IDs are unique and Armory tabs cannot break words',()=>{
- for(const id of ['breakthrough-rival-note','breakthrough-size','private-mode','private-rule-summary','create-room'])
+ for(const id of ['breakthrough-rival-note','breakthrough-size','private-mode','private-rule-summary','create-room','siege-blades-menu','siege-play-bots','siege-open-workshop'])
   assert.equal([...html.matchAll(/\bid="([^"]+)"/g)].filter(m=>m[1]===id).length,1,id);
  assert.match(renown,/word-break:keep-all/);
  assert.match(renown,/overflow-y:auto/);
+});
+
+test('Dedicated Siege Blades hub uses new action portraits and Modes of Mettle groups Individual vs Team modes',()=>{
+ const siege=section('siege-blades-menu');
+ for(const portrait of ['so-fist-ication.svg','bi-bye-llista.svg','fight-and-flight.svg'])
+  assert.ok(siege.includes(portrait),portrait);
+ for(const id of ['siege-play-bots','siege-browse-matches','siege-create-private','siege-open-workshop','siege-hub-size','siege-hub-format'])
+  assert.ok(siege.includes('id="'+id+'"'),id);
+ const mettle=section('breakthrough-menu');
+ const indiv=mettle.indexOf('>INDIVIDUAL PURSUITS<'),team=mettle.indexOf('>TEAM BATTLES<');
+ assert.ok(indiv>0&&team>indiv);
+ for(const mode of ['RENOWN_TRIALS','EDGE_OF_VICTORY','FFA'])
+  assert.ok(mettle.indexOf('data-mettle-mode="'+mode+'"')>indiv&&mettle.indexOf('data-mettle-mode="'+mode+'"')<team,mode);
+ for(const mode of ['BREAKTHROUGH','HIGH_GROUNDS','RESTLESS_DAY'])
+  assert.ok(mettle.indexOf('data-mettle-mode="'+mode+'"')>team,mode);
+ assert.ok(mettle.includes('id="mettle-to-siege"'));
+ const solo=section('solo-menu');
+ assert.ok(solo.includes('TRAINING OPTIONS'));
+ assert.ok(solo.indexOf('id="advanced-practice-tools"')<solo.indexOf('id="inspection-mode"'));
 });
