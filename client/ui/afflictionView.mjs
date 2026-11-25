@@ -8,6 +8,14 @@ import { blusterSeverity, ONE_HIT_BLUSTER, ONE_HIT_CONDUCT, ONE_HIT_FIELD } from
 const clamp = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 
 export const AFFLICTIONS = Object.freeze({
+  inDisgrace: Object.freeze({
+    name: 'In Disgrace', icon: 'afflictionInDisgrace', steady: true,
+    description: 'Your glory goes up in flames. You burn, and every HP lost here costs equal Prowess instead of granting it.',
+  }),
+  inDenial: Object.freeze({
+    name: 'In Denial', icon: 'afflictionInDenial', steady: true,
+    description: 'Death is disputed. Within friendly Valkyrie flames, your HP cannot fall below 1.',
+  }),
   frozen: Object.freeze({
     name: 'Frozen', icon: 'afflictionFrozen', steady: true,
     description: "You can't move or start new actions. Anything already in progress resumes when the ice breaks.",
@@ -60,6 +68,11 @@ const push = (output, id, strength) => {
 export function afflictionView(player, nowSec) {
   if (!player?.alive || !Number.isFinite(nowSec)) return [];
   const effects = [];
+  // Exposure is replicated from combat itself. Both can coexist where
+  // opposing Valkyrie fields overlap, and neither weakens with fire age.
+  const valkyrie = player.valkyrieFlames;
+  if (nowSec < (valkyrie?.hostileUntil ?? -Infinity)) push(effects, 'inDisgrace', 1);
+  if (nowSec < (valkyrie?.alliedUntil ?? -Infinity)) push(effects, 'inDenial', 1);
   if ((player.oneHitFrozenUntil ?? -Infinity) > nowSec) push(effects, 'frozen', 1);
   if ((player.staggerUntil ?? -Infinity) > nowSec) push(effects, 'staggered', 1);
   const conduct = player.electricalBacklash;
