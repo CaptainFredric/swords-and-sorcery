@@ -997,3 +997,9 @@ body.inspection-ui-gameplay .inspection-restore-pill { display:block !important;
  .sb-draft-card small {font-size:8px;}
  .sb-draft-footer {font-size:9px;}
 }
+
+/* A small portrait of the actual contraption replaces the temporary schematic. */
+.sb-draft-art {overflow:hidden;aspect-ratio:1.7;background:linear-gradient(#303934,#171d19);}
+.sb-draft-art img {display:block;width:100%;height:100%;object-fit:contain;min-height:0;filter:brightness(1.12) contrast(1.03);}
+.sb-draft-card.selected .sb-draft-art {border-color:#d6b77380;}
+@media (max-height:460px) {.sb-draft-art {aspect-ratio:2.1;max-height:24vh;}}
