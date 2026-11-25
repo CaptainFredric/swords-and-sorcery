@@ -554,6 +554,7 @@ export class MenuScene {
 
     this.tourWorlds.update(t, this.camera, dt);
     this.renderer.render(this.scene, this.camera);
+    if (this.siegeActive) this.siegeWorkshop?.markFrameRendered();
   };
 
   #previewCamera(shot, dt) {

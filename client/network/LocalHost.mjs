@@ -996,8 +996,10 @@ export class LocalHost {
   quickPlay() { this.#online(); }
   joinRoom() { this.#online(); }
   seekDuel() { this.#online(); }
+  seekSiege() { this.#online(); }
   cancelSeek() {}
   seekBotDuel() { this.#online(); }
+  seekBotSiege() { this.#online(); }
   listRooms() { this.#deliver({ type: 'roomList', rooms: [], serverTime: this.now() }); }
   createPublicRoom() { this.#online(); }
 }

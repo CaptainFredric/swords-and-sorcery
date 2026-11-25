@@ -56,7 +56,7 @@ export function siegePickerMarkup(){
         <kbd class="sb-draft-key" aria-hidden="true">${index+1}</kbd>
         <span class="sb-draft-picked" aria-hidden="true">SELECTED</span>
       </button>`).join('')}</div>
-      <p class="sb-draft-note">Machines can be switched between every round · Equip combat Skills in the Siege Workshop.</p>
+      <p class="sb-draft-note">Switch machines between rounds.</p>
     </div>`;
 }
 

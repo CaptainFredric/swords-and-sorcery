@@ -239,6 +239,10 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.seekDuel(name));
   }
 
+  seekSiege(rawName) {
+    return this.#withName(rawName, (name) => this.socket.seekSiege(name));
+  }
+
   createPublic(rawName, settings = {}) {
     return this.#withName(rawName, (name) => this.socket.createPublicRoom(name, settings));
   }

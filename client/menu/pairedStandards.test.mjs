@@ -37,8 +37,11 @@ test('Dedicated Siege Blades hub uses cohesive panoramic artwork and Modes of Me
  const siege=section('siege-blades-menu');
  assert.ok(siege.includes('siege-blades-panoramic.webp'));
  assert.ok(!siege.includes('data-workshop-machine'),'panoramic artwork must not act as a stealth Workshop button');
- for(const id of ['siege-play-bots','siege-browse-matches','siege-create-private','siege-open-workshop','siege-hub-size','siege-hub-format','siege-orders-summary'])
+ assert.ok(!siege.includes('<figcaption>'),'panorama stays clean without machine-name captions');
+ for(const id of ['siege-seek','siege-play-bots','siege-browse-matches','siege-create-private','siege-open-workshop','siege-hub-size','siege-hub-format','siege-orders-summary'])
   assert.ok(siege.includes('id="'+id+'"'),id);
+ assert.ok(html.includes('id="siege-static-preview"'));
+ assert.ok(html.includes('id="siege-skill-detail-card"'));
  assert.ok(section('rooms-menu').includes('data-siege-field="clash"'));
  assert.ok(section('private-menu').includes('data-private-clash'));
  for(const screenId of ['solo-menu','siege-blades-menu','breakthrough-menu','rooms-menu','private-menu'])
