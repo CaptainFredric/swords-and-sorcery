@@ -8,6 +8,7 @@ import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
 import { MountedSwordArm } from './mountedSwordArm.mjs';
 import { GESTURE_ARMS, PALM_REACH } from './spellbladeGestures.mjs';
 import { solveArm } from './swordArmIK.mjs';
+import { WRIST_TWIST_ARMS, spreadWristRoll } from './wristTwist.mjs';
 import { alignRiposteBraceBlade } from './riposteBracePresentation.mjs';
 
 // a Sword Technique's clips (third person); how long the pose it is entered from takes to die away (a Whirl's spin
@@ -70,7 +71,7 @@ function clampActionTime(action, time, loop) {
 }
 
 export class SpellbladeAnimator {
-  constructor(root, clips = [], onPose = null, { cloth = false } = {}) {
+  constructor(root, clips = [], onPose = null, { cloth = false, wristTwist = false } = {}) {
     this.onPose = onPose;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
@@ -96,6 +97,16 @@ export class SpellbladeAnimator {
       const plate = this.bones.get(`pauldron${side}`);
       const arm = this.bones.get(`upper_arm${side}`);
       if (plate && arm) this.pauldrons.push({ plate, arm, rest: plate.quaternion.clone() });
+    }
+    // the hands' roll carried partly by the forearms (wristTwist.mjs), each from its bind turn read as the model loads
+    this.wristTwist = [];
+    if (wristTwist) {
+      for (const { forearm, hand } of WRIST_TWIST_ARMS) {
+        const f = this.bones.get(forearm), h = this.bones.get(hand);
+        if (f && h && h.parent === f && h.position.lengthSq() > 1e-8) {
+          this.wristTwist.push({ forearm: f, hand: h, forearmRest: f.quaternion.toArray(), handRest: h.quaternion.toArray(), axis: h.position.clone().normalize().toArray() });
+        }
+      }
     }
     // and each joint's cop, half way with its limb (a model without them has none)
     for (const [cop, limb] of COPS) {
@@ -381,6 +392,7 @@ export class SpellbladeAnimator {
   }
 
   #followPauldrons() {
+    this.#spreadWristTwist();
     for (const { plate, arm, rest, share = pauldronFollow } of this.pauldrons) {
       // (they share a rest: how far the arm has turned from it)
       const turn = THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(rest.dot(arm.quaternion)))));
@@ -397,6 +409,16 @@ export class SpellbladeAnimator {
         plate.quaternion.copy(rest).slerp(arm.quaternion, share(turn));
       }
       plate.position.copy(arm.position);
+    }
+  }
+
+  // (before the elbows' cops follow their forearms: they take the forearm's twist with it)
+  #spreadWristTwist() {
+    for (const arm of this.wristTwist) {
+      const spread = spreadWristRoll({ forearm: arm.forearm.quaternion.toArray(), hand: arm.hand.quaternion.toArray(), forearmRest: arm.forearmRest, handRest: arm.handRest, axis: arm.axis });
+      if (!spread.roll) continue;
+      arm.forearm.quaternion.fromArray(spread.forearm);
+      arm.hand.quaternion.fromArray(spread.hand);
     }
   }
 

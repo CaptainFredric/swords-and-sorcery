@@ -200,7 +200,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const animator = new SpellbladeAnimator(root, clips, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
     sorcery.update(performance.now() / 1000, (plan.mounted || plan.ramMounted) ? 0 : sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
-  }, { cloth: kind !== 'firstPerson' });
+  }, { cloth: kind !== 'firstPerson', wristTwist: kind !== 'firstPerson' });
 
   // (props the clips hide by scaling them to nothing, like the white flag: never quite nothing)
   guardScaleHiddenProps(root, clips);
