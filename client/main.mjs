@@ -20,6 +20,7 @@ import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
+import {preloadSiegePortraits} from './ui/SiegeMachinePicker.mjs';
 import { AFFLICTIONS } from './ui/afflictionView.mjs';
 import {highGroundsFoundryView,HIGH_GROUNDS_MACHINE_KEYS} from './ui/highGroundsHudView.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
@@ -1389,6 +1390,7 @@ function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const mode = selectedMettleMode();
   const isSiege = mode === 'SIEGE_BLADES';
+  if(isSiege)preloadSiegePortraits();
   const solo = mode === 'RENOWN_TRIALS' || mode === 'EDGE_OF_VICTORY';
   const renown = mode === 'RENOWN_TRIALS';
   let chosen = menuController.breakthroughArena();
