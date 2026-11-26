@@ -1105,7 +1105,7 @@ export class TouchControls {
     button.classList.toggle('practice',practice&&view.state==='ready');
     button.classList.toggle('practice-meter',practice&&view.state==='ready');
     if(practice){button.dataset.prowessValue='true';button.style.setProperty('--practice-prowess-label',JSON.stringify(Math.floor(Math.max(0,Math.min(100,local.prowess??0)))+'%'));}
-    else {delete button.dataset.prowessValue;button.style.removeProperty('--practice-prowess-label');}
+    else {delete button.dataset.prowessValue;button.style.removeProperty?.('--practice-prowess-label');}
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     button.style.setProperty('--charge', view.charge.toFixed(3));
     const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
