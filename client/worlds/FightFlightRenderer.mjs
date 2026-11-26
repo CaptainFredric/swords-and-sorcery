@@ -30,7 +30,6 @@ export class FightFlightRenderer{
     this.burnCoreGeometry=new THREE.CircleGeometry(1,48);
     this.burnFlameGeometry=new THREE.CylinderGeometry(.025,.22,.72,9,1,true);
     this.burnRimGeometry=new THREE.CylinderGeometry(1,1,1,96,1,true);
-    this.burnSmokeGeometry=new THREE.IcosahedronGeometry(1,1);
     this.burnCrackGeometry=new THREE.PlaneGeometry(1,.06);
     this.burnZones=new Map();
     // The ground fire's light is made once and kept in the scene (dark until a fire needs it): adding a light at the
@@ -601,7 +600,7 @@ export class FightFlightRenderer{
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
     this.warmTerminalGroup?.traverse(node=>{if(node.isMesh)node.material.dispose();});this.warmTerminalGroup=null;
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();this.burnRimGeometry.dispose();
-    this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
+    this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);
     this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
     this.trailRoot.removeFromParent();
