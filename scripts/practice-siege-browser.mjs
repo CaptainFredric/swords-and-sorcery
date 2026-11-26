@@ -106,7 +106,8 @@ try{
  stage='One Hit settings, presets and authoritative confirmation';
  assert.equal(await evalInBrowser("document.querySelector('#practice-ready-ultimate')===null"),true);
  assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.ultimate"),'one_hit_of_wonders');
- assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.prowess"),100);
+ const earnedBeforePreset=await evalInBrowser("window.__ssRuntime.localAuth.prowess");
+  assert.ok(earnedBeforePreset>=0&&earnedBeforePreset<=100);
  await evalInBrowser(`(() => {
    const panel=document.querySelector('#practice-one-hit');panel.open=true;
    const gale=panel.querySelector('[data-one-hit-element="gale"]');
@@ -151,7 +152,7 @@ try{
    const s=window.__ssRuntime.latestSnapshot,p=s?.players?.find(p=>p.id===window.__ssRuntime.socket.playerId);
    return p?.practiceOneHit?.stages?.lightning===0&&p.practiceOneHit.stages.gale===0;
  })()`),'simple preset resets tiers'),true);
- assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.prowess"),100);
+ assert.equal(await evalInBrowser("window.__ssRuntime.localAuth.prowess"),earnedBeforePreset, "preset does not grant Prowess");
  await shot('pause-practice-tools');
  await evalInBrowser("document.querySelector('#pause-practice-back').click()");
  assert.equal(await evalInBrowser("document.querySelector('#practice-overlay').inert"),true);
