@@ -3147,15 +3147,16 @@ function practiceOneHitCommand(command){
   socket.practiceOneHit(command);
 }
 const HOSTILE_SKILL_SLOTS=Object.freeze({
-  'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight',
+  'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight','valkyrie':'fightFlight',
 });
 function updateHostileSkillChoices(machine,active=null){
   const select=$('#practice-hostile-skill'),slot=HOSTILE_SKILL_SLOTS[machine];
   if(!select||!slot||select.dataset.machine===machine)return;
-  const choices=[['auto','TACTICAL · AUTOMATIC'],
+  const choices=machine==='valkyrie'?[['doNotStopMyAscension','DO NOT STOP MY ASCENSION!']]:[['auto','TACTICAL · AUTOMATIC'],
     ...SIEGE_SKILL_OPTIONS[slot].map(id=>[id,SIEGE_SKILL_NAMES[id].toUpperCase()])];
   select.replaceChildren(...choices.map(([value,label])=>new Option(label,value)));
-  select.value=active?.skill&&choices.some(([id])=>id===active.skill)?active.skill:'auto';
+  select.value=active?.skill&&choices.some(([id])=>id===active.skill)?active.skill:choices[0][0];
+  select.disabled=machine==='valkyrie';
   select.dataset.machine=machine;
 }
 function updateInspectionControls() {
@@ -3174,7 +3175,9 @@ function updateInspectionControls() {
   if(hostileStatus){
     const role=hostile?.name??'No hostile operator';
     const alive=hostile?.health>0;
-    hostileStatus.textContent=hostile
+    hostileStatus.textContent=hostile?.practiceSiegeOperator?.machine==='valkyrie'
+      ? `${role} · REPEATING VALKYRIE DIVES · ${alive?'ACTIVE / REARMING':'RESPAWNING'}`
+      : hostile
       ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'} · ${SIEGE_SKILL_NAMES[hostile.practiceSiegeOperator.skill]??'TACTICAL'}`
       : 'No hostile operator summoned.';
   }
