@@ -1567,6 +1567,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   // allied last-HP protection and hostile Prowess loss apply to any incoming
   // damage while actually inside the flames.
   const valkyrieFlames=valkyrieFlameExposure(room,victim,nowSec);
+  const valkyrieProwessDrain=valkyrieFlames.hostile||source==='fight-flight-terminal';
   let finalAmount = amount;
   let finalSteel = steel;
   let finalTurned = turned;
@@ -1661,8 +1662,8 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   // the requested net penalty is exactly the HP actually lost, not .86 HP.
   // Attackers still earn their ordinary dealt-damage Prowess.
   if (!ongoing) prowessForDamage(room,room.players.get(attackerId),victim,taken,
-    {ultimate,victimGains:!valkyrieFlames.hostile});
-  if(valkyrieFlames.hostile&&taken>0){
+    {ultimate,victimGains:!valkyrieProwessDrain});
+  if(valkyrieProwessDrain&&taken>0){
     const before=victim.prowess??0;
     victim.prowess=Math.max(0,before-taken);
     if(before>victim.prowess)room.events.push({
@@ -3383,8 +3384,7 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
   }
   // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
   // the last has run its course (the yard earns no prowess; a real match's meter is untouched)
-  if (practising(room, player)) player.prowess = PROWESS.full;
-  if ((player.prowess ?? 0) < PROWESS.full) return false;
+  if ((player.prowess ?? 0) < PROWESS.full && !practising(room, player)) return false;
   const ultimate = ultimateFor(player.ultimate);
   const plannedTiers=normalizeInfusions(player.practiceOneHit?.stages ?? player.oneHitInfusions);
   if(ultimate.id==='one_hit_of_wonders' && !oneHitForm(player.grounded,plannedTiers))return false;
@@ -4248,10 +4248,6 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // trainees; active Ultimate state still prevents reactivation. This runs
   // AFTER vehicle/terminal physics so a consumed terminal chord is never
   // mistaken for another start within the same simulation frame.
-  if(room.mode===GAME_MODES.PRACTICE && !room.localTutorial){
-    for(const trainee of room.players.values())
-      if(trainee.actorKind==='human')trainee.prowess=PROWESS.full;
-  }
   modeCall(room,'step',dt,nowSec,{damage:applyDamage});
   room.tickNumber += 1;
   return room.events;
