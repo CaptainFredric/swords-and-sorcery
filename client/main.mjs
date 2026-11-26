@@ -826,7 +826,7 @@ function renderSeek() {
   $('#seek-detail').textContent = view.detail;
   const botBtn = $('#seek-bot');
   if (botBtn) {
-    botBtn.textContent = view.botLabel ?? 'FIGHT A BOT WHILE WAITING';
+    botBtn.textContent = view.botLabel ?? 'FIGHT A BOT INSTEAD';
     botBtn.classList.toggle('hidden', !view.offerBot);
   }
 }
@@ -1099,7 +1099,7 @@ function updateEnd(snapshot) {
   rematchButton.classList.toggle('hidden', alone);
   if (snapshot.mode === 'BOT_DUEL') {
     rematchButton.textContent = 'FIGHT AGAIN';
-    rematchCopy.textContent = seekStatus?.active ? 'Still seeking a challenger: fight on, or head back to the yard.' : 'Start another bot duel.';
+    rematchCopy.textContent = 'Start another bot duel.';
   } else if (duel) {
     rematchButton.textContent = 'REMATCH';
     rematchCopy.textContent = alone
@@ -4152,7 +4152,7 @@ const seekDuelCopy = $('#seek-duel small');
 const SEEK_COPY = seekDuelCopy?.textContent ?? '';
 const siegeSeekBtn = $('#siege-seek');
 const siegeSeekCopy = $('#siege-seek-copy');
-const SIEGE_SEEK_COPY = siegeSeekCopy?.textContent ?? 'Online · 1v1 · 3 rounds · Random battlefield';
+const SIEGE_SEEK_COPY = siegeSeekCopy?.textContent ?? 'Online · 1v1 · 3 rounds · Rotating battlefield';
 const siegePlayBotsBtn = $('#siege-play-bots');
 function renderLinkStatus(status) {
   const view = linkStatusView(status);

@@ -84,28 +84,49 @@ test('two seekers wait in their own practice yards, then meet in a fresh duel ro
   assert.equal(game.roomManager.listPublicRooms(game.now()).length, 0);
 });
 
-test('a seeker can cancel, and after thirty seconds is offered a bot while staying in the queue', async (t) => {
+test('a seeker can cancel, and accepting the thirty-second bot duel cancels human matchmaking without later interruption', async (t) => {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
   t.after(async () => game.stop());
   const { port } = game.address();
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-  t.after(() => ws.close());
-  await waitOpen(ws);
+  const lateHuman = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => { ws.close(); lateHuman.close(); });
+  await Promise.all([waitOpen(ws), waitOpen(lateHuman)]);
+
+  send(ws, { type: 'seekDuel', name: 'Solo' });
+  await waitFor(ws, (m) => m.type === 'seeking' && m.active);
+  const cancelledFirstP = waitFor(ws, (m) => m.type === 'seeking' && !m.active);
+  send(ws, { type: 'cancelSeek' });
+  await cancelledFirstP;
+  assert.equal(game.matchmaker.size, 0);
 
   send(ws, { type: 'seekDuel', name: 'Solo' });
   await waitFor(ws, (m) => m.type === 'seeking' && m.active);
   game.matchmaker.queue[0].since -= 31;
   const offer = await waitFor(ws, (m) => m.type === 'seeking' && m.botOffer);
   assert.equal(offer.active, true);
+
+  let interrupted = false;
+  ws.addEventListener('message', (event) => {
+    const m = JSON.parse(String(event.data));
+    if (m.type === 'duelFound' || (m.type === 'joined' && m.mode === 'DUEL')) interrupted = true;
+  });
+
+  const cancelledP = waitFor(ws, (m) => m.type === 'seeking' && !m.active);
   const botRoomP = waitFor(ws, (m) => m.type === 'joined' && m.mode === 'BOT_DUEL');
   send(ws, { type: 'seekBotDuel' });
-  await botRoomP;
-  assert.equal(game.matchmaker.size, 1, 'still seeking while fighting the bot');
-  const cancelledP = waitFor(ws, (m) => m.type === 'seeking' && !m.active);
-  send(ws, { type: 'cancelSeek' });
+  const botRoom = await botRoomP;
   await cancelledP;
-  assert.equal(game.matchmaker.size, 0);
+  assert.equal(game.matchmaker.size, 0, 'accepting bot duel cancels active matchmaking');
+
+  send(lateHuman, { type: 'seekDuel', name: 'LateChallenger' });
+  const lateYard = await waitFor(lateHuman, (m) => m.type === 'joined' && m.mode === 'PRACTICE');
+  assert.equal(lateYard.mode, 'PRACTICE');
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(interrupted, false, 'another human queuing afterward must not interrupt ongoing bot duel');
+  assert.equal(game.matchmaker.size, 1, 'late human waits in queue alone');
+  assert.ok(game.roomManager.findByCode(botRoom.roomCode), 'ongoing bot duel room stays active');
 });
 
 test('public rooms are listed for anyone to walk into; private and solo rooms are not', async (t) => {
@@ -174,15 +195,16 @@ test('two Siege seekers wait in practice yards then pair into a 1v1 3-round Sieg
   assert.equal(game.roomManager.listPublicRooms(game.now()).length, 0);
 });
 
-test('Siege seeker handles cancel, disconnect, queue switch, and optional bot Siege offer', async (t) => {
+test('Siege seeker handles cancel, disconnect, queue switch, and bot Siege cancelling queue without later interruption', async (t) => {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
   t.after(async () => game.stop());
   const { port } = game.address();
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
   const quitter = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-  t.after(() => { ws.close(); quitter.close(); });
-  await Promise.all([waitOpen(ws), waitOpen(quitter)]);
+  const lateHuman = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => { ws.close(); quitter.close(); lateHuman.close(); });
+  await Promise.all([waitOpen(ws), waitOpen(quitter), waitOpen(lateHuman)]);
 
   send(quitter, { type: 'seekSiege', name: 'Quitter' });
   await waitFor(quitter, (m) => m.type === 'seeking' && m.active && m.queue === 'siege');
@@ -190,20 +212,44 @@ test('Siege seeker handles cancel, disconnect, queue switch, and optional bot Si
   await new Promise((r) => setTimeout(r, 80));
   assert.equal(game.siegeMatchmaker.size, 0, 'disconnect cleans Siege queue');
 
+  // Switching between Duel and Siege queues cancels the previous queue cleanly.
+  send(ws, { type: 'seekDuel', name: 'Operator' });
+  await waitFor(ws, (m) => m.type === 'seeking' && m.active && m.queue === 'duel');
+  assert.equal(game.matchmaker.size, 1);
   send(ws, { type: 'seekSiege', name: 'Operator' });
   await waitFor(ws, (m) => m.type === 'seeking' && m.active && m.queue === 'siege');
+  assert.equal(game.matchmaker.size, 0, 'switching to Siege cancels Duel search');
+  assert.equal(game.siegeMatchmaker.size, 1);
+
   game.siegeMatchmaker.queue[0].since -= 31;
   const offer = await waitFor(ws, (m) => m.type === 'seeking' && m.botOffer);
   assert.equal(offer.active, true);
   assert.equal(offer.queue, 'siege');
 
-  const botRoomP = waitFor(ws, (m) => m.type === 'joined' && m.mode === 'SIEGE_BLADES');
-  send(ws, { type: 'seekBotSiege' });
-  await botRoomP;
-  assert.equal(game.siegeMatchmaker.size, 1, 'still seeking human while fighting bot');
+  let interrupted = false;
+  ws.addEventListener('message', (event) => {
+    const m = JSON.parse(String(event.data));
+    if (m.type === 'siegeFound' || (m.type === 'joined' && (m.players?.filter((p) => p.actorKind === 'human').length ?? 0) > 1)) {
+      interrupted = true;
+    }
+  });
 
   const cancelledP = waitFor(ws, (m) => m.type === 'seeking' && !m.active);
-  send(ws, { type: 'cancelSeek' });
+  const botRoomP = waitFor(ws, (m) => m.type === 'joined' && m.mode === 'SIEGE_BLADES');
+  send(ws, { type: 'seekBotSiege' });
+  const botRoom = await botRoomP;
   await cancelledP;
-  assert.equal(game.siegeMatchmaker.size, 0);
+  assert.equal(game.siegeMatchmaker.size, 0, 'accepting bot Siege cancels human matchmaking');
+
+  // Repeated seekBotSiege after already leaving the queue is safely ignored.
+  send(ws, { type: 'seekBotSiege' });
+
+  // A subsequent human queuing for Siege waits in practice and must not interrupt the bot battle.
+  send(lateHuman, { type: 'seekSiege', name: 'LateSieger' });
+  const lateYard = await waitFor(lateHuman, (m) => m.type === 'joined' && m.mode === 'PRACTICE');
+  assert.equal(lateYard.mode, 'PRACTICE');
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(interrupted, false, 'later human seeker must not pull bot-Siege operator out of match');
+  assert.equal(game.siegeMatchmaker.size, 1);
+  assert.equal(game.roomManager.findByCode(botRoom.roomCode)?.mode, 'SIEGE_BLADES');
 });

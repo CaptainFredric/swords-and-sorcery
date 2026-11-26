@@ -71,8 +71,8 @@ test('the seeking banner counts the wait, the other seekers and offers a bot onc
   assert.equal(seekView({ active: true, since: 0, others: 1, botOffer: true }, 31, 'BOT_DUEL').offerBot, false, 'not while already fighting the bot');
   const siegeView = seekView({ active: true, queue: 'siege', since: 10, others: 1, botOffer: true }, 42);
   assert.equal(siegeView.title, 'SEEKING A SIEGE OPPONENT · 0:32');
-  assert.match(siegeView.detail, /^1v1 · 3 rounds · Random battlefield · 1 other seeking$/);
-  assert.equal(siegeView.botLabel, 'PLAY BOT SIEGE WHILE WAITING');
+  assert.match(siegeView.detail, /^1v1 · 3 rounds · Rotating battlefield · 1 other seeking$/);
+  assert.equal(siegeView.botLabel, 'PLAY BOT SIEGE INSTEAD');
   assert.equal(seekView({ active: true, queue: 'siege', since: 0, others: 0, botOffer: true }, 31, 'SIEGE_BLADES').offerBot, false);
 });
 
