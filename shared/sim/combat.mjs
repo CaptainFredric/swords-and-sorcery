@@ -3382,8 +3382,7 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
     }
     return false;
   }
-  // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
-  // the last has run its course (the yard earns no prowess; a real match's meter is untouched)
+  // Practice waives the charge requirement, not the real meter or recovery.
   if (!practising(room,player) && (player.prowess ?? 0) < PROWESS.full) return false;
   const ultimate = ultimateFor(player.ultimate);
   const plannedTiers=normalizeInfusions(player.practiceOneHit?.stages ?? player.oneHitInfusions);
@@ -4244,10 +4243,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     stepEdgeOfVictory(room, nowSec, world);
     edgeHandleMountedOperators(room, nowSec);
   }
-  // The actual resource is always full for living (or respawning) human
-  // trainees; active Ultimate state still prevents reactivation. This runs
-  // AFTER vehicle/terminal physics so a consumed terminal chord is never
-  // mistaken for another start within the same simulation frame.
+  // Practice readiness is independent of the earned meter; do not overwrite it.
 
   modeCall(room,'step',dt,nowSec,{damage:applyDamage});
   room.tickNumber += 1;
