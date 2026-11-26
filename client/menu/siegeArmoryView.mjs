@@ -9,39 +9,39 @@ const MACHINES=Object.freeze([
   line:`A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.
 
 The first shot lowers the target's defense.`,
-  facts:'650 hull · Bolt I: 18 frost / 2 m · Bolt II: 85 physical',
+  facts:'650 hull · 4.0 m/s forward / 3.0 reverse (3.2 / 2.4 base) · Bolt I: 18 frost · Bolt II: 85 physical',
   attacks:[
    {
     id:'boltI',
     name:'BOLT I · FROST CONDITIONING',
     icon:'frostBolt',
-    summary:'Fire a rapid frost bolt that bursts in a 2 m cloud, chilling targets and lowering defense.',
-    facts:'18 direct / 12 splash frost · 2 m radius · 2.5s recock',
-    line:'Rapid-fire conditioning bolt usable in Mobile or Deployed stance (2.5s recock). Bursts across a 2.0 m cloud for 18 direct / 12 edge frost damage, 40% Chill slow for 5.0s, and up to 22 Guard stamina drain to soften targets before Bolt II.'
+    summary:'Chill enemies and weaken their Guard with bursting frost bolts.',
+    facts:'18 direct / 12 splash frost · 2 m blast · 2.5s recock',
+    line:'Fire a conditioning bolt in Mobile or Deployed stance (2.5s recock). Bursts across a 2.0 m cloud for 18 direct or 12 edge frost damage, 40% Chill slow for 5.0s, and up to 22 Guard stamina drain to weaken targets before Bolt II.'
    },
    {
     id:'boltII',
     name:'BOLT II · SIEGE CONCLUSION',
     icon:'boltII',
-    summary:'Commit a high-velocity armor-piercing heavy bolt that skewered formations and walls cannot ignore.',
+    summary:'Skewer enemies with a heavy bolt and send others reeling with its impact.',
     facts:'85 direct (+35 shockwave) · pierces 2 · 4.5s reload',
-    line:'Requires Deployed Outriggers (X) and Main focus (B). Launches Bolt I first (0.45s), then releases Bolt II 0.20s later: 85 physical damage, pierces up to 2 targets (70% falloff), 3.5 m shockwave (35 center damage), and heavy knockback (4.5s reload). Shares a 4.0s heavy gate with A Sharp Turn.'
+    line:'Requires Deployed Outriggers (X) and Main focus (B). Launches Bolt I first (0.45s), followed 0.20s later by Bolt II for 85 physical damage, piercing up to 2 targets (70% falloff on the second), a 3.5 m radial shockwave (35 center / 10 edge damage), and heavy knockback (4.5s reload). Shares a 4.0s heavy recovery gate with A Sharp Turn.'
    },
    {
     id:'aSharpTurn',
     name:'A SHARP TURN',
     icon:'siegeSweep',
-    summary:'Drop the main bow and sweep it through a full 360° arc, shoving aside nearby attackers.',
-    facts:'45 physical · heavy shove · shares 4s Bolt II gate',
-    line:'Lowers the main bow limbs for one genuine 360° physical rotation (E on desktop, SWEEP on mobile) in Mobile or Deployed mode. Deals 45 physical damage with heavy stagger and shove strictly along the bow limbs (blocked by terrain; facing Guard mitigates damage and shove). Shares the 4.0s heavy recovery gate with Bolt II.'
+    summary:'Lower your bow and sweep nearby enemies aside with a full rotation.',
+    facts:'45 physical · 62 stagger · shares 4s Bolt II gate',
+    line:'Lowers the main bow and sweeps it through a full 360° turn (E on desktop, SWEEP on mobile) in Mobile or Deployed stance. Deals 45 physical damage with heavy stagger and knockback along the sweeping bow limbs. Steep slopes or low obstacles can block the swing, and a facing Guard reduces damage and shove. Shares the 4.0s heavy recovery gate with Bolt II.'
    },
    {
     id:'outriggerAnchor',
     name:'OUTRIGGER ANCHOR',
     icon:'deploy',
-    summary:'Plant the stabilizer legs to aim the heavy bow, or pack them to roll on six wheels.',
-    facts:'1.2s deploy / retract · unlocks ±45° Main traverse',
-    line:'Transitions between 6-wheel Mobile travel (3.2 m/s forward, 2.4 m/s reverse) and anchored Deployed siege stance in 1.2s, unlocking coupled Main aiming (±45° yaw, -8.6° to +20° pitch).'
+    summary:'Anchor the carriage to aim and fire your heavy launcher.',
+    facts:'1.2s deploy / retract · ±45° Main traverse',
+    line:'Anchors or packs the carriage outriggers in 1.2s. Anchoring unlocks coupled Main aiming (±45° yaw, -8.6° to +20° pitch) for Bolt II; packing lets the six-wheeled carriage roll at 4.0 m/s forward and 3.0 m/s reverse in Siege Blades (3.2 / 2.4 m/s base).'
    }
   ],
   controls:{
@@ -56,52 +56,52 @@ The first shot lowers the target's defense.`,
   line:`This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.
 
 Will not leave a scratch.`,
-  facts:'1400 hull · 500 fist · 4.0s strike cycle · 100 Pressure',
+  facts:'1400 hull · 500 fist · 6.3 m/s (5.3 base; 12 charge) · 4s cycle',
   attacks:[
    {
     id:'reciprocatingPiston',
     name:'RECIPROCATING PISTON',
     icon:'ram',
-    summary:'Drive your steel fist into enemies, sending them reeling and battering through fortifications.',
-    facts:'90–120 physical (75–90 exposed) · 4.0s cycle · heavy shove',
-    line:'Hydraulic steel ram stroke scaling with carriage speed and extension: deals 90–120 physical damage with an intact armored fist (or 75–90 on the exposed piston) over a 4.0s cycle, smashing fortifications and launching opposing combatants.'
+    summary:'Drive your steel fist into enemies and send them reeling.',
+    facts:'90–120 physical (75–90 exposed) · 4.0s cycle · heavy knockback',
+    line:'Drive the hydraulic ram forward to deal 90–120 physical damage with an intact fist (scaling with forward speed and stroke velocity), or 75–90 with the exposed piston over a 4.0s cycle. Shatters fortifications and launches opposing combatants.'
    },
    {
     id:'ramFingerFlick',
     name:'FINGER FLICK',
     icon:'siegeWeapon',
-    summary:'Snap Argon’s articulated index finger forward for a quick strike with heavy knockback.',
-    facts:'80 damage · 44 against Guard · shared 4.0s cycle',
-    line:'Snaps the articulated gauntlet index finger forward for 80 physical damage with forceful knockback. Facing Guard reduces it to 44 damage and drains Guard Stamina. Requires an attached armored fist and shares the 4.0s piston cycle.',
+    summary:'Flick nearby foes away with tremendous force.',
+    facts:'80 damage · 44 against Guard · 45 stamina drain · 4.0s cycle',
+    line:'Snap the gauntlet’s index finger forward for 80 physical damage and heavy knockback. A facing Guard reduces damage to 44 and loses 45 stamina. Requires an attached intact fist and shares the 4.0s cycle with Reciprocating Piston.',
     previewSkill:'ramFingerFlick'
    },
    {
     id:'ramShunt',
     name:'SHUNT',
     icon:'dash',
-    summary:'Vent Drive Pressure for a sudden forward or reverse lunge, even up steep inclines.',
-    facts:'7.4 m/s burst · 0.40s · 18 Pressure · 5.5s cooldown',
+    summary:'Spend Drive Pressure to lurch forwards or backwards.',
+    facts:'7.4 m/s added burst · 0.40s · 18 Pressure · 5.5s cooldown',
     sections:[
-     {title:'Pressure Burst',text:'Commits an immediate 7.4 m/s surge lasting 0.40s at a cost of 18 Drive Pressure (5.5s cooldown), overcoming steep uphill stalls and feeding extra momentum into Piston impacts.'},
-     {title:'Direction & Controls',text:'Tap Space quickly (under 0.26s without holding lift) or press Guard (G / Right Click) to Shunt forward; hold Reverse (S) to Shunt backward. On touch, tap SHUNT with Left Stick direction.'}
+     {title:'Pressure Burst',text:'Adds a 7.4 m/s burst lasting 0.40s onto your existing movement for 18 Drive Pressure (5.5s cooldown). Burst strength scales down with wheel or Drive damage (down to 50% when heavily damaged), helps overcome uphill stalls where slope traversal remains permitted, and empowers Reciprocating Piston impacts.'},
+     {title:'Direction & Controls',text:'Tap Space quickly or press Guard (G / Right Click) to Shunt forward; hold Reverse (S) to Shunt backward. On touch controls, tap SHUNT while holding the Left Stick forward or back.'}
     ],
-    line:'Vents 18 Drive Pressure for an immediate 7.4 m/s burst lasting 0.40s (5.5s cooldown), overcoming uphill grade stalls and adding impact momentum to Piston strikes. Quick-tap Space, press G / Right Click, or tap SHUNT on mobile; hold Reverse to Shunt backward.'
+    line:'Spends 18 Drive Pressure to add a 7.4 m/s burst lasting 0.40s onto your existing movement (5.5s cooldown). Scaled by wheel and Drive condition (down to 50% when heavily damaged), Shunt helps overcome uphill stalls where traversal remains physically permitted and boosts Piston impact. Quick-tap Space, press G / Right Click, or tap SHUNT on mobile; hold Reverse to Shunt backward.'
    },
    {
     id:'carriageElevation',
     name:'CARRIAGE ELEVATION',
     icon:'rise',
-    summary:'Tilt or hydraulically raise the upper saddle to strike elevated battlements or low portals.',
-    facts:'Hydraulic pitch + lift · maintains held angle',
-    line:'Use Pitch (E / C) to tilt the ram cradle upward or downward, or hold Space + E / C to hydraulically lift and lower the upper saddle. The chassis preserves your selected angle automatically until adjusted or blocked by obstacles.'
+    summary:'Raise and tilt your fist to strike enemies at different heights.',
+    facts:'Up to 1.37 m lift · 50° elevated pitch',
+    line:'Use Pitch (E / C) to tilt the upper ram upward (up to 20° at ground height, or 50° when raised) or hold Space + E / C to hydraulically lift and lower the saddle (up to 1.37 m). The carriage holds your angle until adjusted or blocked by obstacles.'
    },
    {
     id:'rammingCharge',
     name:'RAMMING CHARGE',
     icon:'sprint',
-    summary:'Build full forward Drive engine speed while holding Sprint to turn mass into impact.',
-    facts:'Up to 12 m/s peak · boosts Piston impact',
-    line:'Hold Sprint while driving forward to wind the pressure engine from 5.3 m/s up to 12 m/s, amplifying Piston damage, shove distance, and structure breaches (reverse drive travels at 3.1 m/s unless Beat to the Punch is primed).'
+    summary:'Build momentum to deliver more powerful punches and collisions.',
+    facts:'Up to 12 m/s peak · needs 25+ Pressure to start',
+    line:'Hold Sprint while driving forward to build speed up to 12 m/s (vs. 6.3 m/s Siege Blades cruise or 5.3 m/s base), amplifying Piston damage, shove distance, and structure breaches. Ordinary reverse travels at 3.7 m/s in Siege Blades (3.1 m/s base) unless Beat to the Punch is primed.'
    }
   ],
   controls:{
@@ -129,31 +129,31 @@ It is not a dove. Nor does it mean mutual mortality.
 It is simply doom.
 
 And it is nigh-unreachable.`,
-  facts:'250 hull · 100 rotor · 100 flight charge · 18-bolt repeater',
+  facts:'250 hull · 100 rotor · 10.1 m/s air (9.0 base) · 18-bolt repeater',
   attacks:[
    {
     id:'repeatingCrossbow',
     name:'REPEATING CROSSBOW',
     icon:'repeater',
-    summary:'Fire rapid quarrels from a rotary hopper with an independently gimbaled barrel.',
+    summary:'Rain bolts upon enemies while maneuvering through the air.',
     facts:'18-bolt hopper · 7 bolts/s · 2 bolts/s reload · 4–2 dmg',
-    line:'Streams physical high-velocity bolts at 7 bolts/s (4 close to 2 far damage, 8 Guard stamina drain) while recharging 2 bolts/s. Tracks within ±50° yaw and ±65° pitch along your reticle.'
+    line:'Fires rapid bolts at 7 bolts/s (4 close to 2 far damage, 8 Guard stamina drain) while recharging 2 bolts/s. Tracks along your reticle within ±50° horizontal traverse and ±65° vertical pitch.'
    },
    {
     id:'rotorBladeDash',
     name:'ROTOR-BLADE DASH',
     icon:'flightDash',
-    summary:'Pitch the spinning counter-rotating sword blades into an 18 m/s slashing flight run.',
-    facts:'18 m/s committed strike · consumes Prowess (42/s) · requires intact rotor',
-    line:'Launches a high-speed offensive flight run at 18 m/s (taking off cleanly if grounded), pitching the twin counter-rotating sword blades toward your reticle while draining personal Prowess unless fueled by Do Not Stop My Ascension!'
+    summary:'Turn your spinning blades upon foes with a high-speed aerial strike.',
+    facts:'18 m/s strike · 8–30 physical · 42 Prowess/s · intact rotor',
+    line:'Commits an 18 m/s slashing flight run (taking off if grounded), pitching the counter-rotating sword blades toward your aim for 8–30 physical damage and 16 Guard stamina drain while spending Prowess (unless fueled by Do Not Stop My Ascension!).'
    },
    {
     id:'verticalAscension',
     name:'VERTICAL ASCENSION',
     icon:'rise',
-    summary:'Climb into castle airspace or descend smoothly while managing rechargeable flight charge.',
+    summary:'Spend flight charge to climb and hover. Recover charge as you descend.',
     facts:'100 flight charge · 15/s climb · 8/s hover · +5/s descent recharge',
-    line:'Spins the main rotor to climb (15/s drain) or sustain level hover (8/s drain) from a 100-point battery; descending gently recharges flight power (+5/s).'
+    line:'Spins the rotor to climb (15/s drain) or sustain level hover (8/s drain) from a 100-point battery; descending recovers flight charge (+5/s). Standard air speed is 10.1 m/s in Siege Blades (9.0 m/s base).'
    }
   ],
   controls:{
@@ -163,41 +163,41 @@ And it is nigh-unreachable.`,
  }
 ]);
 const EXPLANATIONS={
- boltToTheOccasion:'Prime independent heavy aiming while Deployed, then fire Bolt II on a second Skill press (or Right Click). You may keep firing Bolt I in between (subject to a brief 0.2s safety catch after any Bolt I release). Cancelling before Bolt II spends no cooldown; firing starts a 24s cooldown.',
- coldHowTouching:'Activate to equip Bolt I projectiles with proximity frost detonation on near misses until your next real Bolt II release. Adds no homing and no bonus damage; enters a 24s cooldown once Bolt II ends the effect.',
- lookAroundAndFindOut:'Sustain A Sharp Turn as a stationary 360° bow sweep. Firing stops and settles the bow to release only truly loaded bolts; pressing Skill again cancels cleanly. Bolt II coupling stays locked throughout rotation. The 24s cooldown begins when the action resolves.',
- beatToThePunch:'Overload the ram engine to unlock backwards charging (up to 11.5 m/s) and prime an automatic armored punch whenever an enemy enters range. Suffering 35+ hull shock damage or mounting engine instability triggers the punch early. Enters a 24s cooldown (+1.5s if reverse charge was used) once resolved.',
- longArmToTheJaw:'Fire the armored fist itself downrange (125 close to 55 far physical damage) while the exposed piston keeps fighting. Drive to the grounded fist with clear sightlines and press Skill to retrieve it, entering a 24s recovery cooldown; if lost to the abyss, return to your deployment site and dismount for locked 24s restoration at the same fist HP. If the ram hull is destroyed while the fist is attached (or shattered by the fatal hit), the chassis automatically selects a clear ballistic arc within ±15° yaw and -22° to +21° relative pitch (prioritizing the fatal attacker) to fire one final aimed punch—full force if intact, or 85 base damage if shattered. Already detached or missing fists cannot fire.',
- hellpingHand:'Unfold your armored fist into an articulated hand for grappling, allied transport, braced pivoting, or ground-vaulting mobility.',
- fireAwayRightHere:'Spin the rotor to operating speed and keep firing physical bolts at up to 7/s, spending 1.5 flight charge per bolt instead of magazine ammo. Cease fire to hold a level hover without spending flight charge (climbing still costs power). Ends when charge or rotor speed fails—emptying the normal magazine—with its 24s cooldown starting on activation.',
- narrowToOne:'Scan with Skill to softly mark the exposed enemy closest to your gaze, then fire your first real bolt to hard-lock them while looking elsewhere. The repeating crossbow independently tracks within ±50° yaw / ±65° pitch and never fires through cover or Guards. Land and press Skill to pick another target; the 24s cooldown begins when the lock ends.',
- doNotStopMyAscension:'Until your next repeater bolt, every rotor Dash consumes flight charge at the Climb rate instead of personal Prowess. While active, with an intact rotor and full Spells & Chivalry, hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
+ boltToTheOccasion:'Prime independent heavy aiming while Deployed, then fire Bolt II on a second Skill press (or Right Click). You may keep firing Bolt I in between (after a 0.2s safety catch). Cancelling before Bolt II spends no cooldown; firing starts a 24s cooldown.',
+ coldHowTouching:'Give Bolt I projectiles proximity frost detonation on near misses until you fire Bolt II. Adds no homing or bonus damage; enters a 24s cooldown once Bolt II ends the effect.',
+ lookAroundAndFindOut:'Sustain A Sharp Turn as a continuous 360° sweep. Fire to stop and settle the bow, unleashing only the bolts currently loaded, or press Skill again to cancel. Bolt II coupling stays locked during rotation, and the 24s cooldown begins when the action finishes.',
+ beatToThePunch:'Overload the ram engine to unlock backwards charging up to 11.5 m/s and prime an automatic strike. Automatically punches when an enemy enters reach, when the hull takes a total of 35 damage while primed, or when the engine becomes too unstable. Cooldown: 24 seconds, plus 1.5 seconds for every second spent reverse charging.',
+ longArmToTheJaw:'Launch the armored fist downrange at 23 m/s (125 close to 55 far physical damage) while the exposed hydraulic piston keeps punching. Drive beside the grounded fist with clear sightlines and press Skill to retrieve it (24s cooldown); if lost into an abyss, return to your deployment site and dismount for locked 24s restoration at its previous HP. If the hull is destroyed while the fist is attached (including if shattered on the fatal blow), it attempts to aim within ±15° yaw and -22° to +21° pitch at a reachable enemy—prioritizing the attacker responsible—or launches along its default trajectory if no clear target exists (full damage if intact; 85 base damage if shattered). Already detached or missing fists cannot fire.',
+ hellpingHand:'Unfold your armored fist into an articulated hand for grabbing foes, carrying allies, braced aiming, or hand-assisted hops.',
+ fireAwayRightHere:'Spin the rotor up and fire bolts at up to 7/s, spending 1.5 flight charge per bolt instead of magazine ammo. Release Fire to hover cleanly without hover drain (climbing still uses charge). Ends when charge runs out, the rotor slows, or the rotor is destroyed—emptying the normal magazine—with its 24s cooldown starting on activation.',
+ narrowToOne:'Scan with Skill to mark the exposed foe nearest your aim, then fire a bolt to lock onto that target while looking elsewhere. The repeating crossbow tracks within ±50° horizontal traverse and ±65° vertical pitch and pauses if cover or facing Guards block a shot. Land and press Skill to pick another target. The 24-second cooldown begins when the lock ends.',
+ doNotStopMyAscension:'Until you fire a repeating crossbow bolt, every rotor Dash uses flight charge at the Rise rate instead of spending personal Prowess (24s cooldown starts on activation). While active—with an intact rotor, positive flight charge, and full Spells & Chivalry—hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 const SKILL_SECTIONS={
  longArmToTheJaw:[
-  {title:'Detached Strike & Exposed Piston',text:'Launches the armored fist downrange at 23 m/s (125 close to 55 far damage across 12–36 m). While detached, the carriage’s exposed hydraulic piston continues to punch.'},
-  {title:'Retrieval & Abyss Recovery',text:'Drive alongside the grounded fist with unobstructed sightlines and press Skill to retrieve it (24s cooldown). If lost to the abyss, return to your deployment home site and dismount for a locked 24s restoration at the same fist HP.'},
-  {title:'Final Discharge on Destruction',text:'If the ram hull is destroyed while the fist is physically mounted (or shattered by the fatal blow), it fires one final low-arc shot within ±15° yaw and -22° to +21° relative pitch toward a clear-arc enemy (prioritizing the attacker), dealing full damage if intact or 85 close base if shattered. Already detached or missing fists do not fire.'}
+  {title:'Detached Strike & Exposed Piston',text:'Launches the armored fist downrange at 23 m/s (125 close to 55 far damage across 12–36 m). While detached, the carriage’s exposed piston keeps working for ordinary punches.'},
+  {title:'Retrieval & Abyss Recovery',text:'Drive alongside the grounded fist with unobstructed sightlines and press Skill to retrieve it (24s cooldown). If lost into an abyss, return to your deployment site and dismount for a locked 24s restoration at its previous HP.'},
+  {title:'Final Discharge on Destruction',text:'If the hull is destroyed while the fist is attached (including if shattered by the fatal blow), it attempts to aim within ±15° yaw and -22° to +21° pitch at a reachable enemy—prioritizing the attacker responsible—or fires along its default trajectory if no suitable target exists (full damage if intact; 85 base damage if shattered). Already detached or missing fists do not fire.'}
  ],
  hellpingHand:[
-  {title:'Seize & Crush',text:'Press Skill near an enemy to seize and crush them over 4 seconds. Facing Guard resists capture while draining Guard Stamina until broken.'},
-  {title:'Allied Transportation',text:'An ally beside the braced open palm can press Interact to board, attack freely while carried inside the hand, and press Interact again to step onto clear ground.'},
-  {title:'Hand-Assisted Vault',text:'Hold forward or reverse (steering slightly if desired) and press Skill to push off the planted palm for a short aimed carriage hop (3.65 m forward / 2.65 m back).'},
-  {title:'Stationary Bracing & Aiming',text:'While parked with the open palm braced against the ground, steer sideways (A/D) to pivot the ram chassis around the planted hand and re-aim smoothly.'},
-  {title:'Cooldown & Restrictions',text:'Requires an intact, attached Armored Fist and operational Drive. Pressing Skill neutrally with no grab target closes the hand and triggers a 24s cooldown after release.'}
+  {title:'Seize & Crush',text:'Press Skill near an enemy to grab and crush them over 4 seconds. A facing Guard resists an individual grab attempt by spending 50 Guard Stamina, breaking Guard once depleted.'},
+  {title:'Allied Transportation',text:'An ally beside the braced open palm can press Interact to board, attack freely while carried, and press Interact again to step out onto clear ground.'},
+  {title:'Hand-Assisted Vault',text:'Hold forward or reverse (steering slightly if desired) and press Skill to push off the planted palm for an aimed hop (3.65 m forward / 2.65 m back).'},
+  {title:'Stationary Bracing & Aiming',text:'While parked with the open palm braced against the ground, steer sideways (A / D) to pivot the carriage cleanly around the planted hand and re-aim.'},
+  {title:'Cooldown & Restrictions',text:'Requires an intact, attached fist and functional Drive. Pressing Skill neutrally when no grab target is in reach closes the hand and starts a 24s cooldown after release.'}
  ],
  beatToThePunch:[
-  {title:'Reverse Engine Overload',text:'Unlocks high-speed backwards Pressure charging (up to 11.5 m/s) and arms the fist to punch automatically as soon as a foe enters strike range.'},
-  {title:'Triggers & Cooldown',text:'Receiving 35+ hull shock damage or mounting internal instability fires the punch prematurely. Resolves into a 24s cooldown (+1.5s recovery debt if reverse charge was used).'}
+  {title:'Reverse Engine Overload',text:'Unlocks high-speed backwards Pressure charging (up to 11.5 m/s) and arms the fist to strike.'},
+  {title:'Triggers & Cooldown',text:'Automatically punches when an enemy enters reach, when the hull takes a total of 35 damage while primed, or when the engine becomes too unstable. Cooldown: 24 seconds, plus 1.5 seconds for every second spent reverse charging.'}
  ],
  narrowToOne:[
-  {title:'Soft Mark & Hard Lock',text:'Press Skill to scan and softly highlight the exposed foe closest to your gaze; fire your first real bolt to hard-lock that target and continue shooting while looking freely elsewhere.'},
-  {title:'Independent Gimbal Arc',text:'The repeating crossbow tracks autonomously within ±50° horizontal traverse and ±65° vertical pitch, pausing automatically when sightlines are blocked by cover or facing Guards.'},
-  {title:'Retargeting & Cooldown',text:'Land and settle to press Skill for a new target. Entering or ending the Skill leaves its 24s cooldown once the lock finishes.'}
+  {title:'Soft Mark & Hard Lock',text:'Press Skill to scan and mark the exposed foe nearest your aim; fire a bolt to lock onto that target and keep shooting while looking freely elsewhere.'},
+  {title:'Independent Gimbal Arc',text:'The repeating crossbow tracks autonomously within ±50° horizontal traverse and ±65° vertical pitch, pausing whenever cover or facing Guards block a shot.'},
+  {title:'Retargeting & Cooldown',text:'Land and settle to press Skill for a new target. The 24-second cooldown begins when the lock ends.'}
  ],
  doNotStopMyAscension:[
-  {title:'Charge-Fueled Rotor Dashes',text:'Until you fire your next repeating crossbow bolt, every rotor Dash draws from Flight Charge at the Climb rate instead of spending personal Prowess.'},
-  {title:'Valkyrie Dive',text:'While active—with an intact rotor, positive flight charge, and full Spells & Chivalry Ultimate readiness—hold Dash + Ultimate for 1 full second to commit a devastating once-per-machine terminal dive.'}
+  {title:'Charge-Fueled Rotor Dashes',text:'Until you fire a repeating crossbow bolt, every rotor Dash consumes flight charge at the Rise rate instead of spending personal Prowess (24s cooldown begins on activation).'},
+  {title:'Valkyrie Dive',text:'While active—with an intact rotor, positive flight charge, and full Spells & Chivalry Ultimate readiness—hold Dash + Ultimate for 1 second to commit a devastating once-per-machine Valkyrie Dive.'}
  ]
 };
 const SKILL_SUMMARIES={

@@ -883,7 +883,8 @@ try {
     }
     await tap('#breakthrough-button',touch);
     await tap(`[data-mettle-mode="${mode}"]`,touch);
-    if(mode!=='RESTLESS_DAY')assert.equal(await evaluate("document.querySelector('#breakthrough-create-private').hidden && document.querySelector('.mettle-companion').hidden"),true);
+    if(mode==='RENOWN_TRIALS')assert.equal(await evaluate("document.querySelector('#breakthrough-create-private').hidden && document.querySelector('.mettle-companion').hidden"),true);
+    if(mode==='EDGE_OF_VICTORY')assert.equal(await evaluate("!document.querySelector('#breakthrough-create-private').hidden && !document.querySelector('.mettle-companion').hidden && document.querySelector('#breakthrough-size').hidden && document.querySelector('#breakthrough-team').hidden && !document.querySelector('#breakthrough-rival').hidden"),true);
     if(mode==='RENOWN_TRIALS')await screenshot('12-mettle-rampage-menu.png');
     await tap(action,touch);
     await until(()=>evaluate(`window.__ssLink.roomCode && window.__ssSnapshot?.mode==='${mode}' && window.__ssSnapshot.roomState==='PLAYING'`),

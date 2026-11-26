@@ -827,9 +827,14 @@ function renderSeek() {
   $('#seek-title').textContent = view.title;
   $('#seek-detail').textContent = view.detail;
   const botBtn = $('#seek-bot');
+  const botNote = $('#seek-bot-note');
   if (botBtn) {
     botBtn.textContent = view.botLabel ?? 'FIGHT A BOT INSTEAD';
     botBtn.classList.toggle('hidden', !view.offerBot);
+  }
+  if (botNote) {
+    botNote.textContent = view.botNote ?? 'Ends human matchmaking search';
+    botNote.classList.toggle('hidden', !view.offerBot);
   }
 }
 setInterval(renderSeek, 500);

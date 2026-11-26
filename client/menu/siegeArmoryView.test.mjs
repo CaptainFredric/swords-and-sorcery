@@ -54,18 +54,38 @@ test('All Siege Skills and Built-In Abilities provide reconciled summaries, func
  assert.equal(biByeSkills.coldHowTouching.sections,undefined);
  assert.doesNotMatch(biByeSkills.coldHowTouching.summary+biByeSkills.coldHowTouching.line,/electrify/i);
 
- // Audited built-in abilities including Shunt and Reciprocating Piston summary
+ // Audited built-in abilities, exact requested summaries, and natural language without dev terms
  const ramAbilities=Object.fromEntries(ram.attacks.map(a=>[a.id,a]));
- assert.equal(ramAbilities.reciprocatingPiston.summary,'Drive your steel fist into enemies, sending them reeling and battering through fortifications.');
- assert.ok(ramAbilities.ramShunt,'SO-FIST-ICATION must document its built-in Shunt maneuver');
- assert.match(ramAbilities.ramShunt.facts,/7\.4 m\/s/);
+ const biByeAbilities=Object.fromEntries(biBye.attacks.map(a=>[a.id,a]));
+ const flightAbilities=Object.fromEntries(flight.attacks.map(a=>[a.id,a]));
+ assert.equal(ramAbilities.reciprocatingPiston.summary,'Drive your steel fist into enemies and send them reeling.');
+ assert.equal(ramAbilities.ramFingerFlick.summary,'Flick nearby foes away with tremendous force.');
+ assert.equal(ramAbilities.ramShunt.summary,'Spend Drive Pressure to lurch forwards or backwards.');
+ assert.equal(ramAbilities.carriageElevation.summary,'Raise and tilt your fist to strike enemies at different heights.');
+ assert.equal(ramAbilities.rammingCharge.summary,'Build momentum to deliver more powerful punches and collisions.');
+ assert.equal(biByeAbilities.boltI.summary,'Chill enemies and weaken their Guard with bursting frost bolts.');
+ assert.equal(biByeAbilities.boltII.summary,'Skewer enemies with a heavy bolt and send others reeling with its impact.');
+ assert.equal(biByeAbilities.aSharpTurn.summary,'Lower your bow and sweep nearby enemies aside with a full rotation.');
+ assert.equal(biByeAbilities.outriggerAnchor.summary,'Anchor the carriage to aim and fire your heavy launcher.');
+ assert.equal(flightAbilities.repeatingCrossbow.summary,'Rain bolts upon enemies while maneuvering through the air.');
+ assert.equal(flightAbilities.rotorBladeDash.summary,'Turn your spinning blades upon foes with a high-speed aerial strike.');
+ assert.equal(flightAbilities.verticalAscension.summary,'Spend flight charge to climb and hover. Recover charge as you descend.');
 
+ // Mechanical accuracy & clean player-facing language checks
+ assert.match(ramSkills.beatToThePunch.line,/total of 35 damage while primed/);
+ assert.match(ramSkills.beatToThePunch.line,/plus 1\.5 seconds for every second spent reverse charging/);
+ assert.match(ramSkills.longArmToTheJaw.line,/default trajectory/i);
+ assert.match(ramAbilities.ramShunt.line,/scaled by wheel and Drive|existing movement/i);
+ assert.match(ramSkills.hellpingHand.sections[0].text,/50 Guard Stamina/);
+ assert.match(flightSkills.narrowToOne.line,/The 24-second cooldown begins when the lock ends\./);
  for(const m of machines){
   for(const atk of m.attacks){
+   assert.doesNotMatch(atk.summary+atk.line,/Argon|real |genuine |truly /i);
    assert.ok(atk.id&&atk.name&&atk.icon&&atk.summary&&atk.facts&&atk.line,atk.name);
    assert.ok(atk.summary.length>20&&atk.summary.length<130,atk.id);
   }
   for(const s of m.skills){
+   assert.doesNotMatch(s.summary+s.line,/Argon|real bolt|genuine|truly /i);
    assert.ok(s.summary&&s.summary.length>25&&s.summary.length<150,s.id);
    assert.ok(s.line&&s.line.length>=s.summary.length,s.id);
   }

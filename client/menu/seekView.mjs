@@ -24,6 +24,7 @@ export function seekView(status, serverNow, mode = 'PRACTICE') {
     detail: `${queueScope}${others === 0 ? 'No one else is seeking yet' : `${others} other${others === 1 ? '' : 's'} seeking`}`,
     // Once offered, a bot match remains available while waiting in practice.
     offerBot: Boolean(status.botOffer) && mode !== 'BOT_DUEL' && (!siege || mode !== 'SIEGE_BLADES'),
-    botLabel: siege ? 'PLAY BOT SIEGE INSTEAD' : 'FIGHT A BOT INSTEAD',
+    botLabel: siege ? 'BATTLE BOTS INSTEAD' : 'FIGHT A BOT INSTEAD',
+    botNote: 'Ends human matchmaking search',
   };
 }
