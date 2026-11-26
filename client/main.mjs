@@ -408,14 +408,12 @@ function setIdentityEditing(bar, editing, { focus = false } = {}) {
 }
 function syncIdentityBars({ collapseIfValid = false } = {}) {
   const trimmed = nameInput.value.trim();
-  const display = trimmed || 'Unset';
+  const display = trimmed || 'Assigned on entry';
   for (const bar of identityBars) {
     const labelEl = bar.querySelector('[data-identity-name]');
     if (labelEl) labelEl.textContent = display;
     bar.classList.toggle('missing-name', !trimmed);
-    if (!trimmed) {
-      setIdentityEditing(bar, true);
-    } else if (collapseIfValid) {
+    if (collapseIfValid) {
       setIdentityEditing(bar, false);
     }
   }
@@ -4220,15 +4218,15 @@ route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 // On startup, solo play, tutorial, and local menus begin immediately with zero network requests.
 // A remote connection is established on demand when deliberately requesting multiplayer or resuming an active match.
 async function connectInitialSession() {
-  if (autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+  if (autoSolo === 'BREAKTHROUGH') {
     runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }
-  if (autoSolo === 'BOT_DUEL' && nameInput.value) {
+  if (autoSolo === 'BOT_DUEL') {
     runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }
-  if (autoSolo === 'PRACTICE' && nameInput.value) {
+  if (autoSolo === 'PRACTICE') {
     runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }
