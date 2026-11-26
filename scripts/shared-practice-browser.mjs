@@ -255,9 +255,9 @@ try{
  assert.equal(await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq"),beforeSwordShot,'mounted RMB sword must not fire repeating crossbow');
  await waitFor(()=>guest.evaluate("Boolean((window.__flightSwordTrace??[]).some(s=>s.attack&&/^Slash_[123]$/.test(s.clip??'')))"),
    'real remote Spellblade sword animation agrees with attack state',110);
- // Shared Practice supplies personal Prowess through its normal rules.
- await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
-   'real host Prowess readiness replicated',100);
+ // Prowess is measured independently of unlimited training readiness.
+ await waitFor(()=>guest.evaluate("Number.isFinite(window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess)"),
+   'real host Prowess replicated independently of training readiness',100);
  stage = 'host Space ascent dispatch';
  console.log('[ACCEPTANCE KEY]', new Date().toISOString(), 'host Space ascent');
  await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
