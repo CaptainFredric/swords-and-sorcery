@@ -1083,7 +1083,7 @@ export class TouchControls {
     button.classList.toggle('charging', view.state === 'charging' || view.state === 'locked');
     button.classList.toggle('ready', view.state === 'ready');
     button.classList.toggle('practice', practice && view.state === 'ready');
-    button.dataset.practiceProwess=practice && view.state==='ready' ? view.label : '';
+    button.querySelector('.touch-face')?.setAttribute('data-practice-prowess',practice && view.state==='ready' ? view.label : '');
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     button.style.setProperty('--charge', view.charge.toFixed(3));
     const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
