@@ -135,3 +135,75 @@ test('public rooms are listed for anyone to walk into; private and solo rooms ar
   send(browser, { type: 'joinRoom', code: publicRoom.roomCode, name: 'Walker' });
   assert.equal((await joinedP).roomCode, publicRoom.roomCode);
 });
+
+test('two Siege seekers wait in practice yards then pair into a 1v1 3-round Siege Blades match', async (t) => {
+  const game = createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const { port } = game.address();
+  const alice = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  const bob = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => { alice.close(); bob.close(); });
+  await Promise.all([waitOpen(alice), waitOpen(bob)]);
+
+  const aliceYardP = waitFor(alice, (m) => m.type === 'joined');
+  const aliceSeekP = waitFor(alice, (m) => m.type === 'seeking' && m.active && m.queue === 'siege');
+  send(alice, { type: 'seekSiege', name: 'Alice' });
+  send(alice, { type: 'seekSiege', name: 'Alice' });
+  const [aliceYard, seeking] = await Promise.all([aliceYardP, aliceSeekP]);
+  assert.equal(aliceYard.mode, 'PRACTICE');
+  assert.equal(game.siegeMatchmaker.size, 1, 'repeated seek keeps one entry');
+  assert.equal(seeking.others, 0);
+
+  const aliceSiegeP = waitFor(alice, (m) => m.type === 'joined' && m.mode === 'SIEGE_BLADES');
+  const bobSiegeP = waitFor(bob, (m) => m.type === 'joined' && m.mode === 'SIEGE_BLADES');
+  const foundP = waitFor(alice, (m) => m.type === 'siegeFound');
+  const countdownP = waitFor(bob, (m) => m.type === 'lobby' && m.mode === 'SIEGE_BLADES' && m.roomState === 'COUNTDOWN');
+  send(bob, { type: 'seekSiege', name: 'Bob' });
+  const [aliceSiege, bobSiege, found] = await Promise.all([aliceSiegeP, bobSiegeP, foundP]);
+  await countdownP;
+  assert.equal(aliceSiege.roomCode, bobSiege.roomCode);
+  assert.equal(found.opponent, 'Bob');
+  assert.ok(['high-grounds', 'blackbell-foundry', 'outerworks'].includes(found.worldId));
+  assert.equal(game.siegeMatchmaker.size, 0);
+  const room = game.roomManager.findByCode(aliceSiege.roomCode);
+  assert.equal(room.isPrivate, true);
+  assert.equal(room.policy.teamSize, 1);
+  assert.equal(room.siegeBladesSettings.format, 'MATCH');
+  assert.equal(room.siegeBladesSettings.matchRounds, 3);
+  assert.equal(game.roomManager.listPublicRooms(game.now()).length, 0);
+});
+
+test('Siege seeker handles cancel, disconnect, queue switch, and optional bot Siege offer', async (t) => {
+  const game = createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const { port } = game.address();
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  const quitter = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => { ws.close(); quitter.close(); });
+  await Promise.all([waitOpen(ws), waitOpen(quitter)]);
+
+  send(quitter, { type: 'seekSiege', name: 'Quitter' });
+  await waitFor(quitter, (m) => m.type === 'seeking' && m.active && m.queue === 'siege');
+  quitter.close();
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(game.siegeMatchmaker.size, 0, 'disconnect cleans Siege queue');
+
+  send(ws, { type: 'seekSiege', name: 'Operator' });
+  await waitFor(ws, (m) => m.type === 'seeking' && m.active && m.queue === 'siege');
+  game.siegeMatchmaker.queue[0].since -= 31;
+  const offer = await waitFor(ws, (m) => m.type === 'seeking' && m.botOffer);
+  assert.equal(offer.active, true);
+  assert.equal(offer.queue, 'siege');
+
+  const botRoomP = waitFor(ws, (m) => m.type === 'joined' && m.mode === 'SIEGE_BLADES');
+  send(ws, { type: 'seekBotSiege' });
+  await botRoomP;
+  assert.equal(game.siegeMatchmaker.size, 1, 'still seeking human while fighting bot');
+
+  const cancelledP = waitFor(ws, (m) => m.type === 'seeking' && !m.active);
+  send(ws, { type: 'cancelSeek' });
+  await cancelledP;
+  assert.equal(game.siegeMatchmaker.size, 0);
+});

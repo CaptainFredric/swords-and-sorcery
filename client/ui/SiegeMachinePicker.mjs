@@ -4,9 +4,9 @@
 import {WORLD_NAMES} from '../menu/lobbyView.mjs';
 
 export const SIEGE_MACHINE_CARDS = Object.freeze([
-  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge into enemies and batter them with a steel fist.'}),
-  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Slow foes with frost; finish them with heavy bolts.'}),
-  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Take to the skies, strafe with bolts and strike with rotors.'}),
+  Object.freeze({id:'so-fist-ication',name:'SO-FIST-ICATION',role:'Armored Ram',description:'Charge, crush and send enemies reeling.'}),
+  Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Deploy twin launchers and dominate from afar.'}),
+  Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Take to the skies. Rain bolts or strike with your rotors.'}),
 ]);
 
 // Actual game/model captures, cropped to small raster portraits and packaged
@@ -31,7 +31,9 @@ export function siegePickerSeconds(selectionEndsAt,serverNow){
 }
 export function siegePickerStatus(choice){
   const machine=SIEGE_MACHINE_CARDS.find(c=>c.id===choice);
-  return machine?`Your machine · ${machine.name}`:'No machine chosen · one will be assigned';
+  return machine
+    ?`Selected: ${machine.name} · Press 1–3 or click/tap to change before deployment`
+    :'Choose your contraption · Press 1–3 or click/tap (auto-assigned if unpicked)';
 }
 export function siegePickerMarkup(){
   return `<div class="sb-draft-backdrop" aria-hidden="true"></div>
@@ -52,7 +54,9 @@ export function siegePickerMarkup(){
           <small>${machine.description}</small>
         </span>
         <kbd class="sb-draft-key" aria-hidden="true">${index+1}</kbd>
+        <span class="sb-draft-picked" aria-hidden="true">SELECTED</span>
       </button>`).join('')}</div>
+      <p class="sb-draft-note">Switch machines between rounds.</p>
     </div>`;
 }
 

@@ -1202,6 +1202,7 @@ export class Room {
       player.killfeedConsecutiveDeaths=0;
       player.killfeedPelting=null;
       player.killfeedDamageContributors=[];
+      player.killfeedElementalSources=[];
       player.killfeedCircleChase=null;
       player.killfeedInsideCircles={};
       // Only the authored tutorial begins with a prefilled Prowess meter.

@@ -88,26 +88,26 @@
 }
 @keyframes banner-content { from { opacity: 0; transform: translateY(-6px); } }
 
-.crest { display: block; width: 52px; height: 62px; margin: 0 auto 10px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
-.grimoirelee-crest { width: 64px; height: 86px; max-width: 100%; object-fit: contain; }
+.crest { display: block; width: 42px; height: 50px; margin: 0 auto 6px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+.grimoirelee-crest { width: 52px; height: 66px; max-width: 100%; object-fit: contain; }
 .crest-field { fill: var(--heraldry-crimson-deep); }
 .crest-border { fill: none; stroke: var(--heraldry-brass); stroke-width: 3; }
 .crest-charge { fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
-.game-brand { text-align: center; margin: 0 0 18px; }
-.banner-panel .eyebrow { margin: 0 0 6px; color: var(--heraldry-brass-light); font: 13px/1 var(--font-inscription); letter-spacing: .28em; }
+.game-brand { text-align: center; margin: 0 0 11px; }
+.banner-panel .eyebrow { margin: 0 0 4px; color: var(--heraldry-brass-light); font: 12px/1 var(--font-inscription); letter-spacing: .28em; }
 .game-brand h1 {
-  margin: 0; font: 400 clamp(34px, 3.4cqw, 46px)/.95 var(--font-inscription); letter-spacing: .04em; text-transform: none; text-wrap: balance;
+  margin: 0; font: 400 clamp(30px, 3.1cqw, 40px)/.95 var(--font-inscription); letter-spacing: .04em; text-transform: none; text-wrap: balance;
   color: #f1dfae; text-shadow: 0 2px 0 rgba(58, 18, 14, .9), 0 3px 10px rgba(0, 0, 0, .5);
 }
 .game-brand h1 span { color: var(--heraldry-brass-light); font-size: .8em; }
 
-.command-rail { display: flex; flex-direction: column; gap: 7px; }
-.name-block { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.command-rail { display: flex; flex-direction: column; gap: 5px; }
+.name-block { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
 .banner-panel .field-label { margin: 0; color: rgba(234, 220, 182, .82); font: 800 10px/1 var(--font-script); letter-spacing: .2em; }
 .banner-panel .game-input {
-  height: 42px; padding: 9px 12px; border: 1px solid rgba(99, 70, 38, .9); border-radius: 2px;
-  background: linear-gradient(#e9dbb4, var(--heraldry-parchment)); color: var(--heraldry-ink); font: 600 16px/1 var(--font-script);
+  height: 38px; padding: 7px 11px; border: 1px solid rgba(99, 70, 38, .9); border-radius: 2px;
+  background: linear-gradient(#e9dbb4, var(--heraldry-parchment)); color: var(--heraldry-ink); font: 600 15px/1 var(--font-script);
   box-shadow: inset 0 2px 5px rgba(80, 52, 24, .35), 0 1px 0 rgba(255, 240, 200, .2);
 }
 .banner-panel .game-input::placeholder { color: rgba(60, 42, 26, .5); }
@@ -115,7 +115,7 @@
 
 /* commands are iron plaques with brass rims */
 .menu-command, .mode-choice, .wide-button, .join-button {
-  position: relative; width: 100%; min-height: 54px; padding: 9px 30px 10px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
+  position: relative; width: 100%; min-height: 46px; padding: 7px 28px 8px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
   background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); text-align: center; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 230, 180, .1), 0 2px 4px rgba(0, 0, 0, .35);
   transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease;
@@ -520,10 +520,23 @@ html[data-turn] .turn-only { display: block !important; }
   min-height: 0; overflow-y: auto; pointer-events: auto; padding: 1px;
 }
 .armory-preview {
-  grid-area: preview; min-width: 0; min-height: 0; pointer-events: auto;
+  position: relative; grid-area: preview; min-width: 0; min-height: 0; pointer-events: auto;
   touch-action: none; cursor: grab; border: 1px solid #d5b57155;
   box-shadow: inset 0 0 22px #17110d66; border-radius: 3px;
 }
+.siege-static-preview {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none;
+  transition: opacity .18s ease;
+}
+.siege-static-preview[hidden] { display: none; }
+.siege-model-status {
+  position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 10px; border: 1px solid rgba(201,156,82,.55); border-radius: 3px;
+  background: rgba(18,14,12,.84); color: #efe0bc; font: 600 11px/1.2 var(--font-script); letter-spacing: .04em;
+}
+.siege-model-status[hidden] { display: none; }
+#armory-siege.is-static-preview .armory-preview { cursor: default; }
+#armory-siege.is-static-preview .siege-viewport-controls { opacity: .45; pointer-events: none; }
 #game-shell:has(#armory-menu:not(.hidden)) #menu-world > .turn-hint { display: none; }
 .armory-turn-hint { color: #f5e8b8; font: 700 10px/1.15 var(--font-script); letter-spacing: .08em; }
 .armory-preview:active { cursor: grabbing; }
@@ -1192,11 +1205,11 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 /* the plaques' small descriptions: easier to read, the banner no bigger */
 .menu-command small { color: rgba(234, 220, 182, .78); }
 /* Armory stays reachable while the command banner scrolls. */
-#menu > .banner-panel { top: 70px; max-height: calc(100% - 70px); }
-#menu::after { top: 66px; }
+#menu > .banner-panel { top: 58px; max-height: calc(100% - 58px); padding-top: 20px; padding-bottom: calc(var(--hem) + 14px); }
+#menu::after { top: 54px; }
 .armory-shortcut {
-  position: absolute; z-index: 9; top: 9px; left: var(--banner-left); width: var(--banner-width);
-  min-height: 48px; padding: 6px 18px; display: flex; align-items: center; justify-content: center; gap: 14px;
+  position: absolute; z-index: 9; top: 8px; left: var(--banner-left); width: var(--banner-width);
+  min-height: 44px; padding: 5px 16px; display: flex; align-items: center; justify-content: center; gap: 12px;
   pointer-events: auto; cursor: pointer; border: 1px solid #b7a375; border-radius: 3px;
   color: #f1e5c7; background: linear-gradient(165deg, #667078 0%, #343c43 33%, #23292e 56%, #414a51 100%);
   box-shadow: inset 0 1px 0 #b7b9b5, inset 0 -2px 0 #151b20, inset 0 0 0 3px #30373c, 0 3px 7px #0008;
@@ -1450,24 +1463,27 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
     width: calc(min(360px, 43cqw) + 44px);
   }
 }
-@container app (max-width: 640px) {
+@container app (max-width: 640px), (max-height: 500px) {
   #solo-menu,
-  #rooms-menu { --banner-left: 12px; --banner-width: calc(100cqw - 24px); }
+  #rooms-menu {
+    --banner-left: max(12px, calc(50cqw - 280px));
+    --banner-width: min(560px, calc(100cqw - 24px));
+  }
   #solo-menu > .side-screen-inner,
   #rooms-menu > .side-screen-inner,
   #solo-menu > .companion-banner,
   #rooms-menu > .companion-banner {
-    --banner-width: calc(100cqw - 24px);
-    left: 12px;
+    --banner-width: min(560px, calc(100cqw - 24px));
+    left: var(--banner-left);
     right: auto;
-    width: calc(100cqw - 24px);
+    width: var(--banner-width);
     max-width: calc(100cqw - 24px);
   }
   #solo-menu::before,
   #rooms-menu::before {
-    left: -10px;
+    left: calc(var(--banner-left) - 22px);
     right: auto;
-    width: calc(100cqw + 20px);
+    width: calc(var(--banner-width) + 44px);
   }
   #solo-menu[data-panel="list"] > .companion-banner,
   #rooms-menu[data-panel="list"] > .companion-banner,
@@ -1484,6 +1500,10 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #solo-menu .companion-return,
   #rooms-menu .companion-return {
     display: inline-flex;
+  }
+  #solo-menu .solo-options,
+  #solo-menu[data-purpose="duel"] .duel-options {
+    display: block;
   }
 }
 
@@ -1525,13 +1545,9 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   background: linear-gradient(180deg, rgba(91, 65, 38, .98), rgba(48, 35, 27, .98));
   box-shadow: inset 3px 0 var(--heraldry-brass-light);
 }
-@container app (min-width: 641px) {
-  /* The left standard already has the editable name. On a phone the list
-     vanishes in details view, so keep the right-hand name field there. */
-  #solo-menu .solo-companion > .banner-scroll > label[for="solo-right-name"],
-  #solo-menu #solo-right-name,
-  #rooms-menu .rooms-companion > .banner-scroll > label[for="rooms-right-name"],
-  #rooms-menu #rooms-right-name { display: none; }
+@container app (min-width: 641px) and (min-height: 501px) {
+  /* Companion identity only appears in single-banner mode when the left banner hides. */
+  .companion-identity { display: none; }
 }
 
 /* Integrated from PR #379: filter controls, room detail surface and validated public-room forms. */
@@ -1602,42 +1618,49 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 
 /* --- Paired heraldic standards: one decision banner, one rules banner. ---
    Every panel scrolls INSIDE its cloth and can never reach the finial bar. */
-#breakthrough-menu, #private-menu { --banner-width:min(510px,42cqw); }
+#siege-blades-menu, #breakthrough-menu, #private-menu { --banner-width:min(510px,42cqw); }
+#siege-blades-menu > .side-screen-inner,
 #breakthrough-menu > .side-screen-inner,
 #private-menu > .side-screen-inner {
   --banner-width:min(510px,42cqw);width:var(--banner-width);min-width:0;
 }
+#siege-blades-menu > .companion-banner,
 #breakthrough-menu > .companion-banner,
 #private-menu > .companion-banner {
   --hem:32px;left:auto;right:clamp(18px,3.5cqw,48px);
   width:min(410px,34cqw);max-width:calc(100cqw - 24px);min-width:0;
 }
+#siege-blades-menu .companion-banner .banner-scroll,
 #breakthrough-menu .companion-banner .banner-scroll,
 #private-menu .companion-banner .banner-scroll { min-width:0; }
+#siege-blades-menu .companion-banner :is(.game-input,.vote-row,.mode-choice),
 #breakthrough-menu .companion-banner :is(.game-input,.vote-row,.mode-choice),
 #private-menu .companion-banner :is(.game-input,.lobby-config,.mode-choice) {
   min-width:0;max-width:100%;
 }
+#siege-blades-menu .mettle-companion .vote-row,
 #breakthrough-menu .mettle-companion .vote-row {
-  display:grid;grid-template-columns:minmax(0,1fr);gap:7px;
+  display:flex;align-items:center;flex-wrap:wrap;gap:7px;
   padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid #e9d7ac29;
 }
+#siege-blades-menu .mettle-companion .vote-row > span,
 #breakthrough-menu .mettle-companion .vote-row > span {
-  display:block;min-width:0;grid-column:1/-1;color:#e9c984;
+  display:block;min-width:0;flex:0 0 100%;color:#e9c984;
   font:800 10px/1.3 var(--font-script);letter-spacing:.16em;
 }
+#siege-blades-menu .mettle-companion .vote-row > button,
 #breakthrough-menu .mettle-companion .vote-row > button {
   justify-self:start;min-width:0;max-width:100%;font-size:clamp(12px,1.18cqw,17px);
   line-height:1.12;overflow-wrap:normal;text-wrap:balance;white-space:normal;
 }
-#breakthrough-menu .mettle-companion .vote-row {
-  display:flex;align-items:center;flex-wrap:wrap;
-}
-#breakthrough-menu .mettle-companion .vote-row > span {flex:0 0 100%;}
+#siege-blades-menu .mettle-companion .vote-chip small,
 #breakthrough-menu .mettle-companion .vote-chip small { font:600 10px/1.1 var(--font-script); }
+#siege-blades-menu .mettle-order-note,
 #breakthrough-menu .mettle-order-note {border-top:1px solid #e9d7ac38;padding-top:9px;}
+#siege-blades-menu .mettle-options,
 #breakthrough-menu .mettle-options,
 #private-menu .private-options {display:none;}
+#siege-blades-menu .companion-return,
 #breakthrough-menu .companion-return,
 #private-menu .companion-return {display:none;}
 #private-menu .private-mode-tabs {margin:4px 0 12px;}
@@ -1649,6 +1672,8 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #private-menu .private-settings-form input[type=number] {font-variant-numeric:tabular-nums;}
 #private-menu #private-create-right {display:none;}
 @container app (min-width:641px){
+  #siege-blades-menu .mettle-companion label[for="siege-right-name"],
+  #siege-blades-menu #siege-right-name,
   #breakthrough-menu .mettle-companion label[for="breakthrough-right-name"],
   #breakthrough-menu #breakthrough-right-name,
   #private-menu .private-companion label[for="private-right-name"],
@@ -1660,7 +1685,7 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
    squared iron/brass ferrules, thin highlight and dark undercut. */
 .menu-screen::after,.side-screen::after,.lobby-screen::after,
 #solo-menu::before,#rooms-menu::before,
-#breakthrough-menu::before,#private-menu::before {
+#siege-blades-menu::before,#breakthrough-menu::before,#private-menu::before {
   top:5px;height:12px;border:1px solid #704718;border-radius:2px;
   background:
     linear-gradient(90deg,#8e652b 0%,#e4ba65 1.2%,#926528 2.3%,transparent 2.4%,
@@ -1668,7 +1693,7 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
     linear-gradient(180deg,#f1d28c 0%,#d2a457 22%,#8c642b 64%,#c59a4e 82%,#674720 100%);
   box-shadow:inset 0 1px 0 #f8e1a6aa,inset 0 -2px 0 #58381780,0 3px 6px #0007;
 }
-#breakthrough-menu::before,#private-menu::before {
+#siege-blades-menu::before,#breakthrough-menu::before,#private-menu::before {
   content:"";display:block;position:absolute;z-index:2;
   right:calc(clamp(18px,3.5cqw,48px) - 22px);
   width:calc(min(410px,34cqw) + 44px);
@@ -1677,73 +1702,244 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
    same crown padding, even on short landscape screens. */
 #solo-menu > .banner-panel .banner-scroll,
 #rooms-menu > .banner-panel .banner-scroll,
+#siege-blades-menu > .banner-panel .banner-scroll,
 #breakthrough-menu > .banner-panel .banner-scroll,
 #private-menu > .banner-panel .banner-scroll {
   padding-top:43px;
 }
 #solo-menu .companion-banner .eyebrow,
 #rooms-menu .companion-banner .eyebrow,
+#siege-blades-menu .companion-banner .eyebrow,
 #breakthrough-menu .companion-banner .eyebrow,
 #private-menu .companion-banner .eyebrow {
   margin-bottom:8px;line-height:1.3;overflow-wrap:normal;
 }
 #solo-menu .companion-banner h2,
 #rooms-menu .companion-banner h2,
+#siege-blades-menu .companion-banner h2,
 #breakthrough-menu .companion-banner h2,
 #private-menu .companion-banner h2 {line-height:1.08;text-wrap:balance;}
 @container app (max-width:900px) {
-  #breakthrough-menu,#private-menu {--banner-width:min(440px,45cqw);}
+  #siege-blades-menu,#breakthrough-menu,#private-menu {--banner-width:min(440px,45cqw);}
+  #siege-blades-menu > .side-screen-inner,
   #breakthrough-menu > .side-screen-inner,
   #private-menu > .side-screen-inner {
     --banner-width:min(440px,45cqw);width:var(--banner-width);
   }
+  #siege-blades-menu > .companion-banner,
   #breakthrough-menu > .companion-banner,
   #private-menu > .companion-banner {right:18px;width:min(360px,43cqw);}
-  #breakthrough-menu::before,#private-menu::before {
+  #siege-blades-menu::before,#breakthrough-menu::before,#private-menu::before {
     right:-4px;width:calc(min(360px,43cqw) + 44px);
   }
 }
 @container app (max-height:500px) {
   #solo-menu > .banner-panel .banner-scroll,
   #rooms-menu > .banner-panel .banner-scroll,
+  #siege-blades-menu > .banner-panel .banner-scroll,
   #breakthrough-menu > .banner-panel .banner-scroll,
-  #private-menu > .banner-panel .banner-scroll {padding-top:27px;}
-  #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;}
-  #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 7px;}
+  #private-menu > .banner-panel .banner-scroll {padding-top:26px;}
+  #siege-blades-menu .mettle-companion .vote-row,
+  #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;padding-bottom:6px;}
+  #siege-blades-menu .mettle-companion .vote-row > button,
+  #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 8px;min-height:32px;font-size:12px;}
   #private-menu .private-settings-form {gap:6px;}
 }
-@container app (max-width:640px) {
-  #breakthrough-menu,#private-menu {
-    --banner-left:12px;--banner-width:calc(100cqw - 24px);
+@container app (max-width:640px), (max-height:500px) {
+  #siege-blades-menu,#breakthrough-menu,#private-menu {
+    --banner-left:max(12px,calc(50cqw - 280px));--banner-width:min(560px,calc(100cqw - 24px));
   }
+  #siege-blades-menu > .side-screen-inner,
   #breakthrough-menu > .side-screen-inner,
   #private-menu > .side-screen-inner,
+  #siege-blades-menu > .companion-banner,
   #breakthrough-menu > .companion-banner,
   #private-menu > .companion-banner {
-    --banner-width:calc(100cqw - 24px);
-    left:12px;right:auto;width:calc(100cqw - 24px);
+    --banner-width:min(560px,calc(100cqw - 24px));
+    left:var(--banner-left);right:auto;width:var(--banner-width);
     max-width:calc(100cqw - 24px);
   }
-  #breakthrough-menu::before,#private-menu::before {
-    left:-10px;right:auto;width:calc(100cqw + 20px);
+  #siege-blades-menu::before,#breakthrough-menu::before,#private-menu::before {
+    left:calc(var(--banner-left) - 22px);right:auto;width:calc(var(--banner-width) + 44px);
   }
+  #siege-blades-menu[data-panel="list"] > .companion-banner,
   #breakthrough-menu[data-panel="list"] > .companion-banner,
   #private-menu[data-panel="list"] > .companion-banner,
+  #siege-blades-menu[data-panel="details"] > .side-screen-inner,
   #breakthrough-menu[data-panel="details"] > .side-screen-inner,
   #private-menu[data-panel="details"] > .side-screen-inner {display:none;}
+  #siege-blades-menu[data-panel="list"]::before,
   #breakthrough-menu[data-panel="list"]::before,
   #private-menu[data-panel="list"]::before,
+  #siege-blades-menu[data-panel="details"]::after,
   #breakthrough-menu[data-panel="details"]::after,
   #private-menu[data-panel="details"]::after {display:none;}
+  #siege-blades-menu .companion-return,
   #breakthrough-menu .companion-return,
   #private-menu .companion-return {display:inline-flex;}
+  #siege-blades-menu .mettle-options,
   #breakthrough-menu .mettle-options,
   #private-menu .private-options {display:block;}
   #private-menu #private-create-right {display:block;}
-  #breakthrough-menu .mettle-companion .vote-row > button {font-size:14px;}
+  #siege-blades-menu .mettle-companion .vote-row > button,
+  #breakthrough-menu .mettle-companion .vote-row > button {font-size:12.5px;}
 }
 
-#breakthrough-menu [hidden], #breakthrough-menu[data-solo-mode="true"]::before { display: none !important; }
+#siege-blades-menu [hidden], #breakthrough-menu [hidden], #breakthrough-menu[data-solo-mode="true"]::before { display: none !important; }
+
+/* Persistent compact Spellblade identity bar on secondary screens */
+.sr-only {
+  position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+}
+.banner-topbar {
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 8px;
+}
+.banner-topbar > .back-button { margin:0; }
+.identity-pill-row {
+  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;
+  padding:3px 8px;border:1px solid rgba(201,156,82,.42);border-radius:2px;
+  background:rgba(20,16,13,.66);color:#e9d7b0;font:500 11.5px/1.2 var(--font-script);
+  max-width:100%;min-width:0;
+}
+.identity-pill-row.missing-name { border-color:#e07a64; }
+.identity-pill-row.editing { width:100%;margin-left:0;padding:5px 7px;justify-content:space-between; }
+.identity-pill-summary { display:inline-flex;align-items:baseline;gap:4px;min-width:0; }
+.identity-pill-label { color:rgba(234,220,182,.68);font-weight:700;letter-spacing:.05em; }
+.identity-pill-value { color:#f5dfb1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14ch; }
+.identity-pill-edit {
+  padding:2px 8px;min-height:24px;border:1px solid rgba(201,156,82,.55);border-radius:2px;
+  background:rgba(48,37,28,.8);color:#f3dca6;font:700 10.5px/1 var(--font-script);letter-spacing:.08em;cursor:pointer;
+}
+.identity-pill-edit:hover,.identity-pill-edit:focus-visible { border-color:var(--heraldry-brass-light);color:#fff6dc; }
+.identity-pill-editor { flex:1 1 130px;min-width:110px; }
+.identity-pill-editor .game-input {
+  margin:0 !important;height:30px !important;min-height:30px !important;padding:4px 8px !important;font-size:13px !important;width:100%;
+}
+
+/* Dedicated Siege Blades flagship hub: forged iron, charcoal cloth, oxidized crimson & brass trim */
+#siege-blades-menu > .banner-panel {
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.38),transparent 9%,transparent 91%,rgba(0,0,0,.42)),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 5px),
+    linear-gradient(180deg,#251f20 0%,#331d1d 44%,#1c1819 100%);
+}
+#siege-blades-menu > .banner-panel::before {
+  border-color:rgba(201,156,82,.58);
+  box-shadow:inset 0 0 0 4px rgba(17,14,14,.78),inset 0 0 0 5px rgba(201,156,82,.22);
+}
+#siege-blades-menu .siege-hub-inner { --banner-width:min(535px,44cqw); }
+#siege-blades-menu .siege-hub-inner h2 { margin:0 0 4px; }
+#siege-blades-menu .siege-hub-inner .panel-copy { margin-bottom:6px;font-size:12.5px;line-height:1.3; }
+.siege-panoramic-art {
+  position:relative;margin:0 0 6px;border:1px solid rgba(201,156,82,.52);border-radius:2px;overflow:hidden;
+  background:#161312;box-shadow:0 4px 14px rgba(0,0,0,.55),inset 0 1px 0 rgba(236,201,127,.18);
+  pointer-events:none;
+}
+.siege-panoramic-art img {
+  display:block;width:100%;height:auto;max-height:118px;object-fit:cover;object-position:center 46%;
+}
+#siege-blades-menu .siege-hub-inner .scenario-subtitle {
+  margin:0 0 6px;padding:4px 8px;border:1px solid rgba(201,156,82,.28);border-radius:2px;
+  background:rgba(16,13,12,.58);text-align:center;font-size:10.5px;letter-spacing:.14em;
+}
+#siege-blades-menu .siege-hub-inner .mode-choice { min-height:42px;padding:5px 24px;margin-bottom:5px; }
+#siege-blades-menu .siege-hub-inner .mode-choice span { font-size:15.5px; }
+#siege-blades-menu .siege-hub-inner #siege-seek.needs-server {
+  opacity:.62;cursor:not-allowed;filter:saturate(.55);
+}
+#siege-blades-menu .siege-hub-inner #siege-seek.needs-server:hover { transform:none; }
+.siege-orders-workshop-row { display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:5px; }
+.siege-orders-workshop-row > .mode-choice { margin-bottom:0 !important; }
+.siege-secondary-links {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:0;
+}
+#siege-blades-menu .siege-sub-command { min-height:38px;margin-bottom:0 !important;padding:5px 10px 6px 20px;text-align:left; }
+#siege-blades-menu .siege-sub-command span { font-size:13px;letter-spacing:.03em; }
+#siege-blades-menu .siege-sub-command small { font-size:10px; }
+.siege-workshop-shortcut {
+  border-color:rgba(201,156,82,.58);background:linear-gradient(180deg,#302721,#1d1714);
+}
+@container app (min-width:641px) and (min-height:501px) {
+  #siege-blades-menu .siege-workshop-shortcut { text-align:center;padding-left:24px; }
+  #siege-blades-menu .siege-workshop-shortcut span { font-size:14.5px; }
+}
+@container app (max-width:640px), (max-height:500px) {
+  .siege-orders-workshop-row { grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-bottom:4px; }
+}
+
+/* Compact Siege Battle Orders companion banner (fits 1280x720 desktop & 844x390 landscape mobile) */
+#siege-blades-menu .siege-orders-pair,
+#siege-blades-menu .siege-orders-outcome-row {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:8px;
+  border-bottom:1px solid #e9d7ac24;padding-bottom:6px;margin-bottom:6px;
+}
+#siege-blades-menu .siege-orders-pair > .vote-row,
+#siege-blades-menu .siege-orders-outcome-row .vote-row {
+  border-bottom:0;padding-bottom:0;margin-bottom:0;align-content:start;
+}
+#siege-blades-menu .mettle-companion .eyebrow { margin-bottom:2px; }
+#siege-blades-menu .mettle-companion h2 { margin-bottom:6px;font-size:24px; }
+#siege-blades-menu .mettle-companion .vote-row { gap:4px;padding-bottom:6px;margin-bottom:5px; }
+#siege-blades-menu .mettle-companion .vote-row > span { font-size:9.5px;letter-spacing:.15em;margin-bottom:1px; }
+#siege-blades-menu .mettle-companion .vote-row > button {
+  padding:5px 8px;min-height:29px;font-size:clamp(11px,1cqw,13px);letter-spacing:.04em;
+}
+#siege-blades-menu .mettle-companion .mettle-rival-note { margin:0 0 5px;font-size:11.5px;line-height:1.3; }
+#siege-blades-menu .mettle-companion .mettle-order-note { padding-top:5px;margin-bottom:0;font-size:11.5px;line-height:1.32; }
+
+@container app (max-height:500px) {
+  #siege-blades-menu .siege-hub-inner .eyebrow,
+  #siege-blades-menu .siege-hub-inner .panel-copy { display:none; }
+  #siege-blades-menu .siege-hub-inner .banner-topbar { margin-bottom:3px; }
+  #siege-blades-menu .siege-hub-inner h2 { font-size:20px;margin-bottom:3px; }
+  .siege-panoramic-art { margin-bottom:4px; }
+  .siege-panoramic-art img { max-height:54px;object-position:center 44%; }
+  #siege-blades-menu .siege-hub-inner .scenario-subtitle { font-size:9.5px;margin-bottom:4px;padding:3px 6px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice { min-height:36px;padding:4px 18px;margin-bottom:4px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice span { font-size:13.5px; }
+  #siege-blades-menu .siege-hub-inner .mode-choice small { display:none; }
+  #siege-blades-menu .siege-hub-inner .siege-sub-command { min-height:34px;padding:4px 8px 4px 16px; }
+  #siege-blades-menu .siege-hub-inner .siege-sub-command span { font-size:12px; }
+  .siege-secondary-links { gap:5px;margin-bottom:0; }
+  #siege-blades-menu .mettle-companion .eyebrow { display:none; }
+  #siege-blades-menu .mettle-companion h2 { font-size:20px;margin-bottom:5px; }
+  #siege-blades-menu .siege-orders-pair,
+  #siege-blades-menu .siege-orders-outcome-row { gap:6px;padding-bottom:5px;margin-bottom:5px; }
+  #siege-blades-menu .mettle-companion .mettle-rival-note,
+  #siege-blades-menu .mettle-companion .mettle-order-note { font-size:11px;margin-bottom:4px; }
+}
+@container app (max-width:480px) {
+  #siege-blades-menu .siege-orders-pair,
+  #siege-blades-menu .siege-orders-outcome-row { grid-template-columns:1fr;gap:5px; }
+}
+.mettle-mode-catalog { display:grid;gap:10px;margin:4px 0 12px; }
+.mettle-mode-group { display:grid;gap:5px; }
+.mettle-mode-group .mode-filters { margin:0; }
+.mettle-group-label {
+  color:#e9c984;font:800 10px/1.2 var(--font-script);letter-spacing:.16em;
+}
+.mettle-siege-crossref {
+  display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  padding:8px 11px;border:1px dashed rgba(201,156,82,.45);border-radius:3px;
+  background:rgba(24,19,16,.55);color:#dfd0b4;
+  font:600 11px/1.2 var(--font-script);letter-spacing:.07em;cursor:pointer;
+}
+.mettle-siege-crossref strong { color:#f5dfb1; }
+.mettle-siege-crossref:hover,.mettle-siege-crossref:focus-visible {
+  border-color:var(--heraldry-brass-light);color:#fff2d6;background:rgba(48,37,28,.7);
+}
+.advanced-practice-tools {
+  margin:4px 0 8px;border:1px solid rgba(201,156,82,.28);border-radius:3px;
+  background:rgba(20,16,13,.38);padding:4px 8px;
+}
+.advanced-practice-tools > summary {
+  cursor:pointer;padding:6px 2px;color:#d6c096;
+  font:700 10px/1.2 var(--font-script);letter-spacing:.12em;list-style:none;
+}
+.advanced-practice-tools > summary::before { content:"▸ ";display:inline-block;margin-right:4px; }
+.advanced-practice-tools[open] > summary::before { content:"▾ "; }
+.advanced-practice-tools[open] > .mode-choice { margin:6px 0 4px; }
 
 @container app (max-width: 550px) and (min-height: 430px) {
   .armory-stage-header { padding-inline: 6px; }
@@ -1797,12 +1993,25 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #armory-inspector .inspector-list { min-height:0; }
 #armory-inspector .inspector-list > .armory-slot { margin:0 0 4px; }
 #armory-inspector .inspector-list .armory-spells { gap:5px; }
-#armory-inspector .equipment-row { display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:stretch; gap:4px; }
+#armory-inspector .equipment-row,
+#armory-siege .siege-equipment-row { display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:stretch; gap:4px; }
 #armory-inspector .equipment-row .spell-card { grid-template-columns:23px minmax(0,1fr) auto; padding:6px 7px; column-gap:6px; row-gap:2px; min-height:48px; }
-#armory-inspector .equipment-row .spell-name {font-size:clamp(13px,1.25cqw,16px);letter-spacing:.025em;}
+#armory-siege .siege-equipment-row .spell-card { grid-template-columns:minmax(0,1fr) auto; padding:6px 9px; column-gap:6px; row-gap:3px; min-height:54px; text-align:left; }
+#armory-inspector .equipment-row .spell-name,
+#armory-siege .siege-equipment-row .spell-name {font-size:clamp(13px,1.25cqw,16px);letter-spacing:.025em;}
 #armory-inspector .equipment-row .spell-mark {font-size:19px;grid-row:1 / span 2;}
 #armory-inspector .equipment-row small {grid-column:2 / 4;font-size:12px;line-height:1.2;}
-#armory-inspector .equipment-row i {font-size:8px;letter-spacing:.06em;}
+#armory-siege .siege-equipment-row small {grid-column:1 / 3;font-size:12px;line-height:1.28;white-space:normal;}
+#armory-inspector .equipment-row i,
+#armory-siege .siege-equipment-row i {font-size:8px;letter-spacing:.06em;}
+.siege-skill-detail-card {
+  margin:4px 0 8px;padding:10px 12px;border:1px solid rgba(201,156,82,.45);border-radius:3px;
+  background:linear-gradient(180deg,rgba(36,28,22,.92),rgba(20,16,13,.96));
+}
+.siege-skill-detail-card[hidden] { display:none; }
+.siege-skill-detail-card .back-button { margin:0 0 8px; }
+.siege-skill-detail-actions { margin-top:10px; }
+#armory-siege #siege-skills-section.showing-skill-detail #armory-siege-machines { display:none; }
 .equipment-info {border:1px solid #c99c5280;background:linear-gradient(#3a322b,#221d19);color:#ecc97f;border-radius:2px;cursor:pointer;font:bold italic 20px Georgia,serif;min-height:44px;}
 .equipment-info:hover,.equipment-info:focus-visible {outline:2px solid #ecc97f;outline-offset:-2px;background:#51402e;}
 #armory-inspector:not(.show-equipment-detail) .inspector-item-card {display:none;}
@@ -1812,11 +2021,28 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #armory-inspector .inspector-item-card .back-button {margin:0 0 3px;}
 @container app (max-height:500px) {
  #armory-inspector .inspector-header {margin-bottom:6px;padding-bottom:5px;}
- #armory-inspector .equipment-row {grid-template-columns:minmax(0,1fr) 44px;}
- #armory-inspector .equipment-row .spell-card {padding:5px 6px;min-height:44px;}
- #armory-inspector .equipment-row .spell-name {font-size:13px;}
- #armory-inspector .equipment-row small {font-size:11px;}
+ #armory-inspector .equipment-row,
+ #armory-siege .siege-equipment-row {grid-template-columns:minmax(0,1fr) 44px;}
+ #armory-inspector .equipment-row .spell-card,
+ #armory-siege .siege-equipment-row .spell-card {padding:5px 6px;min-height:44px;}
+ #armory-inspector .equipment-row .spell-name,
+ #armory-siege .siege-equipment-row .spell-name {font-size:13px;}
+ #armory-inspector .equipment-row small,
+ #armory-siege .siege-equipment-row small {font-size:11px;}
 }
+
+/* Modestly tighter main menu rhythm so Practice & Tutorial, Castle Chronicles and Settings appear above the fold on desktop. */
+#menu .banner-scroll { padding:16px 24px 10px; }
+#menu .game-brand { margin-bottom:6px; }
+#menu .grimoirelee-crest { width:40px; height:52px; margin-bottom:4px; }
+#menu .game-brand h1 { font-size:clamp(28px,2.8cqw,36px); }
+#menu .name-block { gap:3px; margin-bottom:2px; }
+#menu .command-rail { gap:4px; }
+#menu .menu-command { min-height:39px; padding:4px 22px 5px; }
+#menu .menu-command span { font-size:15.5px; }
+#menu .menu-command small { margin-top:1px; font-size:10.5px; line-height:1.2; }
+#menu .command-pair .menu-command { min-height:34px; padding:4px 12px; }
+#menu .banner-foot { margin-top:3px; padding-top:4px; }
 
 /* Duel and training use the established paired standards, not a new screen.
    Desktop shows the rival setup alongside the two obvious launch choices;
@@ -1835,18 +2061,13 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #solo-menu[data-purpose="duel"] .side-screen-inner .mode-choice { min-height:44px; padding-block:5px; margin-bottom:5px; }
 }
 
-/* A footer separate from the scroller: the cue never overlays a command.
-   Only its chevron gently dips; reduced-motion users get a static arrow. */
-.banner-panel.has-scroll-cue > .banner-scroll {
-  margin-bottom:calc(var(--hem) + 54px);
-}
+/* Discreet overflow pill: sits inside the lower hem margin below the scroller so it never covers controls or shrinks the scroller. */
 .banner-panel > .menu-scroll-cue {
-  display:flex;align-items:center;justify-content:center;gap:9px;
-  left:18px;right:18px;bottom:calc(var(--hem) + 12px);
-  min-height:38px;padding:5px 10px;animation:none;
-  background:linear-gradient(180deg,#63271e,#471c17);
-  box-shadow:0 -4px 10px #45171155;
-  font-size:11px;letter-spacing:.09em;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  left:50%;right:auto;transform:translateX(-50%);bottom:16px;
+  width:auto;min-height:24px;padding:3px 12px;border-radius:999px;animation:none;
+  border:1px solid rgba(201,156,82,.72);background:rgba(46,19,16,.95);color:#f3e1b4;
+  box-shadow:0 3px 10px #000a;font:700 9.5px/1 var(--font-script);letter-spacing:.1em;
 }
 .banner-panel > .menu-scroll-cue[hidden] { display:none; }
 .scroll-cue-chevron {flex:none;animation:menu-chevron-dip 2.8s ease-in-out infinite;}

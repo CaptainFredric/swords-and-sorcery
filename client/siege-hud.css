@@ -193,38 +193,63 @@
 .machine-gauge[data-kind="flight"] .flight-brace-widget {display:block;}
 .machine-gauge[data-kind="flight"] .machine-component {display:none;}
 
-/* Bi-Bye-llista's ten real weak points, grouped by function but tracked
-   individually. Each miniature carries its own current/maximum HP tooltip.
-   The hull remains the dominant meter and these never widen the HUD. */
-.bibye-parts {display:none;gap:3px;margin-top:5px;padding-top:4px;
- border-top:1px solid #8b73535c;}
-.machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {display:grid;}
-.bibye-part-group {display:flex;align-items:center;min-width:0;gap:5px;}
-.bibye-part-group>strong {flex:0 0 48px;color:#c9bda4;
- font:800 7px/1 'Alegreya Sans',sans-serif;letter-spacing:.055em;}
-.bibye-part-items {display:flex;flex:1;gap:3px;min-width:0;}
-.bibye-part {flex:1;min-width:0;color:#dccda9;opacity:.9;
- font:800 7px/1 'Alegreya Sans',sans-serif;text-align:center;
- font-variant-numeric:tabular-nums;}
-.bibye-part span {display:block;margin-bottom:2px;}
-.bibye-part-track {height:4px;border:1px solid #6f6b61;overflow:hidden;
- background:#131816;box-shadow:inset 0 1px 1px #000b;}
-.bibye-part-track i {display:block;width:100%;height:100%;
- background:linear-gradient(#a8c6bc,#5e9485);transition:width .14s linear;}
-.bibye-part[data-part-state="critical"] .bibye-part-track i {
- background:linear-gradient(#ffba77,#aa5529);}
-.bibye-part[data-part-state="destroyed"] {color:#a88477;}
-.bibye-part[data-part-state="destroyed"] .bibye-part-track {border-color:#805246;}
+/* Bi-Bye-llista's ten real weak points in a compact top-down machine schematic
+   right beside the chassis meter (~48% shorter vertically than stacked rows). */
+.bibye-parts {display:none;}
+.machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {
+  display:flex;align-items:center;justify-content:center;flex:0 0 68px;
+  margin-left:-1px;padding:2px 4px;background:linear-gradient(#2c2a21,#161815);
+  border:2px solid #8b7353;outline:1px solid #29231a;box-shadow:inset 0 1px #cfaa5a44,0 3px 9px #0008;
+  pointer-events:auto;
+}
+.bibye-schematic-svg {display:block;width:58px;height:36px;overflow:visible;}
+.bibye-schem-bow {fill:none;stroke:#9e885c;stroke-width:1.6;stroke-linecap:round;}
+.bibye-schem-hull {fill:#29251e;stroke:#7c6946;stroke-width:1.2;}
+.bibye-schem-rail {stroke:#b59b65;stroke-width:1.4;stroke-linecap:round;}
+.bibye-part rect {fill:#7dbcae;stroke:#bfe8dc;stroke-width:.9;transition:fill .15s,stroke .15s,opacity .15s,transform .22s ease;}
+.bibye-part-stab {transform-origin:var(--ax,17px) var(--ay,10px);transition:transform .24s ease;}
+.bibye-schematic[data-mode="MOBILE"] .bibye-part-stab[data-part-id$="_FL"],
+.bibye-schematic[data-mode="RETRACTING"] .bibye-part-stab[data-part-id$="_FL"] {transform:rotate(58deg);opacity:.62;}
+.bibye-schematic[data-mode="MOBILE"] .bibye-part-stab[data-part-id$="_FR"],
+.bibye-schematic[data-mode="RETRACTING"] .bibye-part-stab[data-part-id$="_FR"] {transform:rotate(-58deg);opacity:.62;}
+.bibye-schematic[data-mode="MOBILE"] .bibye-part-stab[data-part-id$="_RL"],
+.bibye-schematic[data-mode="RETRACTING"] .bibye-part-stab[data-part-id$="_RL"] {transform:rotate(-58deg);opacity:.62;}
+.bibye-schematic[data-mode="MOBILE"] .bibye-part-stab[data-part-id$="_RR"],
+.bibye-schematic[data-mode="RETRACTING"] .bibye-part-stab[data-part-id$="_RR"] {transform:rotate(58deg);opacity:.62;}
+.bibye-part[data-part-state="damaged"] rect {fill:#dfb45f;stroke:#f5d896;}
+.bibye-part[data-part-state="critical"] rect {fill:#e87b3c;stroke:#ffb478;}
+.bibye-part[data-part-state="destroyed"] rect {fill:#34221d;stroke:#8a4f43;stroke-dasharray:2 1.2;opacity:.7;}
+.bibye-part.part-hit rect {fill:#ffe4b0;stroke:#fff;filter:drop-shadow(0 0 3px #ff9a4a);}
+
+/* Compact lower-right desktop keycap/instrument cluster beside Skill + Sharp Turn */
+.ballista-desktop-instruments {
+  display:none;align-items:stretch;gap:5px;flex-wrap:wrap;justify-content:flex-end;
+  max-width:290px;pointer-events:none;
+}
+.ballista-mounted:not(.flight-mounted) .ballista-desktop-instruments:not([hidden]) {display:flex;}
+.touch-ui .ballista-desktop-instruments {display:none !important;}
+.bi-inst-chip {
+  position:relative;display:flex;align-items:center;gap:5px;overflow:hidden;
+  min-height:27px;padding:3px 7px;border:1px solid #585648;
+  background:rgba(21,22,18,.88);font-family:'Alegreya Sans',sans-serif;
+}
+.bi-inst-chip b {
+  display:grid;place-items:center;min-width:18px;padding:1px 4px;border:1px solid #8a734a;
+  background:#151611;color:#f1cf88;font-size:9px;font-weight:900;letter-spacing:.04em;
+}
+.bi-inst-chip span {color:#dfd7c6;font-size:9px;font-weight:800;letter-spacing:.07em;white-space:nowrap;}
+.bi-inst-chip i[data-bi-cd] {
+  position:absolute;inset:0;background:rgba(10,11,8,.55);pointer-events:none;
+  transform:translateY(calc((1 - var(--cd,0)) * 100%));
+}
+.bi-inst-chip.is-disabled {opacity:.5;}
+.bi-inst-chip[data-state="busy"] {border-color:#e8c579;box-shadow:0 0 8px #e8c57933;}
 @container app (max-width:540px) {
- .bibye-parts {margin-top:3px;padding-top:3px;gap:2px;}
- .bibye-part-group {gap:2px;}
- .bibye-part-group>strong {flex-basis:34px;font-size:6px;}
- .bibye-part-items {gap:2px;}
- .bibye-part {font-size:6px;}
- .bibye-part-track {height:3px;}
+  .machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {flex-basis:54px;padding:1px 3px;}
+  .bibye-schematic-svg {width:46px;height:28px;}
 }
 @media(prefers-reduced-motion:reduce){
- .bibye-part-track i {transition:none;}
+  .bibye-part rect,.bibye-part-stab {transition:none;}
 }
 
 .machine-gauge[data-kind="flight"] .machine-health-main {padding:4px 6px 5px;}
@@ -305,11 +330,7 @@
   .flight-brace-track { height: 3px; margin-top: 1px; }
   .flight-rotor-mini { font-size: 7px; gap: 3px; margin-top: 3px; }
   .flight-rotor-track { height: 6px; }
-  .bibye-parts { margin-top: 3px; padding-top: 2px; gap: 1px; }
-  .bibye-part-group { gap: 2px; }
-  .bibye-part-group > strong { flex-basis: 34px; font-size: 6px; }
-  .bibye-part-items { gap: 2px; }
-  .bibye-part { font-size: 6px; }
-  .bibye-part span { margin-bottom: 1px; }
-  .bibye-part-track { height: 3px; }
+  .machine-gauge[data-kind="ballista"] .bibye-parts:not([hidden]) {flex-basis:50px;padding:1px 2px;}
+  .bibye-schematic-svg {width:42px;height:26px;}
 }
+.ballista-mounted:not(.flight-mounted) .abilities { align-items:flex-end; gap:7px; }

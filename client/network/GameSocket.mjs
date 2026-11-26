@@ -261,8 +261,10 @@ export class GameSocket {
   switchTeam(team = null) { this.send({ type: 'switchTeam', team }); }
   markTarget(targetId = null) { this.send({ type: 'markTarget', targetId }); }
   seekDuel(name) { this.send({ type: 'seekDuel', name }); }
+  seekSiege(name) { this.send({ type: 'seekSiege', name }); }
   cancelSeek() { this.send({ type: 'cancelSeek' }); }
   seekBotDuel() { this.send({ type: 'seekBotDuel' }); }
+  seekBotSiege() { this.send({ type: 'seekBotSiege' }); }
   listRooms() { this.send({ type: 'listRooms' }); }
   createPublicRoom(name, settings = {}) { this.send({ type: 'createPublicRoom', name, settings }); }
   ready(ready) { this.send({ type: 'ready', ready: Boolean(ready) }); }

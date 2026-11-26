@@ -26,16 +26,19 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
   b.detachedFist?.state==='resting'?'FIST ON GROUND · DRIVE TO PICK UP':
   b.detachedFist?.state==='flying'||b.detachedFist?.state==='falling'?'FIST IN FLIGHT':null;
  const flickAge=b.flickAt==null?Infinity:now-b.flickAt;
+ const shunting=now<(b.shuntUntil??-Infinity);
+ const shuntReady=Math.max(0,(b.shuntReadyAt??0)-now);
  const strike=flickAge<4?'FINGER FLICK '+(flickAge<.65?'winding':flickAge<.85?'RELEASED':'recovering'):
   age<timing.release?(b.skillStroke?'Piston resetting':'Piston winding'):age<timing.peak?'Piston released':age<4?'Piston retracting':'Piston ready';
  return{title:`SO-FIST-ICATION · ${Math.ceil(b.health)}/${b.maxHealth}`,pressure:b.pressure,
-  status:[b.charging&&b.speed<-.05?'REVERSE PRESSURE CHARGE':b.charging?'KNOCK ON STEEL':b.chargeSpent?'DRIVE WINDING DOWN':`${Math.abs(b.speed).toFixed(1)} m/s`,strike,siegeSkillLabel(b,now),fist?.health<=0?'EXPOSED PISTON':b.fistMounted===false?'PISTON ONLY':
+  status:[shunting?'SHUNTING':b.charging&&b.speed<-.05?'REVERSE PRESSURE CHARGE':b.charging?'KNOCK ON STEEL':b.chargeSpent?'DRIVE WINDING DOWN':`${Math.abs(b.speed).toFixed(1)} m/s`,strike,siegeSkillLabel(b,now),fist?.health<=0?'EXPOSED PISTON':b.fistMounted===false?'PISTON ONLY':
    `FIST ${Math.ceil(fist?.health??500)}/500`,
    `LIFT ${lift.toFixed(1)}m · AIM +${elev.toFixed(0)}°`,(b.ramLiftBlockedAt!=null&&now>=b.ramLiftBlockedAt&&now-b.ramLiftBlockedAt<.75?'LIFT OBSTRUCTED':''),
+   shuntReady>.05?`SHUNT ${shuntReady.toFixed(1)}s`:'',
    b.hellping?.phase==='grasp'?'CAPTURED ENEMY · CRUSHING':
      b.hellping?.phase==='transport'?'ALLY IN COMPARTMENT':
      b.hellping?.phase==='open'?'HAND BRACED · A/D AIM · W/S + SKILL HOP · SKILL GRABS':
      b.hellping?.phase==='vault'?'HAND-ASSISTED HOP':'',recovery,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
-  controls:touch?'HAND OPEN: sideways stick aims around planted fist · hold stick forward/back + SKILL to hop · SKILL near foe grabs · otherwise DRIVE · ATTACK · FLICK · VIEW · LEAVE':
-  `Hold [${key('sprint')}] + W charge · HAND OPEN: A/D aim around planted fist; W/S + [${key('siegeSkill')}] hop forward/back; [${key('siegeSkill')}] near foe grabs; neutral press closes · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}]/[${key('crouch')}] pitch · [${key('jump')}] + [${key('dash')}]/[${key('crouch')}] lift/lower`};
+  controls:touch?'HAND OPEN: sideways stick aims around planted fist · hold stick forward/back + SKILL to hop · SKILL near foe grabs · otherwise DRIVE · ATTACK · FLICK · SHUNT · VIEW · LEAVE':
+  `Hold [${key('sprint')}] + W charge · Tap [${key('jump')}] Shunt · HAND OPEN: A/D aim around planted fist; W/S + [${key('siegeSkill')}] hop forward/back; [${key('siegeSkill')}] near foe grabs; neutral press closes · [${key('attack')}] Piston · RMB Flick · [${key('siegeView')}] View · [${key('interact')}] Leave · [${key('dash')}]/[${key('crouch')}] pitch · [${key('jump')}] + [${key('dash')}]/[${key('crouch')}] lift/lower`};
 }

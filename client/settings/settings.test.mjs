@@ -216,3 +216,18 @@ test('mounted ballista Sharp Turn E shares Dash E contextually, including after 
  assert.deepEqual(store.keysFor('dash'),[]);
  assert.deepEqual(store.keysFor('siegeSweep'),[]);
 });
+
+test('ballista Deploy X shares KeyX contextually with siegeWeapon without breaking Technique, Flick, or Bolt',()=>{
+ const store=new SettingsStore({registry,storage:memoryStorage()});
+ assert.deepEqual(store.keysFor('deploy'),['KeyX']);
+ assert.deepEqual(store.keysFor('siegeWeapon'),['KeyX']);
+ assert.deepEqual(store.keysFor('ballistaFocus'),['KeyB']);
+ assert.equal(store.bind('deploy',0,'KeyX'),null);
+ assert.deepEqual(store.keysFor('siegeWeapon'),['KeyX']);
+ assert.equal(store.bind('siegeWeapon',0,'KeyX'),null);
+ assert.deepEqual(store.keysFor('deploy'),['KeyX']);
+ const displaced=store.bind('spell',0,'KeyX');
+ assert.ok(displaced==='deploy'||displaced==='siegeWeapon');
+ assert.deepEqual(store.keysFor('deploy'),[]);
+ assert.deepEqual(store.keysFor('siegeWeapon'),[]);
+});

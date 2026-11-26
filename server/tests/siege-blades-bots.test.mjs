@@ -12,6 +12,7 @@ import {
 } from '../../shared/sim/siegeBladesMode.mjs';
 import { damageSoFistication } from '../../shared/sim/soFistication.mjs';
 import { SIEGE_SKILL_OPTIONS, selectedSiegeSkill } from '../../shared/src/siegeLoadout.mjs';
+import { stepRoom } from '../../shared/sim/combat.mjs';
 
 function setupBotRoom(machineClass, difficulty = 'knight') {
   const room = new Room('sb-bot-test', {
@@ -219,4 +220,64 @@ test('Complete 3v3 Siege Blades bot match provisions 6 vehicles across 3 machine
   }
   assert.equal(room.siegeBlades.format, 'MATCH');
   assert.equal(room.siegeBlades.roundNumber, 1);
+});
+
+test('Uppercuff uses Ram Shunt/Elevation/Skills and avoids static 3.8m oscillation', async () => {
+  const { room, bot1, bot2 } = setupBotRoom(SIEGE_MACHINE_CLASSES.RAM, 'champion');
+  const m1 = room.machines.get(bot1.operatingRamId);
+  const m2 = room.machines.get(bot2.operatingRamId);
+  assert.ok(m1 && m2);
+  m1.x = -7.5; m1.z = 0; m1.heading = Math.PI / 2;
+  m2.x = 0; m2.z = 0; m2.heading = -Math.PI / 2;
+  let shunted = false, firedOrFlanked = false;
+  for (let i = 1; i <= 120; i++) {
+    stepRoom(room, 1 / 30, i / 30, room.world);
+    if ((m1.shuntUntil ?? 0) > i / 30 || (m1.shuntCooldownUntil ?? 0) > 0) shunted = true;
+    if ((m1.cycleStartedAt ?? 0) > 0 || Math.abs(m1.z) > 0.35 || m1.x > -6.5) firedOrFlanked = true;
+  }
+  assert.ok(shunted || firedOrFlanked, 'Ram bot should initiate shunt/piston/flank instead of passive reverse');
+  // Anti-air check when enemy Fight-and-Flight hovers overhead
+  const afRoom = new Room('sb-aa', { mode: GAME_MODES.SIEGE_BLADES, worldId: 'high-grounds' });
+  afRoom.state = 'PLAYING';
+  afRoom.siegeBlades = createSiegeBladesState(afRoom, { format: 'ENDLESS', teamSize: 1, botDifficulty: 'champion', clashStarts: false });
+  const rB = afRoom.addPlayer({ id: 'rb', token: 'rb', team: TEAMS.ATTACKERS }, 0);
+  const fB = afRoom.addPlayer({ id: 'fb', token: 'fb', team: TEAMS.DEFENDERS }, 0);
+  rB.actorKind = 'bot'; rB.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.RAM;
+  fB.actorKind = 'bot'; fB.preferredSiegeMachine = SIEGE_MACHINE_CLASSES.FLIGHT;
+  provisionSiegeBladesFleet(afRoom, 0);
+  const mr = afRoom.machines.get(rB.operatingRamId);
+  const mf = afRoom.machines.get(fB.operatingFightFlightId);
+  mr.x = 0; mr.z = -5; mr.heading = 0;
+  mf.x = 0; mf.z = 0; mf.y = 3.2; mf.grounded = false;
+  let elevated = false;
+  for (let i = 1; i <= 30; i++) {
+    stepRoom(afRoom, 1 / 30, i / 30, afRoom.world);
+    if (rB.input?.ramRaise || rB.input?.ramPitchUp || (mr.ramLiftY ?? 0) > 0.05) elevated = true;
+  }
+  assert.ok(elevated, 'Uppercuff should raise/pitch ram toward hovering aircraft');
+});
+
+test('Ballistefan triggers Sharp Turn / retract defense under close threat and Donte manages charge & rotor aim', () => {
+  const { room: blRoom, bot1: bl1, bot2: bl2 } = setupBotRoom(SIEGE_MACHINE_CLASSES.BALLISTA, 'champion');
+  const mb = blRoom.machines.get(bl1.operatingBallistaId);
+  const mbEnemy = blRoom.machines.get(bl2.operatingBallistaId);
+  mb.mode = 'DEPLOYED'; mb.deployed = true; mb.deployProgress = 1;
+  mb.x = 0; mb.z = 0; mb.baseYaw = 0; mb.headYaw = 0;
+  // Place enemy close behind/aside so Sharp Turn or retract responds
+  mbEnemy.x = 0; mbEnemy.z = -6.5; mbEnemy.vx = 0; mbEnemy.vz = 6;
+  let reacted = false;
+  for (let i = 1; i <= 25; i++) {
+    stepRoom(blRoom, 1 / 30, i / 30, blRoom.world);
+    if (mb.sharpTurnActive || mb.mode !== 'DEPLOYED' || (mb.deployTarget ?? 1) < 1) reacted = true;
+  }
+  assert.ok(reacted, 'Deployed Ballista bot should react with Sharp Turn or early retract under close threat');
+
+  const { room: flRoom, bot1: fl1, bot2: fl2 } = setupBotRoom(SIEGE_MACHINE_CLASSES.FLIGHT, 'champion');
+  const mf1 = flRoom.machines.get(fl1.operatingFightFlightId);
+  const mf2 = flRoom.machines.get(fl2.operatingFightFlightId);
+  mf1.x = 0; mf1.z = -12; mf1.y = 2.0; mf1.grounded = false; mf1.flightCharge = 10; // low charge forces regroup landing
+  mf2.x = 0; mf2.z = 0; mf2.y = 2.5; mf2.grounded = false; mf2.rotorHP = 90;
+  for (let i = 1; i <= 20; i++) stepRoom(flRoom, 1 / 30, i / 30, flRoom.world);
+  assert.equal(fl1.input?.jump, false, 'Low-charge Donte must not keep climbing instead of conserving/landing');
+  assert.ok((fl1.input?.pitch ?? 0) > -0.6 && Number.isFinite(fl1.input?.pitch), 'Donte aims smoothly');
 });

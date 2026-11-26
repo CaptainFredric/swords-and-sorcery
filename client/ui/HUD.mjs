@@ -20,7 +20,7 @@ import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
-import { biByeHudView } from './biByeHudView.mjs';
+import { biByeHudView, biByeDesktopInstruments } from './biByeHudView.mjs';
 import { AfflictionPanel } from './AfflictionPanel.mjs';
 import { SiegeMachinePicker } from './SiegeMachinePicker.mjs';
 import {killFeedColoredWords,KILLFEED_TONES} from '../game/killFeedColor.mjs';
@@ -229,6 +229,16 @@ export class HUD {
     this.ballistaSweepTile.innerHTML='<span class="ability-icon"></span><b>E</b><em>SHARP TURN</em><strong>READY</strong>';
     this.ballistaSweepTile.querySelector('.ability-icon').innerHTML=iconSvg('siegeSweep');
     this.flightSkillTile.parentElement?.append(this.ballistaSweepTile);
+    this.ballistaInstruments=document.createElement('div');
+    this.ballistaInstruments.className='ballista-desktop-instruments';
+    this.ballistaInstruments.hidden=true;
+    this.ballistaInstruments.innerHTML=
+      '<div class="bi-inst-chip" data-bi-inst="primary"><b>LMB</b><span data-bi-label>BOLT I</span><i data-bi-cd></i></div>'+
+      '<div class="bi-inst-chip" data-bi-inst="deploy"><b>X</b><span data-bi-label>DEPLOY</span></div>'+
+      '<div class="bi-inst-chip" data-bi-inst="secondary"><b>RMB</b><span data-bi-label>BOLT II</span></div>'+
+      '<div class="bi-inst-chip" data-bi-inst="focus" hidden><b>B</b><span data-bi-label>MAIN</span></div>'+
+      '<div class="bi-inst-chip" data-bi-inst="view"><b>Z</b><span data-bi-label>VIEW</span></div>';
+    this.flightSkillTile.parentElement?.append(this.ballistaInstruments);
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
@@ -394,14 +404,31 @@ export class HUD {
         <div class="flight-brace-reading"><span>${short} BRACE</span><b data-brace-hp>80/80</b></div>
         <div class="flight-brace-track"><i data-brace-fill></i></div>
       </div>`;
-    // Fixed, compact parts instrumentation. The labels exist once, while
-    // each authoritative HP value updates in-place on incoming snapshots.
-    const bibyeParts=(kind,title)=>'<div class="bibye-part-group" data-part-group="'+kind+'">'+
-      '<strong>'+title+'</strong><div class="bibye-part-items">'+
-      BI_BYE_COMPONENTS.filter(part=>part.kind===kind).map(part=>
-        '<div class="bibye-part" data-part-id="'+part.id+'" data-part-state="intact" aria-label="'+part.id+'">'+
-        '<span>'+part.id.split('_')[1]+'</span><div class="bibye-part-track"><i data-part-fill></i></div>'+
-        '</div>').join('')+'</div></div>';
+    // Compact miniature top-down schematic (reduces vertical footprint by ~48%
+    // vs stacked text rows while preserving all 6 wheels + 4 outriggers + HP tooltips).
+    const wheelSpots=[
+      {id:'Wheel_FL',x:12,y:12},{id:'Wheel_FR',x:52,y:12},
+      {id:'Wheel_ML',x:12,y:21},{id:'Wheel_MR',x:52,y:21},
+      {id:'Wheel_RL',x:12,y:30},{id:'Wheel_RR',x:52,y:30},
+    ];
+    const stabSpots=[
+      {id:'Stabilizer_FL',x:4,y:6,w:10,h:4,ax:17,ay:10},
+      {id:'Stabilizer_FR',x:50,y:6,w:10,h:4,ax:47,ay:10},
+      {id:'Stabilizer_RL',x:4,y:32,w:10,h:4,ax:17,ay:32},
+      {id:'Stabilizer_RR',x:50,y:32,w:10,h:4,ax:47,ay:32},
+    ];
+    const bibyeSchematic=
+      '<div class="bibye-parts bibye-schematic" data-bibye-parts data-mode="MOBILE" hidden>'+
+        '<svg viewBox="0 0 64 42" class="bibye-schematic-svg" aria-hidden="true">'+
+          '<path class="bibye-schem-bow" d="M18 11 Q32 3 46 11"/>'+
+          '<rect class="bibye-schem-hull" x="21" y="9" width="22" height="24" rx="2"/>'+
+          '<line class="bibye-schem-rail" x1="32" y1="4" x2="32" y2="36"/>'+
+          stabSpots.map(s=>`<g class="bibye-part bibye-part-stab" data-part-id="${s.id}" data-part-state="intact" style="--ax:${s.ax}px;--ay:${s.ay}px"><rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="1.2"/></g>`).join('')+
+          wheelSpots.map(w=>`<g class="bibye-part bibye-part-wheel" data-part-id="${w.id}" data-part-state="intact"><rect x="${w.x-3}" y="${w.y-3.5}" width="6" height="7" rx="1.2"/></g>`).join('')+
+        '</svg>'+
+      '</div>';
+    this.partLastHp=new Map();
+    this.partHitTimers=new Map();
     this.machineGauge.innerHTML =
       '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
       '<small class="machine-piston" data-machine-piston></small>'+
@@ -410,7 +437,8 @@ export class HUD {
         '<div class="machine-health-main"><div class="machine-health-head"><b data-machine-name></b><output data-machine-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-machine-fill></div></div>'+
         '<div class="flight-rotor-mini"><span>ROTOR <output data-flight-rotor-hp>100/100</output></span><div class="flight-rotor-track"><i data-flight-rotor-fill></i></div></div>'+
-        '<div class="bibye-parts" data-bibye-parts>'+bibyeParts('wheel','WHEELS')+bibyeParts('stabilizer','SUPPORTS')+'</div></div>'+
+        '</div>'+
+        bibyeSchematic+
         flightBrace('right','R')+
         '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
@@ -591,14 +619,25 @@ export class HUD {
       if(gauge.kind==='ballista'){
         const parts=el.querySelector('[data-bibye-parts]');
         parts.hidden=!(gauge.parts?.wheels?.length||gauge.parts?.stabilizers?.length);
+        parts.dataset.mode=gauge.mode??'MOBILE';
         for(const part of [...(gauge.parts?.wheels??[]),...(gauge.parts?.stabilizers??[])]){
           const widget=parts.querySelector('[data-part-id="'+part.id+'"]');
           if(!widget)continue;
+          const prevHp=this.partLastHp.get(part.id);
+          if(prevHp!=null&&part.health<prevHp){
+            widget.classList.add('part-hit');
+            clearTimeout(this.partHitTimers.get(part.id));
+            this.partHitTimers.set(part.id,setTimeout(()=>widget.classList.remove('part-hit'),650));
+          }
+          this.partLastHp.set(part.id,part.health);
           widget.dataset.partState=part.state;
-          widget.querySelector('[data-part-fill]').style.width=part.percent.toFixed(2)+'%';
-          widget.title=part.id.replace('_',' ')+' · '+
+          const fill=widget.querySelector('[data-part-fill]');
+          if(fill)fill.style.width=part.percent.toFixed(2)+'%';
+          widget.style.setProperty('--hp-frac',(part.percent/100).toFixed(3));
+          const label=part.id.replace('_',' ')+' · '+
             machineGaugeNumber(part.health)+'/'+machineGaugeNumber(part.maxHealth)+' HP';
-          widget.setAttribute('aria-label',widget.title);
+          widget.setAttribute('title',label);
+          widget.setAttribute('aria-label',label);
         }
       }
       if(gauge.kind==='flight'){
@@ -680,9 +719,44 @@ export class HUD {
         sweep.remaining>.01?sweep.remaining.toFixed(1)+'s':'READY';
       this.ballistaSweepTile.title='A Sharp Turn · shares Bolt II recovery';
     }
+    const inst=bow?biByeDesktopInstruments(bow,serverNow,this.ballistaControls):null;
+    this.ballistaInstruments.hidden=!inst||Boolean(this.ballistaControls?.touch);
+    if(inst&&!this.ballistaControls?.touch){
+      const setChip=(name,keyTxt,labelTxt,{cd=0,disabled=false,hidden=false,state=''}={})=>{
+        const chip=this.ballistaInstruments.querySelector(`[data-bi-inst="${name}"]`);
+        if(!chip)return;
+        chip.hidden=hidden;
+        if(hidden)return;
+        chip.querySelector('b').textContent=keyTxt;
+        chip.querySelector('[data-bi-label]').textContent=labelTxt;
+        chip.classList.toggle('is-disabled',Boolean(disabled));
+        chip.dataset.state=state;
+        const bar=chip.querySelector('[data-bi-cd]');
+        if(bar)bar.style.setProperty('--cd',String(Math.max(0,Math.min(1,cd))));
+      };
+      setChip('primary',inst.primary.key,inst.primary.label,{
+        cd:inst.primary.total>0?inst.primary.remaining/inst.primary.total:0,
+        state:inst.primary.busy?'busy':inst.primary.remaining>.01?'cooling':'ready',
+      });
+      setChip('deploy',inst.deploy.key,inst.deploy.label,{
+        disabled:inst.deploy.disabled,state:inst.deploy.state.toLowerCase(),
+      });
+      setChip('secondary',inst.secondary.key,inst.secondary.label,{
+        state:inst.secondary.remaining>.01?'cooling':'ready',
+      });
+      setChip('focus',inst.secondary.focusKey,inst.secondary.focusTarget+' FOCUS',{
+        hidden:!inst.secondary.focusAvailable,
+      });
+      setChip('view',inst.view.key,inst.view.label);
+    }
+    const rowWidthNow=this.abilityRow?.offsetWidth??0;
+    if(rowWidthNow!==this.lastAbilityRowWidth){
+      this.lastAbilityRowWidth=rowWidthNow;
+      this.#syncGaugeLane();
+    }
     this.flightChargeRail.hidden = !siege || !isFlight;
     const uprootedBallista=local?.alive&&local.operatingBallistaId
-      ? snapshot?.bibyeBallista:null;
+      ? (snapshot?.machines?.find(m=>m&&m.id===local.operatingBallistaId)??snapshot?.bibyeBallista):null;
     const uprootedUntil=uprootedBallista?.outriggersDislodgedUntil;
     const uprootedVisible=uprootedBallista&&
       Number.isFinite(uprootedUntil)&&uprootedUntil>serverNow;
@@ -796,7 +870,9 @@ export class HUD {
 
         const m = snapshot.machines ? Object.values(snapshot.machines).find(mach => mach.operatorId === local?.id) : null;
         if (m && (m.class === 'fight-and-flight' || m.kind === 'flight' || m.type === 'fight-and-flight' || m.rotorHP !== undefined)) {
-          const high = (m.y ?? 0) > 4.5;
+          const limit = sbView.zone.altitudeLimit ?? 4.0;
+          const high = (m.y ?? 0) > limit + 0.2;
+          hintEl.textContent = `ALTITUDE LIMIT ${limit.toFixed(1)}m · DESCENT REQUIRED TO CONTEST`;
           hintEl.classList.toggle('hidden', !high);
         } else {
           hintEl.classList.add('hidden');
@@ -1150,7 +1226,7 @@ export class HUD {
       // (only tiles in the gauge's band, along the bottom, compete with it)
       if (top + row.offsetHeight > height - Math.max(gauge.offsetHeight, 40) - 4) {
         reach = left + row.offsetWidth / 2 < width / 2 ? left + row.offsetWidth : width - left;
-        rise = row.offsetHeight;
+        rise = height - top + 8;
       }
     }
     const lane = (root.offsetWidth ?? 0) - 2 * reach - 24;
@@ -1363,13 +1439,24 @@ export class HUD {
     for(const part of colored){
       const span=document.createElement('span');
       const valid=part.tones.filter(tone=>Object.hasOwn(KILLFEED_TONES,tone));
-      if(valid.length===1)span.className=`feed-word tone-${valid[0]}`;
-      else if(valid.length>1){
-        span.className='feed-word feed-gradient';
-        // Colors come strictly from KILLFEED_TONES, never server/user HTML.
-        span.style.backgroundImage=`linear-gradient(90deg, ${valid.map(tone=>KILLFEED_TONES[tone]).join(', ')})`;
-      }else span.className='feed-word';
-      span.textContent=part.text;
+      if(Array.isArray(part.letters)&&part.letters.length){
+        span.className='feed-word';
+        for(const ch of part.letters){
+          const letterSpan=document.createElement('span');
+          const lt=ch.tones?.[0];
+          letterSpan.className=lt&&Object.hasOwn(KILLFEED_TONES,lt)?`feed-word tone-${lt}`:'feed-word';
+          letterSpan.textContent=ch.text;
+          span.appendChild(letterSpan);
+        }
+      }else{
+        if(valid.length===1)span.className=`feed-word tone-${valid[0]}`;
+        else if(valid.length>1){
+          span.className='feed-word feed-gradient';
+          // Colors come strictly from KILLFEED_TONES, never server/user HTML.
+          span.style.backgroundImage=`linear-gradient(90deg, ${valid.map(tone=>KILLFEED_TONES[tone]).join(', ')})`;
+        }else span.className='feed-word';
+        span.textContent=part.text;
+      }
       line.appendChild(span);
     }
     line.classList.remove('fade');

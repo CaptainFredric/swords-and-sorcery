@@ -79,6 +79,7 @@ export function machineGaugeView(local, snapshot, now = 0) {
     // Ten small, independently destructible parts: six carriage wheels and
     // four outriggers. Read the actual serialized HP, never synthesize it
     // from hull HP or fill missing components with fake health.
+    view.mode=machine.mode??'MOBILE';
     const parts=BI_BYE_COMPONENTS.filter(def=>machine.components[def.id])
       .map(def=>{
         const hp=machine.components[def.id],health=amount(hp.health);
@@ -86,7 +87,7 @@ export function machineGaugeView(local, snapshot, now = 0) {
         return {id:def.id,label:def.id.split('_')[1],
           kind:def.kind,health,maxHealth,
           percent:fraction(health,maxHealth),state:health<=0?'destroyed':
-            health<maxHealth*.35?'critical':'intact'};
+            health<maxHealth*.35?'critical':health<maxHealth*.95?'damaged':'intact'};
       });
     view.parts={
       wheels:parts.filter(p=>p.kind==='wheel'),

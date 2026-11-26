@@ -20,7 +20,7 @@ import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../share
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
-import { GAME_MODES, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, arenaForMode } from '../../shared/src/modes.mjs';
+import { GAME_MODES, BREAKTHROUGH_ARENAS, HIGH_GROUNDS_ARENAS, arenaForMode, arenasForMode } from '../../shared/src/modes.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -115,6 +115,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   assembleSoFistAsset('glb');
   const roomManager = new RoomManager();
   const matchmaker = new Matchmaker();
+  const siegeMatchmaker = new Matchmaker();
+  let nextSiegeArenaIndex = 0;
   const sessions = new Set();
   const sessionsById = new Map();
   const pendingRewards = new Map();
@@ -267,19 +269,34 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     attachPlayer(session, room, player);
   }
 
+  function seekingEntry(sessionId) {
+    const siegeEntry = siegeMatchmaker.entry(sessionId);
+    if (siegeEntry) return { queue: 'siege', queueInstance: siegeMatchmaker, entry: siegeEntry };
+    const duelEntry = matchmaker.entry(sessionId);
+    if (duelEntry) return { queue: 'duel', queueInstance: matchmaker, entry: duelEntry };
+    return null;
+  }
+
+  function cancelAllSeeking(sessionId) {
+    const a = matchmaker.cancel(sessionId);
+    const b = siegeMatchmaker.cancel(sessionId);
+    return a || b;
+  }
+
   function sendSeeking(session, time) {
-    const entry = matchmaker.entry(session.id);
+    const active = seekingEntry(session.id);
     send(session, {
       type: 'seeking',
-      active: Boolean(entry),
-      since: entry?.since ?? null,
-      others: Math.max(0, matchmaker.size - (entry ? 1 : 0)),
-      botOffer: Boolean(entry?.botOffered),
+      active: Boolean(active),
+      queue: active?.queue ?? null,
+      since: active?.entry?.since ?? null,
+      others: active ? Math.max(0, active.queueInstance.size - 1) : 0,
+      botOffer: Boolean(active?.entry?.botOffered),
       serverTime: time,
     });
   }
 
-  // pair seekers into fresh duel rooms; offer a bot to anyone who has waited long
+  // pair seekers into fresh duel or 1v1 Siege Blades rooms; offer a bot to anyone who has waited long
   function runMatchmaking(time) {
     for (const [a, b] of matchmaker.takePairs()) {
       const first = sessionsById.get(a.key);
@@ -296,13 +313,46 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       room.armAutoStart(time);
       broadcastLobby(room);
     }
+    const siegeArenas = arenasForMode(GAME_MODES.SIEGE_BLADES);
+    for (const [a, b] of siegeMatchmaker.takePairs()) {
+      const first = sessionsById.get(a.key);
+      const second = sessionsById.get(b.key);
+      if (!first || first.peer.closed) { if (second && !second.peer.closed) siegeMatchmaker.requeueFront(b); continue; }
+      if (!second || second.peer.closed) { siegeMatchmaker.requeueFront(a); continue; }
+      const worldId = siegeArenas[(nextSiegeArenaIndex++) % siegeArenas.length];
+      const room = roomManager.createCustomRoom({
+        isPrivate: true,
+        mode: GAME_MODES.SIEGE_BLADES,
+        worldId,
+        teamSize: 1,
+        botSkill: 'knight',
+        format: 'MATCH',
+        matchRounds: 3,
+      }, time);
+      for (const [session, entry, opponent] of [[first, a, b], [second, b, a]]) {
+        leaveRoom(session, time);
+        joinNew(session, room, entry.name);
+        send(session, { type: 'siegeFound', opponent: opponent.name, roomCode: room.code, worldId });
+        sendSeeking(session, time);
+      }
+      room.armAutoStart(time);
+      broadcastLobby(room);
+    }
     for (const entry of matchmaker.dueBotOffers(time)) {
+      const session = sessionsById.get(entry.key);
+      if (session) sendSeeking(session, time);
+    }
+    for (const entry of siegeMatchmaker.dueBotOffers(time)) {
       const session = sessionsById.get(entry.key);
       if (session) sendSeeking(session, time);
     }
     if (time - lastSeekBroadcastAt >= 2) {
       lastSeekBroadcastAt = time;
       for (const entry of matchmaker.queue) {
+        const session = sessionsById.get(entry.key);
+        if (session) sendSeeking(session, time);
+      }
+      for (const entry of siegeMatchmaker.queue) {
         const session = sessionsById.get(entry.key);
         if (session) sendSeeking(session, time);
       }
@@ -388,6 +438,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (message.type === 'seekDuel') {
       // wait in a practice yard while the server-wide queue finds a challenger
       const name = String(message.name || 'Spellblade').trim().slice(0, 18) || 'Spellblade';
+      siegeMatchmaker.cancel(session.id);
       const room = sessionRoom(session);
       if (!room || room.mode !== GAME_MODES.PRACTICE) {
         if (room) leaveRoom(session, time);
@@ -397,17 +448,67 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       sendSeeking(session, time);
       return;
     }
-    if (message.type === 'cancelSeek') {
+    if (message.type === 'seekSiege') {
+      // wait in a practice yard while the server-wide 1v1 Siege Blades queue pairs human operators
+      const name = String(message.name || 'Spellblade').trim().slice(0, 18) || 'Spellblade';
       matchmaker.cancel(session.id);
+      const room = sessionRoom(session);
+      if (!room || room.mode !== GAME_MODES.PRACTICE) {
+        if (room) leaveRoom(session, time);
+        enterPracticeYard(session, name, time);
+      }
+      siegeMatchmaker.enqueue(session.id, name, time);
+      sendSeeking(session, time);
+      return;
+    }
+    if (message.type === 'cancelSeek') {
+      cancelAllSeeking(session.id);
       sendSeeking(session, time);
       return;
     }
     if (message.type === 'seekBotDuel') {
-      // fight a bot while still in the queue
-      const entry = matchmaker.entry(session.id);
+      // fight a bot while still in the queue (supports both Duel and Siege seekers)
+      const active = seekingEntry(session.id);
+      if (!active) return;
+      leaveRoom(session, time);
+      if (active.queue === 'siege') {
+        const arenas = arenasForMode(GAME_MODES.SIEGE_BLADES);
+        const worldId = arenas[(nextSiegeArenaIndex++) % arenas.length];
+        const room = roomManager.createSoloRoom(GAME_MODES.SIEGE_BLADES, time, worldId, {
+          format: 'MATCH',
+          matchRounds: 3,
+          teamSize: 1,
+          botDifficulty: 'knight',
+          machineSelection: 'random',
+        });
+        const player = createNetworkPlayer(session, room, active.entry.name);
+        room.provisionModeActors(time);
+        room.armAutoStart(time);
+        attachPlayer(session, room, player);
+        sendSeeking(session, time);
+        return;
+      }
+      const room = roomManager.createSoloRoom(GAME_MODES.BOT_DUEL, time);
+      const player = createNetworkPlayer(session, room, active.entry.name);
+      room.provisionModeActors(time);
+      room.armAutoStart(time);
+      attachPlayer(session, room, player);
+      sendSeeking(session, time);
+      return;
+    }
+    if (message.type === 'seekBotSiege') {
+      const entry = siegeMatchmaker.entry(session.id);
       if (!entry) return;
       leaveRoom(session, time);
-      const room = roomManager.createSoloRoom(GAME_MODES.BOT_DUEL, time);
+      const arenas = arenasForMode(GAME_MODES.SIEGE_BLADES);
+      const worldId = arenas[(nextSiegeArenaIndex++) % arenas.length];
+      const room = roomManager.createSoloRoom(GAME_MODES.SIEGE_BLADES, time, worldId, {
+        format: 'MATCH',
+        matchRounds: 3,
+        teamSize: 1,
+        botDifficulty: 'knight',
+        machineSelection: 'random',
+      });
       const player = createNetworkPlayer(session, room, entry.name);
       room.provisionModeActors(time);
       room.armAutoStart(time);
@@ -416,7 +517,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'leaveRoom') {
-      matchmaker.cancel(session.id);
+      cancelAllSeeking(session.id);
       leaveRoom(session, time);
       send(session, { type: 'left' });
       return;
@@ -543,7 +644,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     peer.onClose = () => {
       sessions.delete(session);
       sessionsById.delete(session.id);
-      matchmaker.cancel(session.id);
+      cancelAllSeeking(session.id);
       const room = sessionRoom(session);
       if (room && session.playerId) {
         room.disconnectPlayer(session.playerId, now());
@@ -716,6 +817,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   return {
     roomManager,
     matchmaker,
+    siegeMatchmaker,
     now,
     tick(explicitTime) { tick(explicitTime); },
     start() {

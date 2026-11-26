@@ -2,7 +2,7 @@ import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeRootFrame, biByeHitVolumes, 
 import { boxWorld, alignedSeparated } from '../src/orientedBox.mjs';
 
 const RAD=Math.PI/180, R=.55, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:22*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.125,padAdjustment:.08});
+export const BI_BYE_TERRAIN=Object.freeze({mobileGrade:22*RAD,deployedGrade:8*RAD,step:.25,wheelTravel:.19,padAdjustment:.08});
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const inside=(s,x,z)=>x>=s.x0-1e-7&&x<=s.x1+1e-7&&z>=s.z0-1e-7&&z<=s.z1+1e-7;

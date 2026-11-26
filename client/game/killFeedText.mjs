@@ -10,6 +10,19 @@ const pick=(lines,event)=>{
 const text=(words,event,kind)=>({text:pick(words,event),kind});
 const apostrophe=name=>/s$/i.test(name)?name+"'":name+"'s";
 const isVortex=source=>['vortex','ember','vortexFire','vortexBlaze'].includes(source);
+const DISASTER_ELEMENTS=['fire','frost','gale','lightning','steel'];
+const isDisasterSource=(source,tiers)=>source==='one_hit_of_wonders'||
+  source.startsWith('one_hit_')||(source==='rupture'&&Boolean(tiers));
+function disasterElementCount(event){
+  const source=String(event?.source??'');
+  const tiers=event?.infusionTiers;
+  if(!isDisasterSource(source,tiers)||!tiers||typeof tiers!=='object')return 0;
+  return DISASTER_ELEMENTS.filter(el=>Number(tiers[el])>=1).length;
+}
+function elementalConvergenceCount(event){
+  if(!Array.isArray(event?.elementalCauses))return 0;
+  return [...new Set(event.elementalCauses.filter(el=>DISASTER_ELEMENTS.includes(el)))].length;
+}
 
 /** Pure, deterministic single-death copy and existing HUD color family. */
 export function killFeedDeath(event,killerName=null,victimName='someone',{mode=null}={}){
@@ -37,6 +50,11 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    return {text:`${v} got struck instead...`,kind:'fire'};
  if(source==='hellping-crush')
    return {text:`${k} wouldn't become ${apostrophe(v)} friend`,kind:'sword'};
+ const disasterCount=disasterElementCount(event);
+ if(disasterCount>=5)return {text:`${v} died from ALL-natural causes.`,kind:'mixed'};
+ if(disasterCount>=2)return {text:`${v} died from all-natural causes.`,kind:'mixed'};
+ if(source!=='abyss'&&elementalConvergenceCount(event)>=2)
+   return {text:`${v} died from natural causes.`,kind:'mixed'};
  if(source==='one_hit_of_wonders'&&event.killContext==='lightning-teleport-slam')
    return {text:`${v} forgot the element of surprise`,kind:'fire'};
  if(source==='one_hit_of_wonders'&&event.killContext==='nearly-full-disaster')
@@ -249,7 +267,7 @@ export function allowsSharedHeroEpitaph(event) {
   const ordinary=['sword','fireball','burn','frostfire','gale','gauntlet','ram'];
   return ordinary.includes(event?.source)&&!event?.killContext&&
     !event?.abandonedCaptureCircle&&!event?.guardWouldSave&&!event?.extremeOverkill&&
-    !(event?.sameKillerDeaths>=2);
+    !(event?.sameKillerDeaths>=2)&&elementalConvergenceCount(event)<2;
 }
 // Real grouped casualties, collected by the client from authoritative death
 // events with the same credited killer within the same brief impact window.

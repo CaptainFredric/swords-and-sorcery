@@ -84,10 +84,10 @@ button, input { touch-action: manipulation; }
 /* Touch users get a direct shortcut; desktop's established menu route is unchanged. */
 .touch-ui #pause-practice { display: none !important; }
 
-/* Ballista mount & deploy touch controls */
-.touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
-.touch-deploy { --size: 58px; right: calc(var(--safe-r) + 196px * var(--s)); bottom: calc(var(--safe-b) + 164px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
-.touch-siegeView { --size: 58px; right: calc(var(--safe-r) + 122px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); }
+/* Ballista mount & deploy defaults (non-overridden CSS baseline mirrors touchLayout preset). */
+.touch-interact { --size: 38px; right: calc(var(--safe-r) + 8px * var(--s)); top: calc(var(--safe-t) + 8px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
+.touch-deploy { --size: 48px; right: calc(var(--safe-r) + 14px * var(--s)); bottom: calc(var(--safe-b) + 162px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
+.touch-siegeView { --size: 46px; right: calc(var(--safe-r) + 106px * var(--s)); bottom: calc(var(--safe-b) + 168px * var(--s)); }
 /* The on-foot VIEW toggle keeps its familiar control, with a persistent visual state. */
 .touch-siegeView.on { border-color: #e6c46a; background: radial-gradient(circle, rgba(230,196,106,.35), rgba(55,48,31,.82)); box-shadow: inset 0 0 0 1px rgba(240,212,142,.35), 0 2px 10px #0008; }
 .touch-btn[hidden] { display: none; }
@@ -558,9 +558,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   opacity: 0.9;
 }
-/* the gauntlet's own button: only when asked for in the settings, left of the spell */
+/* the gauntlet's own button: only when asked for in the settings and on foot, left of the spell */
 .touch-gauntlet { --size: 46px; display: none !important; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #eadfc4; border-color: rgba(214, 190, 140, .62); }
-.touch-controls.gauntlet-on .touch-gauntlet { display: grid !important; }
+.touch-controls.gauntlet-on:not(.touch-mounted) .touch-gauntlet { display: grid !important; }
 /* Crouch sits inward of the joystick, away from its forward Sprint/Charge
    extension. The flight rail occupies this space only while Crouch is hidden. */
 .touch-crouch { --size: 50px; left: calc(var(--safe-l) + 164px * var(--s)); bottom: calc(var(--safe-b) + 187px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }
@@ -889,12 +889,19 @@ body.touch-layout-editor-open #practice-overlay {
   right: calc(var(--safe-r) + 48px * var(--s));
   bottom: calc(var(--safe-b) + 96px * var(--s));
 }
-/* Ballista Steel is a third, low-priority target on the firing row; it no
-   longer occludes BOTH. Custom user placements still win as inline styles. */
+/* Ballista Steel sits cleanly left of Skill on the lower row without obstructing
+   Sweep, View, Deploy, or BOTH. Custom user placements still win as inline styles. */
 .touch-controls.touch-mounted.touch-ballista:not(.touch-flight).mounted-steel-available .touch-spell {
-  --size:54px;
+  --size:46px;
   right:calc(var(--safe-r) + 176px * var(--s));
-  bottom:calc(var(--safe-b) + 22px * var(--s));
+  bottom:calc(var(--safe-b) + 18px * var(--s));
+}
+.touch-ui .hud.ballista-mounted .kill-feed {
+  top: calc(var(--safe-t, 0px) + var(--mobile-feed-top, 52px));
+  right: calc(var(--safe-r, 0px) + 12px);
+  width: min(240px, 44cqw);
+  max-height: 92px;
+  overflow: hidden;
 }
 .touch-controls .touch-spell.steel-ward-active {
   border-color: #79c0ff !important;
@@ -934,7 +941,7 @@ body.touch-layout-editor-open #practice-overlay {
 
 /* The mounted visibility reset hides on-foot Jump/Crouch. The ram reuses
    these actions for distinct RAISE and LOWER hydraulic buttons. */
-.touch-mounted.touch-ram :is(.touch-jump,.touch-crouch,.touch-spell):not([hidden]) {display:grid}
+.touch-mounted.touch-ram :is(.touch-jump,.touch-crouch,.touch-dash,.touch-spell):not([hidden]) {display:grid}
 .touch-mounted.touch-ram :is(.touch-jump,.touch-crouch) .touch-face span {
  font-size:6px;letter-spacing:.025em;max-width:94%;overflow-wrap:anywhere;
  text-align:center;line-height:1.15

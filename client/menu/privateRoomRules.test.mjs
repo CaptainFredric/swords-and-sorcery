@@ -34,6 +34,10 @@ test('A private Siege Blades room carries its format and rounds to the mode, not
  assert.equal(match.team,null,'sides are drawn by the mode');
  const endless=privateRoomPreview('SIEGE_BLADES',{teamSize:1,format:'ENDLESS',endlessRoundCap:0});
  assert.equal(endless.ok,true);assert.equal(endless.summary,'SIEGE BLADES · 1V1 · ENDLESS · NO CAP');
+ const endlessClashOff=privateRoomPreview('SIEGE_BLADES',{teamSize:1,format:'ENDLESS',endlessRoundCap:25,clashStarts:false});
+ assert.equal(endlessClashOff.ok,true);
+ assert.equal(endlessClashOff.settings.siegeBladesSettings.clashStarts,false);
+ assert.equal(endlessClashOff.summary,'SIEGE BLADES · 1V1 · ENDLESS · CAP 25 · CLASH OFF');
  for(const bad of [{matchRounds:4},{format:'MARATHON'},{format:'ENDLESS',endlessRoundCap:99},{teamSize:4}])
   assert.equal(privateRoomPreview('SIEGE_BLADES',bad).ok,false,JSON.stringify(bad));
 });

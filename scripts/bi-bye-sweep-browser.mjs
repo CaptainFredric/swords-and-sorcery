@@ -201,11 +201,11 @@ try{
  await screenshot('06-loaded-bolt-I-release');
  // Real deployed gameplay acceptance for Argon's reversed firing sequence.
  // The earlier mobile Skill demonstrates a normal Bolt I with NO free heavy
- // shot. Let its actual 24-second cooldown elapse, deploy through KeyB, then
+ // shot. Let its actual 24-second cooldown elapse, deploy through KeyX, then
  // use the SAME physical U/left-mouse actions. Both bolts must appear as
  // separately committed authoritative projectiles on their genuine clocks.
- await tap('B');
- const deployed=await until(async()=>{const s=await observe();return s?.ballista?.mode==='DEPLOYED'?s:false;},'physical B deploys supported outriggers',130);
+ await tap('X');
+ const deployed=await until(async()=>{const s=await observe();return s?.ballista?.mode==='DEPLOYED'?s:false;},'physical X deploys supported outriggers',130);
  assert.equal(deployed.ballista.mainBoltLoaded,true,'the first mobile spin did not consume the heavy bolt');
  await until(async()=>{const s=await observe();return s?.ballista?.skill?.readyAt<=s?.at?s:false;},'real 24s Skill cooldown elapsed before repeat',350);
  await screenshot('07-real-heavy-outriggers-deployed');

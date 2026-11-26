@@ -114,6 +114,7 @@ const MOUNTED_ACTIONS = Object.freeze({
   // SO-FIST-ICATION: combat below, side-by-side hydraulics above.
   attack:{right:14,bottom:18,size:76},
   siegeSkill:{right:100,bottom:22,size:64},
+  dash:{right:172,bottom:26,size:50},
   // Steel sits in a separate upper-left pocket, not in PRIME's
   // lower attack cluster or in the subtitle lane above the siege HP.
   spell:{right:202,bottom:120,size:50},
@@ -130,22 +131,17 @@ const MOUNTED_ACTIONS = Object.freeze({
 // Bi-Bye-llista only. Fixed positions prevent the conditional BOTH control from
 // shifting the main firing targets. The generic layout remains the ram preset.
 export const BI_BYE_MOUNTED_ACTIONS=Object.freeze({
- // Steel is available on deployed artillery, too. Its on-foot position
- // overlapped the conditional BOTH carousel on compact landscape phones.
- spell:{right:210,bottom:104,size:46},
- attack:{right:12,bottom:14,size:76},
- siegeSkill:{right:98,bottom:18,size:68},
- siegeBoth:{right:64,bottom:102,size:60},
-  // Sweep belongs below View, within the firing thumb's lower arc.
-  siegeSweep:{right:139,bottom:108,size:52},
- // Move Mode/Upper down away from top-right killfeed messages.
- deploy:{right:68,top:100,size:48},
- siegeWeapon:{right:12,top:100,size:48},
+ spell:{right:176,bottom:18,size:46},
+ attack:{right:12,bottom:14,size:74},
+ siegeSkill:{right:98,bottom:16,size:66},
+ siegeBoth:{right:76,bottom:96,size:54},
+ siegeSweep:{right:14,bottom:100,size:50},
+ deploy:{right:14,bottom:162,size:48},
+ siegeWeapon:{right:142,bottom:98,size:46},
 });
 const BI_BYE_UTILITIES=Object.freeze({
- interact:{right:60,top:8,size:38},
- // View now sits ABOVE Sweep; neither overlaps the Bolt II/BOTH row.
- siegeView:{right:139,bottom:188,size:42},
+ interact:{right:8,top:8,size:38},
+ siegeView:{right:106,bottom:168,size:46},
 });
 
 /**

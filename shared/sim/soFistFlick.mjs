@@ -7,12 +7,14 @@ import {areAllies} from '../src/teams.mjs';
 import {launchBody} from '../src/movement.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
-import {SO_FIST_SCALE,soFistFrame} from './soFistGeometry.mjs';
+import {SO_FIST_SCALE,soFistFrame,soFistVolumes} from './soFistGeometry.mjs';
 import {soFistUpperPoint} from './soFistElevation.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
 import {damageBiByeLlista} from './biByeLlista.mjs';
 import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
-import {applyBallistaImpact,recoilRamOnPistonHit} from './siegeImpact.mjs';
+import {damageSoFistication} from './soFistication.mjs';
+import {getFleetMachines,getMachineKind} from './fleetGeometry.mjs';
+import {applyBallistaImpact,applyMachineImpact,recoilRamOnPistonHit} from './siegeImpact.mjs';
 import {structureForSolid,damageStructure} from './structures.mjs';
 
 export const FLICK = Object.freeze({
@@ -72,11 +74,14 @@ function firstContact(room,b,from,to,now){
       size:[.9,h,.9],axes:identity,
     },FLICK.tipRadius),'player',victim);
   }
-  for(const [machine,boxes,kind] of [
-    [room.biByeLlista,biByeHitVolumes(room.biByeLlista,now),'ballista'],
-    [room.fightFlight,fightFlightHitVolumes(room.fightFlight),'flight'],
-  ]){
-    if(!machine||machine.retired||machine.health<=0||b.team&&machine.team===b.team)continue;
+  for(const machine of getFleetMachines(room)){
+    if(!machine||machine.id===b.id||machine.retired||machine.health<=0||machine.mode==='DESTROYED')continue;
+    if(b.team&&machine.team===b.team)continue;
+    if(b.flickOwnerId&&machine.operatorId&&areAllies(room,b.flickOwnerId,machine.operatorId))continue;
+    const kind=getMachineKind(machine);
+    const boxes=kind==='ballista'?biByeHitVolumes(machine,now)
+      :kind==='flight'?fightFlightHitVolumes(machine)
+      :soFistVolumes(machine,now);
     for(const box of boxes)consider(orientedBoxHit(from,to,box,FLICK.tipRadius),kind,machine,box);
   }
   // Obstacles stop the physical finger before it can reach a target.
@@ -130,6 +135,15 @@ function impact(room,b,contact,now){
       point:{x:point[0],y:point[1],z:point[2]},
     });
     room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'ballista',point:{x:point[0],y:point[1],z:point[2]},at:now});
+  }else if(contact.kind==='ram'){
+    damageSoFistication(room,contact.target,FLICK.damage,by,'so-fist-flick',now,{
+      componentId:contact.box.componentId,point:{x:point[0],y:point[1],z:point[2]},
+    });
+    applyMachineImpact(room,contact.target,now,{
+      normal:{x:forward[0],z:forward[2]},speed:FLICK.impulse,
+      point:{x:point[0],y:point[1],z:point[2]},
+    });
+    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'ram',point:{x:point[0],y:point[1],z:point[2]},at:now});
   }else if(contact.kind==='flight'){
     damageFightFlight(room,contact.target,FLICK.damage,by,'so-fist-flick',now,{
       componentId:contact.box.componentId,point:{x:point[0],y:point[1],z:point[2]},

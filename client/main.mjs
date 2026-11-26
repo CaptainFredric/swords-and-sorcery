@@ -2,6 +2,7 @@ import { stableLobbyMarkup, lobbyControls, arenaOptions, syncRuleForm, ruleFormS
 import { ONE_HIT_PRESETS } from '../shared/src/oneHitInfusions.mjs';
 import {SIEGE_SKILL_OPTIONS,SIEGE_SKILL_NAMES} from '../shared/src/siegeLoadout.mjs';
 import {privateRoomPreview,PRIVATE_MODE_DEFAULTS,privateMode} from './menu/privateRoomRules.mjs';
+import {normalizeRoomFilter,applyDraftToRuleForm} from './menu/roomDraft.mjs';
 import { createRepeatActivation } from './menu/repeatActivation.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
@@ -21,6 +22,7 @@ import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
 import {preloadSiegePortraits} from './ui/SiegeMachinePicker.mjs';
+import {appUrl} from './appUrl.mjs';
 import { AFFLICTIONS } from './ui/afflictionView.mjs';
 import {highGroundsFoundryView,HIGH_GROUNDS_MACHINE_KEYS} from './ui/highGroundsHudView.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
@@ -70,6 +72,7 @@ const menuWorld = $('#menu-world');
 const menuSpellblade = $('#menu-spellblade');
 const menu = $('#menu');
 const soloMenu = $('#solo-menu');
+const siegeBladesMenu = $('#siege-blades-menu');
 const breakthroughMenu = $('#breakthrough-menu');
 const armoryMenu = $('#armory-menu');
 const privateMenu = $('#private-menu');
@@ -234,17 +237,15 @@ const rematchCopy = $('#rematch-copy');
 const bannerScrolls=[];
 function updateMenuScrollCue() {
   for(const {panel,scroller,cue} of bannerScrolls){
-    if(!scroller.clientHeight){cue.hidden=true;continue;}
-    const reserved=panel.classList.contains('has-scroll-cue');
-    const footer=reserved?44:0;
-    const overflow=scroller.scrollHeight-scroller.clientHeight>footer+4;
-    if(overflow!==reserved)panel.classList.toggle('has-scroll-cue',overflow);
+    if(!scroller.clientHeight){cue.hidden=true;panel.classList.remove('has-scroll-cue');continue;}
+    const overflow=scroller.scrollHeight-scroller.clientHeight>14;
+    panel.classList.toggle('has-scroll-cue',overflow);
     const remaining=scroller.scrollHeight-scroller.clientHeight-scroller.scrollTop;
-    cue.hidden=!overflow||remaining<5;
+    cue.hidden=!overflow||remaining<14;
   }
 }
 const menuScrollObserver = new ResizeObserver(updateMenuScrollCue);
-for(const [i,scroller] of [...document.querySelectorAll('#menu > .banner-panel > .banner-scroll, #solo-menu > .banner-panel > .banner-scroll, #breakthrough-menu > .banner-panel > .banner-scroll, #rooms-menu > .banner-panel > .banner-scroll, #private-menu > .banner-panel > .banner-scroll')].entries()){
+for(const [i,scroller] of [...document.querySelectorAll('#menu > .banner-panel > .banner-scroll, #solo-menu > .banner-panel > .banner-scroll, #siege-blades-menu > .banner-panel > .banner-scroll, #breakthrough-menu > .banner-panel > .banner-scroll, #rooms-menu > .banner-panel > .banner-scroll, #private-menu > .banner-panel > .banner-scroll')].entries()){
   const panel=scroller.parentElement;
   let cue=panel.querySelector('.menu-scroll-cue');
   if(!cue){
@@ -261,7 +262,7 @@ for(const [i,scroller] of [...document.querySelectorAll('#menu > .banner-panel >
   for(const child of scroller.children)menuScrollObserver.observe(child);
 }
 const bannerChangeObserver=new MutationObserver(()=>requestAnimationFrame(updateMenuScrollCue));
-for(const el of document.querySelectorAll('#menu,#solo-menu,#breakthrough-menu,#rooms-menu,#private-menu')){
+for(const el of document.querySelectorAll('#menu,#solo-menu,#siege-blades-menu,#breakthrough-menu,#rooms-menu,#private-menu')){
   bannerChangeObserver.observe(el,{attributes:true,attributeFilter:['class','data-panel','data-purpose']});
 }
 requestAnimationFrame(updateMenuScrollCue);
@@ -298,6 +299,7 @@ if (new URLSearchParams(location.search).has('debug')) globalThis.__ssLink = soc
 const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
   [SCREEN_IDS.MAIN_MENU]: menu,
+  [SCREEN_IDS.SIEGE_BLADES_MENU]: siegeBladesMenu,
   [SCREEN_IDS.SOLO_MENU]: soloMenu,
   [SCREEN_IDS.BREAKTHROUGH_MENU]: breakthroughMenu,
   [SCREEN_IDS.PRIVATE_MENU]: privateMenu,
@@ -342,6 +344,7 @@ try {
   menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryScreen: $('#armory-menu') });
   menuScene.setTourAllowed(tourAllowed());
   menuScene.siegeWorkshop.onPreviewChange=skill=>updateSiegePreviewUI(skill);
+  menuScene.siegeWorkshop.onStateChange=status=>updateSiegeWorkshopStageUI(status);
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
   menuSpellblade.classList.add('menu-scene-unavailable');
@@ -387,11 +390,65 @@ let pendingFailureScreen = SCREEN_IDS.MAIN_MENU;
 const params = new URLSearchParams(location.search);
 const invitedRoom = params.get('room');
 const autoSolo = params.get('solo');
+const identityBars = [...document.querySelectorAll('[data-identity-bar]')];
+function setIdentityEditing(bar, editing, { focus = false } = {}) {
+  if (!bar) return;
+  const editor = bar.querySelector('.identity-pill-editor');
+  const btn = bar.querySelector('[data-identity-edit]');
+  const input = editor?.querySelector('input');
+  if (!editor || !btn) return;
+  bar.classList.toggle('editing', editing);
+  editor.hidden = !editing;
+  btn.setAttribute('aria-expanded', String(editing));
+  btn.textContent = editing ? 'Done' : 'Edit';
+  if (editing && focus && input) {
+    input.focus();
+    input.select?.();
+  }
+}
+function syncIdentityBars({ collapseIfValid = false } = {}) {
+  const trimmed = nameInput.value.trim();
+  const display = trimmed || 'Unset';
+  for (const bar of identityBars) {
+    const labelEl = bar.querySelector('[data-identity-name]');
+    if (labelEl) labelEl.textContent = display;
+    bar.classList.toggle('missing-name', !trimmed);
+    if (!trimmed) {
+      setIdentityEditing(bar, true);
+    } else if (collapseIfValid) {
+      setIdentityEditing(bar, false);
+    }
+  }
+}
 nameInput.value = menuController.savedName();
 for (const field of nameFields) {
   field.value = nameInput.value;
-  field.addEventListener('input', () => { for (const other of nameFields) if (other !== field) other.value = field.value; });
+  field.addEventListener('input', () => {
+    for (const other of nameFields) if (other !== field) other.value = field.value;
+    syncIdentityBars();
+  });
 }
+for (const bar of identityBars) {
+  const btn = bar.querySelector('[data-identity-edit]');
+  const input = bar.querySelector('.identity-pill-editor input');
+  btn?.addEventListener('click', () => {
+    const next = !bar.classList.contains('editing');
+    if (next) setIdentityEditing(bar, true, { focus: true });
+    else if (nameInput.value.trim()) setIdentityEditing(bar, false);
+  });
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault();
+      if (nameInput.value.trim()) setIdentityEditing(bar, false);
+    }
+  });
+  input?.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!bar.contains(document.activeElement) && nameInput.value.trim()) setIdentityEditing(bar, false);
+    }, 120);
+  });
+}
+syncIdentityBars({ collapseIfValid: true });
 if (invitedRoom) roomInput.value = invitedRoom.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
 if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
   socket.token = null;
@@ -400,7 +457,7 @@ if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
 }
 
 function isMenuBackedScreen(screenId) {
-  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
+  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SIEGE_BLADES_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
 }
 
 // the Spellblade's round behind the front door: for capable settings, and not for anyone who asked for less motion
@@ -427,7 +484,8 @@ function route(screenId) {
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
   const crossingArmory=previous===SCREEN_IDS.ARMORY||screenId===SCREEN_IDS.ARMORY;
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU,
+  menuScene?.setBreakthroughPresentation(
+    screenId === SCREEN_IDS.BREAKTHROUGH_MENU || screenId === SCREEN_IDS.SIEGE_BLADES_MENU,
     {immediate:previous!==screenId&&!crossingArmory});
   if (screenId === SCREEN_IDS.ARMORY) {
     navigateToArmorySection(armoryLocation.region || 'kit', {
@@ -451,6 +509,7 @@ function route(screenId) {
   if(previous!==screenId){
     const bannerId={
       [SCREEN_IDS.SOLO_MENU]:'solo-menu',
+      [SCREEN_IDS.SIEGE_BLADES_MENU]:'siege-blades-menu',
       [SCREEN_IDS.ROOMS_MENU]:'rooms-menu',
       [SCREEN_IDS.BREAKTHROUGH_MENU]:'breakthrough-menu',
       [SCREEN_IDS.PRIVATE_MENU]:'private-menu',
@@ -461,6 +520,8 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
   syncSoundscape();
+  syncIdentityBars({ collapseIfValid: true });
+  requestAnimationFrame(updateMenuScrollCue);
   // in the Armory he holds the chosen spell up in his palm (and its cards' sounds are made ready for the first press)
   menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
@@ -668,7 +729,14 @@ function runMenuAction(result, failureScreen) {
   }
   showMenuError(result.error);
   route(failureScreen);
-  if (/name/i.test(result.error)) nameFields.find(field => field.offsetParent !== null)?.focus();
+  if (/name/i.test(result.error)) {
+    const visibleBar = identityBars.find((bar) => bar.offsetParent !== null);
+    if (visibleBar) {
+      setIdentityEditing(visibleBar, true, { focus: true });
+    } else {
+      nameFields.find(field => field.offsetParent !== null)?.focus();
+    }
+  }
   return false;
 }
 
@@ -756,7 +824,11 @@ function renderSeek() {
   if (!view.visible) return;
   $('#seek-title').textContent = view.title;
   $('#seek-detail').textContent = view.detail;
-  $('#seek-bot').classList.toggle('hidden', !view.offerBot);
+  const botBtn = $('#seek-bot');
+  if (botBtn) {
+    botBtn.textContent = view.botLabel ?? 'FIGHT A BOT WHILE WAITING';
+    botBtn.classList.toggle('hidden', !view.offerBot);
+  }
 }
 setInterval(renderSeek, 500);
 socket.on('seeking', (status) => { seekStatus = status; renderSeek(); });
@@ -765,22 +837,44 @@ socket.on('duelFound', () => {
   renderSeek();
   hud.flashText('A CHALLENGER ANSWERS', 'ready', 1400);
 });
+socket.on('siegeFound', () => {
+  seekStatus = null;
+  renderSeek();
+  hud.flashText('OPPONENT FOUND · SIEGE BLADES', 'ready', 1600);
+});
 $('#seek-cancel').addEventListener('click', () => socket.cancelSeek());
-$('#seek-bot').addEventListener('click', () => socket.seekBotDuel());
+$('#seek-bot').addEventListener('click', () => {
+  if (seekStatus?.queue === 'siege') socket.seekBotSiege();
+  else socket.seekBotDuel();
+});
 
 // --- Open Rooms: one browser across all server-supported public battle modes ---
 let roomsTimer = null;
 let publicRooms = [];
 let roomFilter = 'ALL';
 let selectedPublicCode = null;
+let roomsReturnScreen = SCREEN_IDS.MAIN_MENU;
+let privateReturnScreen = SCREEN_IDS.MAIN_MENU;
+let pendingRoomDraft = null;
+let armoryReturnScreen = SCREEN_IDS.MAIN_MENU;
 const roomCreateForm = $('#room-create-form');
 const roomSelectedInfo = $('#room-selected-info');
 const roomJoinButton = $('#room-join');
 const roomFilters = $('#room-filters');
 
-function openRooms(mode = 'ALL') {
+function backLabelForScreen(screenId) {
+  if (screenId === SCREEN_IDS.SIEGE_BLADES_MENU) return '← SIEGE BLADES';
+  if (screenId === SCREEN_IDS.BREAKTHROUGH_MENU) return '← MODES OF METTLE';
+  return '← BACK';
+}
+
+function openRooms(mode = 'ALL', { draft = null, returnTo = SCREEN_IDS.MAIN_MENU } = {}) {
   showMenuError('');
-  roomFilter = ['ALL','FFA','BREAKTHROUGH','HIGH_GROUNDS'].includes(mode) ? mode : 'ALL';
+  roomFilter = normalizeRoomFilter(mode);
+  roomsReturnScreen = returnTo ?? SCREEN_IDS.MAIN_MENU;
+  pendingRoomDraft = draft ? { mode: roomFilter === 'ALL' ? draft.mode : roomFilter, ...draft } : null;
+  const roomsBackBtn = $('#rooms-back');
+  if (roomsBackBtn) roomsBackBtn.textContent = backLabelForScreen(roomsReturnScreen);
   roomsMenu.dataset.panel = 'list';
   roomCreateForm.hidden = true;
   renderPublicRooms();
@@ -861,18 +955,19 @@ roomJoinButton.addEventListener('click', () => {
   if (selectedPublicCode) runMenuAction(menuController.joinPrivate(selectedPublicCode, nameInput.value), SCREEN_IDS.ROOMS_MENU);
 });
 
-function syncPublicRoomForm() {
+function syncPublicRoomForm(draft = null) {
   const mode=roomCreateForm.elements.mode.value;
-  roomCreateForm.elements.worldId.innerHTML=arenaOptions(mode,null);
-  syncRuleForm(roomCreateForm,mode,{resetTime:true});
+  applyDraftToRuleForm(roomCreateForm, mode, draft && draft.mode === mode ? draft : null);
 }
-roomCreateForm.elements.mode.addEventListener('change',syncPublicRoomForm);
+roomCreateForm.elements.mode.addEventListener('change',()=>syncPublicRoomForm(pendingRoomDraft));
 roomCreateForm.elements.format.addEventListener('change',()=>syncRuleForm(roomCreateForm,roomCreateForm.elements.mode.value));
+roomCreateForm.elements.teamSize.addEventListener('change',()=>syncRuleForm(roomCreateForm,roomCreateForm.elements.mode.value));
 $('#raise-room').addEventListener('click', () => {
   roomCreateForm.hidden = false;
   resetCompanionCrown(roomsMenu);
-  roomCreateForm.elements.mode.value=roomFilter==='ALL'?'FFA':roomFilter;
-  syncPublicRoomForm();
+  const targetMode = roomFilter === 'ALL' ? (pendingRoomDraft?.mode ?? 'FFA') : roomFilter;
+  roomCreateForm.elements.mode.value = targetMode;
+  syncPublicRoomForm(pendingRoomDraft);
   roomsMenu.dataset.panel='details';
   renderPublicRooms();
 });
@@ -1101,22 +1196,49 @@ function showPauseSection(section) {
 $('#duel-button').addEventListener('click', () => openSoloPurpose('duel'));
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#duel-start-now').addEventListener('click', () => soloActivation.run());
-$('#siege-blades-button')?.addEventListener('click', () => {
+function currentSiegeDraft() {
+  const rawArena = menuController.breakthroughArena();
+  const worldId = ['outerworks', 'blackbell-foundry', 'high-grounds'].includes(rawArena) ? rawArena : 'high-grounds';
+  return {
+    mode: 'SIEGE_BLADES',
+    worldId,
+    teamSize: menuController.siegeSize(),
+    team: 'AUTO',
+    botSkill: menuController.breakthroughSkill(),
+    format: menuController.siegeFormat(),
+    matchRounds: menuController.siegeRounds(),
+    endlessRoundCap: menuController.siegeEndlessRounds(),
+    clashStarts: menuController.siegeClashStarts(),
+  };
+}
+function openSiegeBladesMenu() {
   showMenuError('');
-  mettleActivation.choose('SIEGE_BLADES');
-  breakthroughMenu.dataset.panel = 'details';
-  resetCompanionCrown(breakthroughMenu);
-  route(SCREEN_IDS.BREAKTHROUGH_MENU);
-});
+  preloadSiegePortraits();
+  renderSiegeHub?.();
+  siegeBladesMenu.dataset.panel = 'list';
+  const scroller = siegeBladesMenu?.querySelector?.('.side-screen-inner .banner-scroll');
+  if (scroller) scroller.scrollTop = 0;
+  resetCompanionCrown(siegeBladesMenu);
+  route(SCREEN_IDS.SIEGE_BLADES_MENU);
+}
+$('#siege-blades-button')?.addEventListener('click', () => openSiegeBladesMenu());
+$('#mettle-to-siege')?.addEventListener('click', () => openSiegeBladesMenu());
+$('#siege-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#breakthrough-button')?.addEventListener('click', () => {
-  mettleActivation.reset(); showMenuError(''); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
+  mettleActivation.reset(); showMenuError(''); showBreakthroughArena(); breakthroughMenu.dataset.panel='list'; route(SCREEN_IDS.BREAKTHROUGH_MENU);
 });
 $('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
-$('#quick-play').addEventListener('click', () => openRooms());
-$('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
+$('#quick-play').addEventListener('click', () => openRooms('ALL', { returnTo: SCREEN_IDS.MAIN_MENU }));
+$('#rooms-back').addEventListener('click', () => route(roomsReturnScreen ?? SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(
   menuController.quickPlay(nameInput.value,roomFilter),SCREEN_IDS.ROOMS_MENU));
-seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
+seekAnotherButton.addEventListener('click', () => {
+  if (latestSnapshot?.mode === 'SIEGE_BLADES') {
+    runMenuAction(menuController.seekSiege(nameInput.value), SCREEN_IDS.SIEGE_BLADES_MENU);
+  } else {
+    runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU);
+  }
+});
 $('#solo-button').addEventListener('click', () => openSoloPurpose('training'));
 function openSoloPurpose(purpose) {
   soloActivation.reset(); showMenuError('');
@@ -1126,6 +1248,8 @@ function openSoloPurpose(purpose) {
   $('#solo-heading').textContent=duel?'CHOOSE YOUR RIVAL':'PRACTICE & TUTORIAL';
   $('#solo-intro').textContent=duel?'One on one. Fight a bot now or seek another player.':'Train at your own pace, alone or with friends.';
   $('#solo-list-return').textContent=duel?'← DUEL OPTIONS':'← ACTIVITIES';
+  const advTools = $('#advanced-practice-tools');
+  if (advTools) advTools.open = false;
   chooseSoloActivity(duel?'bot-duel':'practice-mode');
   soloMenu.dataset.panel='list';
   soloMenu.querySelector('.side-screen-inner .banner-scroll').scrollTop=0;
@@ -1133,6 +1257,9 @@ function openSoloPurpose(purpose) {
   route(SCREEN_IDS.SOLO_MENU);
 }
 $('#private-button').addEventListener('click', () => {
+  privateReturnScreen = SCREEN_IDS.MAIN_MENU;
+  const pBack = $('#private-back');
+  if (pBack) pBack.textContent = '← BACK';
   privateActivation.reset(); showMenuError(''); privateMenu.dataset.panel='list';
   route(SCREEN_IDS.PRIVATE_MENU);
 });
@@ -1206,7 +1333,7 @@ $('#how-button').addEventListener('click', () => {
 const MENU_REACTIONS = { 'solo-button': 'salute', 'siege-blades-button': 'rally', 'breakthrough-button': 'rally', 'duel-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
 for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEventListener('click', () => menuScene?.react(reaction));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
-$('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
+$('#private-back').addEventListener('click', () => route(privateReturnScreen ?? SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 // the solo arena: a chip each, the chosen one lit
 const soloArena = $('#solo-arena');
@@ -1291,13 +1418,11 @@ const selectedMettleMode = () => mettleSoloMode ?? (menuController.breakthroughA
 const breakthroughSize = $('#breakthrough-size');
 function showBreakthroughSize() {
   if (!breakthroughSize) return;
-  const isSiege = selectedMettleMode() === 'SIEGE_BLADES';
-  const chosen = isSiege ? menuController.siegeSize() : menuController.breakthroughSize();
+  const chosen = menuController.breakthroughSize();
   for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
     const sizeVal = Number(chip.dataset.size);
-    chip.hidden = sizeVal === 1 && !isSiege;
-    // (3v3 is Breakthrough's recommended battle; a Siege 3v3 is six machines at once, and is not offered as the default)
-    const tag = chip.querySelector('[data-size-recommended]'); if (tag) tag.hidden = isSiege;
+    chip.hidden = sizeVal === 1;
+    const tag = chip.querySelector('[data-size-recommended]'); if (tag) tag.hidden = false;
     const on = sizeVal === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
@@ -1306,166 +1431,238 @@ function showBreakthroughSize() {
 breakthroughSize?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-size]');
   if (!chip) return;
-  const sizeVal = Number(chip.dataset.size);
-  if (selectedMettleMode() === 'SIEGE_BLADES') {
-    menuController.chooseSiegeSize(sizeVal);
-  } else {
-    menuController.chooseBreakthroughSize(sizeVal);
-  }
+  menuController.chooseBreakthroughSize(Number(chip.dataset.size));
   showBreakthroughSize();
-  showSiegeControls();
   showBreakthroughArena();
 });
 showBreakthroughSize();
 
-const siegeFormat = $('#siege-format');
-function showSiegeFormat() {
-  if (!siegeFormat) return;
-  const chosen = menuController.siegeFormat();
-  for (const chip of siegeFormat.querySelectorAll('[data-siege-format]')) {
-    const on = chip.dataset.siegeFormat === chosen;
+// Dedicated Siege Blades Battle Orders (shared persistence with MenuController)
+function markChips(container, attr, predicate) {
+  if (!container) return;
+  for (const chip of container.querySelectorAll(`[${attr}]`)) {
+    const on = Boolean(predicate(chip));
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
 }
-siegeFormat?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-siege-format]');
+function renderSiegeHub() {
+  if (!siegeBladesMenu) return;
+  const size = menuController.siegeSize();
+  const format = menuController.siegeFormat();
+  const rounds = menuController.siegeRounds();
+  const endlessCap = menuController.siegeEndlessRounds();
+  const clash = menuController.siegeClashStarts();
+  const skill = menuController.breakthroughSkill();
+  let arena = menuController.breakthroughArena();
+  if (!['outerworks', 'blackbell-foundry', 'high-grounds'].includes(arena)) {
+    arena = 'high-grounds';
+  }
+  markChips($('#siege-hub-size'), 'data-size', (c) => Number(c.dataset.size) === size);
+  markChips($('#siege-hub-arena'), 'data-arena', (c) => c.dataset.arena === arena);
+  markChips($('#siege-hub-format'), 'data-siege-format', (c) => c.dataset.siegeFormat === format);
+  const roundsEl = $('#siege-hub-rounds');
+  if (roundsEl) {
+    roundsEl.hidden = format !== 'MATCH';
+    markChips(roundsEl, 'data-siege-rounds', (c) => Number(c.dataset.siegeRounds) === rounds);
+  }
+  const endlessEl = $('#siege-hub-endless-rounds');
+  if (endlessEl) {
+    endlessEl.hidden = format !== 'ENDLESS';
+    markChips(endlessEl, 'data-endless-rounds', (c) => Number(c.dataset.endlessRounds) === endlessCap);
+  }
+  const clashEl = $('#siege-hub-clash-wrap');
+  if (clashEl) {
+    clashEl.hidden = !(format === 'ENDLESS' && size === 1);
+    markChips(clashEl, 'data-clash', (c) => (c.dataset.clash === 'on') === clash);
+  }
+  markChips($('#siege-hub-rival'), 'data-skill', (c) => c.dataset.skill === skill);
+  const noteEl = $('#siege-hub-rival-note');
+  if (noteEl) noteEl.textContent = RIVAL_NOTES[skill] ?? '';
+  const summaryEl = $('#siege-orders-summary');
+  if (summaryEl) {
+    const arenaName = arena === 'outerworks' ? 'THE OUTERWORKS' : arena === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS';
+    const formatText = format === 'MATCH' ? `MATCH (${rounds} ROUNDS)` : (endlessCap ? `ENDLESS (${endlessCap} CAP)` : 'ENDLESS (NO CAP)');
+    const clashText = format === 'ENDLESS' && size === 1 ? ` · ${clash ? 'CLASH ON' : 'CLASH OFF'}` : '';
+    const skillText = skill === 'spellblade' ? 'THE SPELLBLADE' : skill.toUpperCase();
+    summaryEl.textContent = `${size}V${size} · ${arenaName} · ${formatText}${clashText} · ${skillText}`;
+  }
+}
+$('#siege-hub-size')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-size]');
+  if (!chip) return;
+  menuController.chooseSiegeSize(Number(chip.dataset.size));
+  renderSiegeHub();
+});
+$('#siege-hub-arena')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-arena]');
+  if (!chip) return;
+  menuController.chooseBreakthroughArena(chip.dataset.arena);
+  renderSiegeHub();
+  showBreakthroughArena();
+});
+$('#siege-hub-format')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-siege-format]');
   if (!chip) return;
   menuController.chooseSiegeFormat(chip.dataset.siegeFormat);
-  showSiegeFormat();
-  showSiegeControls();
-  showBreakthroughArena();
+  renderSiegeHub();
 });
-
-const siegeRounds = $('#siege-rounds');
-function showSiegeRounds() {
-  if (!siegeRounds) return;
-  const chosen = menuController.siegeRounds();
-  for (const chip of siegeRounds.querySelectorAll('[data-siege-rounds]')) {
-    const on = Number(chip.dataset.siegeRounds) === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
-  }
-}
-siegeRounds?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-siege-rounds]');
+$('#siege-hub-rounds')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-siege-rounds]');
   if (!chip) return;
   menuController.chooseSiegeRounds(Number(chip.dataset.siegeRounds));
-  showSiegeRounds();
-  showBreakthroughArena();
+  renderSiegeHub();
 });
-
-const siegeEndlessRounds = $('#siege-endless-rounds');
-function showSiegeEndlessRounds() {
-  if (!siegeEndlessRounds) return;
-  const chosen = menuController.siegeEndlessRounds();
-  for (const chip of siegeEndlessRounds.querySelectorAll('[data-endless-rounds]')) {
-    const on = Number(chip.dataset.endlessRounds) === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
-  }
-}
-siegeEndlessRounds?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-endless-rounds]');
+$('#siege-hub-endless-rounds')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-endless-rounds]');
   if (!chip) return;
   menuController.chooseSiegeEndlessRounds(Number(chip.dataset.endlessRounds));
-  showSiegeEndlessRounds();
+  renderSiegeHub();
 });
-
-
-const siegeClash = $('#siege-clash-wrap');
-function showSiegeClash() {
-  if (!siegeClash) return;
-  const chosen = menuController.siegeClashStarts();
-  for (const chip of siegeClash.querySelectorAll('[data-clash]')) {
-    const on = (chip.dataset.clash === 'on') === chosen;
-    chip.classList.toggle('mine', on);
-    chip.setAttribute('aria-checked', String(on));
-  }
-}
-siegeClash?.addEventListener('click', (event) => {
-  const chip = event.target.closest?.('[data-clash]');
+$('#siege-hub-clash-wrap')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-clash]');
   if (!chip) return;
   menuController.chooseSiegeClashStarts(chip.dataset.clash === 'on');
-  showSiegeClash();
+  renderSiegeHub();
 });
-
-function showSiegeControls() {
-  const isSiege = selectedMettleMode() === 'SIEGE_BLADES';
-  if (siegeFormat) siegeFormat.hidden = !isSiege;
-  const format = menuController.siegeFormat();
-  if (siegeRounds) siegeRounds.hidden = !isSiege || format !== 'MATCH';
-  if (siegeEndlessRounds) siegeEndlessRounds.hidden = !isSiege || format !== 'ENDLESS';
-  // (no allegiance in Siege Blades: Azure and Crimson are assigned; a private room's host can still arrange them)
-  const allegiance = $('#breakthrough-team');
-  if (allegiance) allegiance.hidden = isSiege;
-  const is1v1Endless = isSiege && format === 'ENDLESS' && menuController.siegeSize() === 1;
-  if (siegeClash) siegeClash.hidden = !is1v1Endless;
+$('#siege-hub-rival')?.addEventListener('click', (e) => {
+  const chip = e.target.closest?.('[data-skill]');
+  if (!chip) return;
+  menuController.chooseBreakthroughSkill(chip.dataset.skill);
+  renderSiegeHub();
+  showBreakthroughRival();
+});
+$('#siege-options-btn')?.addEventListener('click', () => {
+  siegeBladesMenu.dataset.panel = 'details';
+  resetCompanionCrown(siegeBladesMenu);
+});
+$('#siege-list-return')?.addEventListener('click', () => {
+  siegeBladesMenu.dataset.panel = 'list';
+});
+$('#siege-seek')?.addEventListener('click', () => {
+  if ($('#siege-seek')?.disabled) return;
+  return runMenuAction(menuController.seekSiege(nameInput.value), SCREEN_IDS.SIEGE_BLADES_MENU);
+});
+$('#siege-play-bots')?.addEventListener('click', () => {
+  const draft = currentSiegeDraft();
+  return runMenuAction(menuController.siegeBlades(nameInput.value, {
+    format: draft.format,
+    teamSize: draft.teamSize,
+    worldId: draft.worldId,
+    botSkill: draft.botSkill,
+    team: 'AUTO',
+    machine: 'random',
+    matchRounds: draft.matchRounds,
+    endlessRoundCap: draft.endlessRoundCap,
+    clashStarts: draft.clashStarts,
+  }), SCREEN_IDS.SIEGE_BLADES_MENU);
+});
+$('#siege-browse-matches')?.addEventListener('click', () => {
+  openRooms('SIEGE_BLADES', { draft: currentSiegeDraft(), returnTo: SCREEN_IDS.SIEGE_BLADES_MENU });
+});
+$('#siege-create-private')?.addEventListener('click', () => {
+  openPrivateWithDraft('SIEGE_BLADES', currentSiegeDraft(), SCREEN_IDS.SIEGE_BLADES_MENU);
+});
+function openSiegeWorkshopFromMenu(machineId = null) {
+  if (machineId && ['soFist', 'biBye', 'fightFlight'].includes(machineId)) {
+    armoryLocation.siegeMachine = machineId;
+    saveArmoryLocation(armoryLocation);
+  }
+  armoryReturnScreen = SCREEN_IDS.SIEGE_BLADES_MENU;
+  armoryLocation.region = 'siege';
+  armoryLocation.previousRegion = 'kit';
+  armoryLocation.inspectorOpen = false;
+  saveArmoryLocation(armoryLocation);
+  renderArmory();
+  route(SCREEN_IDS.ARMORY);
 }
+$('#siege-open-workshop')?.addEventListener('click', () => openSiegeWorkshopFromMenu(null));
+renderSiegeHub();
 
 const breakthroughArena = $('#breakthrough-arena');
 const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
 const breakthroughCopy = $('#breakthrough-panel-copy');
+function currentMettleDraft() {
+  const mode = selectedMettleMode();
+  const worldId = mode === 'FFA' ? menuController.ffaArena()
+    : mode === 'EDGE_OF_VICTORY' ? 'ruined-keep'
+    : menuController.breakthroughArena();
+  return {
+    mode,
+    worldId,
+    teamSize: mode === 'RESTLESS_DAY' ? 5 : menuController.breakthroughSize(),
+    team: menuController.breakthroughTeam(),
+    botSkill: menuController.breakthroughSkill(),
+  };
+}
 function showBreakthroughArena() {
   if (!breakthroughArena) return;
   const mode = selectedMettleMode();
-  const isSiege = mode === 'SIEGE_BLADES';
-  if(isSiege)preloadSiegePortraits();
-  const solo = mode === 'RENOWN_TRIALS' || mode === 'EDGE_OF_VICTORY';
   const renown = mode === 'RENOWN_TRIALS';
-  let chosen = menuController.breakthroughArena();
-  if (isSiege && !['outerworks', 'blackbell-foundry', 'high-grounds'].includes(chosen)) {
-    chosen = menuController.chooseBreakthroughArena('high-grounds');
-  }
-  breakthroughMenu.dataset.soloMode = solo ? 'true' : 'false';
-  breakthroughMenu.querySelector('.mettle-companion').hidden = solo;
-  $('#mettle-options').hidden = solo;
+  const edge = mode === 'EDGE_OF_VICTORY';
+  const ffa = mode === 'FFA';
+  const teamMode = mode === 'BREAKTHROUGH' || mode === 'HIGH_GROUNDS' || mode === 'RESTLESS_DAY';
+  const chosen = ffa ? menuController.ffaArena() : edge ? 'ruined-keep' : menuController.breakthroughArena();
+
+  breakthroughMenu.dataset.soloMode = renown ? 'true' : 'false';
+  breakthroughMenu.querySelector('.mettle-companion').hidden = renown;
+  $('#mettle-options').hidden = renown;
   $('#mettle-renown-arena').hidden = !renown;
   $('#mettle-renown-rehearse').hidden = !renown;
-  $('#breakthrough-create-private').hidden = solo;
+  $('#breakthrough-create-private').hidden = renown;
+
   const launch = $('#breakthrough-play-bots');
-  launch.querySelector('span').textContent = renown ? 'BEGIN REWARDED TRIAL' : solo ? 'ENTER EDGE OF VICTORY' : 'PLAY WITH BOTS';
-  launch.querySelector('small').textContent = renown ? 'Solo waves on the server with account Renown' : solo
-    ? 'Solo · last knight standing against three rivals' : isSiege ? 'Launch a siege machine battle, with bots filling open slots' : 'Launch a team battle, with bots filling open slots';
+  launch.hidden = ffa;
+  launch.classList.toggle('primary-command', !ffa);
+  launch.querySelector('span').textContent = renown ? 'BEGIN REWARDED TRIAL' : edge ? 'ENTER EDGE OF VICTORY' : 'PLAY WITH BOTS';
+  launch.querySelector('small').textContent = renown ? 'Solo waves on the server with account Renown' : edge
+    ? 'Solo · last knight standing against three rivals' : 'Launch a team battle, with bots filling open slots';
+
   for (const button of $('#mettle-modes').querySelectorAll('[data-mettle-mode]')) {
-    button.classList.toggle('selected',button.dataset.mettleMode===mode);
-    button.setAttribute('aria-pressed',String(button.dataset.mettleMode===mode));
+    button.classList.toggle('selected', button.dataset.mettleMode === mode);
+    button.setAttribute('aria-pressed', String(button.dataset.mettleMode === mode));
   }
+  const ffaArenas = ['castleward', 'ruined-keep', 'court-of-merit', 'blackbell-foundry'];
   for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
-    if (isSiege) {
-      chip.hidden = !['outerworks', 'blackbell-foundry', 'high-grounds'].includes(chip.dataset.arena);
-    } else {
-      chip.hidden = mode==='RESTLESS_DAY'?chip.dataset.arena!=='restless-day':mode==='HIGH_GROUNDS'?chip.dataset.arena!=='high-grounds':(chip.dataset.arena==='high-grounds'||chip.dataset.arena==='restless-day');
-    }
-    const on = chip.dataset.arena === chosen;
+    const a = chip.dataset.arena;
+    if (ffa) chip.hidden = !ffaArenas.includes(a);
+    else if (edge) chip.hidden = a !== 'ruined-keep';
+    else chip.hidden = mode === 'RESTLESS_DAY' ? a !== 'restless-day' : mode === 'HIGH_GROUNDS' ? a !== 'high-grounds' : (a === 'high-grounds' || a === 'restless-day' || a === 'castleward' || a === 'ruined-keep' || a === 'court-of-merit');
+    const on = a === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
-  $('#breakthrough-size').hidden=mode==='RESTLESS_DAY';
+  $('#breakthrough-size').hidden = !teamMode || mode === 'RESTLESS_DAY';
+  const allegiance = $('#breakthrough-team');
+  if (allegiance) allegiance.hidden = !teamMode;
+  const rivalEl = $('#breakthrough-rival');
+  if (rivalEl) rivalEl.hidden = renown || ffa;
+  const rivalNoteEl = $('#breakthrough-rival-note');
+  if (rivalNoteEl) rivalNoteEl.hidden = renown || ffa;
+
   const publicBtn = $('#breakthrough-find-public');
   if (publicBtn) {
-    publicBtn.hidden = solo || mode === 'RESTLESS_DAY';
-    publicBtn.querySelector('span').textContent = isSiege ? 'FIND MATCH' : 'BROWSE PUBLIC MATCHES';
-    publicBtn.querySelector('small').textContent = isSiege ? 'Match with another player in Siege Blades (3 rounds)' : 'Find a battle with other Spellblades';
+    publicBtn.hidden = renown || mode === 'RESTLESS_DAY';
+    publicBtn.classList.toggle('primary-command', ffa);
+    publicBtn.querySelector('span').textContent = 'BROWSE PUBLIC MATCHES';
+    publicBtn.querySelector('small').textContent = ffa
+      ? 'Find or raise a public Free-for-All room'
+      : edge ? 'Find or raise a 4-knight Edge of Victory match'
+      : 'Find a battle with other Spellblades';
   }
   showBreakthroughSize();
-  showSiegeControls();
-  showSiegeFormat();
-  showSiegeRounds();
-  showSiegeEndlessRounds();
-  showSiegeClash();
   if (breakthroughSubtitle) {
-    breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : solo ? 'EDGE OF VICTORY' : isSiege
-      ? `SIEGE BLADES · ${chosen === 'outerworks' ? 'THE OUTERWORKS' : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS'} · ${menuController.siegeSize()}V${menuController.siegeSize()} · ${menuController.siegeFormat() === 'MATCH' ? `${menuController.siegeRounds()} ROUNDS` : 'ENDLESS'}`
+    breakthroughSubtitle.textContent = renown ? 'RAMPAGE TO RENOWN' : edge ? 'EDGE OF VICTORY · RUINED KEEP'
+      : ffa ? `FREE-FOR-ALL · ${getWorld(chosen).name.toUpperCase()}`
       : chosen === 'outerworks' ? 'THE OUTERWORKS'
       : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : chosen === 'restless-day' ? 'RESTLESS DAY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
-    breakthroughCopy.textContent = isSiege
-      ? 'Team battles in siege machines. Before every round, choose the ram, the ballista or the flying repeater; the last team with a machine standing takes the round.'
-      : renown
+    breakthroughCopy.textContent = renown
       ? 'Survive escalating waves. Overtime puts you at risk of execution. The Renowner judges each wave before settling earned Renown.'
-      : solo ? 'Be the last knight standing. The shrinking boundary marks where the Spellblade refuses to retreat.' : chosen === 'restless-day'
+      : edge ? 'Four Spellblades, collectible spells, no retreat. The shrinking boundary marks where the Spellblade refuses to leave.'
+      : ffa ? 'Every Spellblade for themselves. First to ten across classic arenas.'
+      : chosen === 'restless-day'
       ? 'Five attackers carry two heavy metal ladders across the field, breach both castle walls, and destroy the Rightful Renowner before sundown. Defend the institution—or make it to bed.'
       : chosen === 'outerworks'
       ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
@@ -1479,19 +1676,13 @@ function showBreakthroughArena() {
 const mettleActivation = createRepeatActivation({
   selected: selectedMettleMode,
   select: chosen => {
-    mettleSoloMode = ['RENOWN_TRIALS', 'EDGE_OF_VICTORY', 'SIEGE_BLADES'].includes(chosen) ? chosen : null;
+    mettleSoloMode = ['RENOWN_TRIALS', 'EDGE_OF_VICTORY', 'FFA'].includes(chosen) ? chosen : null;
     if (!mettleSoloMode) menuController.chooseBreakthroughArena(chosen==='RESTLESS_DAY'?'restless-day':chosen==='HIGH_GROUNDS'?'high-grounds':'bastion-breach');
-    if (chosen === 'SIEGE_BLADES') {
-      const cur = menuController.breakthroughArena();
-      if (!['outerworks', 'blackbell-foundry', 'high-grounds'].includes(cur)) {
-        menuController.chooseBreakthroughArena('high-grounds');
-      }
-    }
     showBreakthroughArena();
-    // On a narrow display keep the tabs visible for the second tap.
-    // Battle orders remain accessible through the dedicated options button.
   },
-  activate: () => playMettleBots(),
+  activate: () => selectedMettleMode() === 'FFA'
+    ? openRooms('FFA', { draft: currentMettleDraft(), returnTo: SCREEN_IDS.BREAKTHROUGH_MENU })
+    : playMettleBots(),
 });
 $('#mettle-modes')?.addEventListener('click', event => {
   const chosen=event.target.closest?.('[data-mettle-mode]')?.dataset.mettleMode;
@@ -1500,8 +1691,10 @@ $('#mettle-modes')?.addEventListener('click', event => {
 breakthroughArena?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-arena]');
   if (!chip) return;
-  menuController.chooseBreakthroughArena(chip.dataset.arena);
+  if (selectedMettleMode() === 'FFA') menuController.chooseFfaArena(chip.dataset.arena);
+  else if (selectedMettleMode() !== 'EDGE_OF_VICTORY') menuController.chooseBreakthroughArena(chip.dataset.arena);
   showBreakthroughArena();
+  renderSiegeHub();
 });
 showBreakthroughArena();
 
@@ -1567,9 +1760,11 @@ const privateActivation = createRepeatActivation({
 });
 function privateFields(){
   const f=privateForm.elements;
+  const endlessOne=f.format.value==='ENDLESS'&&Number(f.teamSize.value)===1;
   return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
     teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value,
-    format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value};
+    format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value,
+    clashStarts:endlessOne&&f.clashStarts?f.clashStarts.value==='on':null};
 }
 function renderPrivateMode({reset=true}={}){
   const mode=privateModeSelected,siege=mode==='SIEGE_BLADES',teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS'||siege;
@@ -1589,7 +1784,12 @@ function renderPrivateMode({reset=true}={}){
   for(const option of f.teamSize.querySelectorAll('[data-siege-only]'))option.hidden=option.disabled=!siege;
   if(reset){
     if(defaults.minutes!==undefined)f.minutes.value=defaults.minutes;
-    if(siege){f.format.value=defaults.format;f.matchRounds.value=defaults.matchRounds;f.endlessRoundCap.value=defaults.endlessRoundCap;}
+    if(siege){
+      f.format.value=defaults.format;
+      f.matchRounds.value=defaults.matchRounds;
+      f.endlessRoundCap.value=defaults.endlessRoundCap;
+      if(f.clashStarts)f.clashStarts.value='on';
+    }
     if(teamMode||mode==='EDGE_OF_VICTORY'){
       if(teamMode)f.teamSize.value=defaults.teamSize;
       if(teamMode)f.team.value=defaults.team;
@@ -1602,10 +1802,13 @@ function renderPrivateMode({reset=true}={}){
     privateForm.querySelector('[data-private-'+attr+']').hidden=!teamMode||(attr==='size'&&mode==='RESTLESS_DAY')||(attr==='team'&&siege);
   // Siege Blades plays rounds: its format and rounds replace the match time
   const endless=siege&&f.format.value==='ENDLESS';
+  const clashShown=endless&&Number(f.teamSize.value)===1;
   privateForm.querySelector('[data-private-time]').hidden=siege;
   privateForm.querySelector('[data-private-format]').hidden=!siege;
   privateForm.querySelector('[data-private-rounds]').hidden=!siege||endless;
   privateForm.querySelector('[data-private-cap]').hidden=!endless;
+  const clashRow=privateForm.querySelector('[data-private-clash]');
+  if(clashRow)clashRow.hidden=!clashShown;
   const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
     mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
     mode==='FFA'?'Every Spellblade for themselves. First to ten.':
@@ -1863,29 +2066,29 @@ $('#solo-details')?.addEventListener('click',()=>{
   soloMenu.dataset.panel='details';resetCompanionCrown(soloMenu);
 });
 $('#solo-launch').addEventListener('click',()=>soloActivation.run());
+function openPrivateWithDraft(mode, draft = {}, returnTo = SCREEN_IDS.MAIN_MENU) {
+  privateReturnScreen = returnTo ?? SCREEN_IDS.MAIN_MENU;
+  const pBack = $('#private-back');
+  if (pBack) pBack.textContent = backLabelForScreen(privateReturnScreen);
+  privateActivation.reset();
+  privateModeSelected = privateMode(mode);
+  renderPrivateMode();
+  applyDraftToRuleForm(privateForm, privateModeSelected, draft);
+  renderPrivateMode({ reset: false });
+  privateMenu.dataset.panel = 'list';
+  route(SCREEN_IDS.PRIVATE_MENU);
+}
 $('#breakthrough-find-public')?.addEventListener('click', () => {
-  const mode = selectedMettleMode();
-  if (mode === 'SIEGE_BLADES') {
-    openRooms('SIEGE_BLADES');
-    return;
-  }
-  openRooms(menuController.breakthroughArena()==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH');
+  const draft = currentMettleDraft();
+  openRooms(draft.mode === 'RESTLESS_DAY' ? 'ALL' : draft.mode, {
+    draft,
+    returnTo: SCREEN_IDS.BREAKTHROUGH_MENU,
+  });
 });
 function playMettleBots() {
   if (mettleSoloMode === 'RENOWN_TRIALS') return runMenuAction(menuController.renownTrials(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
-  if (mettleSoloMode === 'EDGE_OF_VICTORY') return runMenuAction(menuController.edgeOfVictory(nameInput.value), SCREEN_IDS.BREAKTHROUGH_MENU);
-  if (mettleSoloMode === 'SIEGE_BLADES') return runMenuAction(menuController.siegeBlades(nameInput.value, {
-    format: menuController.siegeFormat(),
-    teamSize: menuController.siegeSize(),
-    worldId: menuController.breakthroughArena(),
-    botSkill: menuController.breakthroughSkill(),
-    // (sides are assigned, and each player chooses a machine in the draft before every round)
-    team: 'AUTO',
-    machine: 'random',
-    matchRounds: menuController.siegeRounds(),
-    endlessRoundCap: menuController.siegeEndlessRounds(),
-    clashStarts: menuController.siegeClashStarts(),
-  }), SCREEN_IDS.BREAKTHROUGH_MENU);
+  if (mettleSoloMode === 'EDGE_OF_VICTORY') return runMenuAction(menuController.edgeOfVictory(nameInput.value, menuController.breakthroughSkill()), SCREEN_IDS.BREAKTHROUGH_MENU);
+  if (mettleSoloMode === 'FFA') return openRooms('FFA', { draft: currentMettleDraft(), returnTo: SCREEN_IDS.BREAKTHROUGH_MENU });
   return runMenuAction(menuController.breakthrough(nameInput.value, {
     team: menuController.breakthroughTeam(),
     botSkill: menuController.breakthroughSkill(),
@@ -1897,35 +2100,8 @@ $('#breakthrough-play-bots')?.addEventListener('click', () => mettleActivation.r
 $('#mettle-renown-rehearse').addEventListener('click', () => runMenuAction(
   menuController.renownTrials(nameInput.value, { worldId: menuController.renownArena(), rehearsal: true }), SCREEN_IDS.BREAKTHROUGH_MENU));
 $('#breakthrough-create-private')?.addEventListener('click', () => {
-  // Private siege rooms should pass through the same rule review as every
-  // other private mode. Preserve the battle orders already chosen in Mettle.
-  const mode = selectedMettleMode();
-  if (mode === 'SIEGE_BLADES') {
-    privateActivation.reset();
-    privateModeSelected = 'SIEGE_BLADES';
-    renderPrivateMode();
-    const f=privateForm.elements;
-    f.worldId.value=menuController.breakthroughArena();
-    f.teamSize.value=String(menuController.siegeSize());
-    f.team.value='AUTO';
-    f.botSkill.value=menuController.breakthroughSkill();
-    renderPrivateMode({reset:false});
-    privateMenu.dataset.panel='list';
-    route(SCREEN_IDS.PRIVATE_MENU);
-    return;
-  }
-  const arena=menuController.breakthroughArena();
-  privateActivation.reset();
-  privateModeSelected=arena==='restless-day'?'RESTLESS_DAY':arena==='high-grounds'?'HIGH_GROUNDS':'BREAKTHROUGH';
-  renderPrivateMode();
-  const f=privateForm.elements;
-  f.worldId.value=arena;
-  f.teamSize.value=arena==='restless-day'?'5':String(menuController.breakthroughSize());
-  f.team.value=menuController.breakthroughTeam();
-  f.botSkill.value=menuController.breakthroughSkill();
-  renderPrivateMode({reset:false});
-  privateMenu.dataset.panel='list';
-  route(SCREEN_IDS.PRIVATE_MENU);
+  const draft = currentMettleDraft();
+  openPrivateWithDraft(draft.mode, draft, SCREEN_IDS.BREAKTHROUGH_MENU);
 });
 function startBotDuel() {
   if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return false;
@@ -2661,9 +2837,76 @@ function prepareSiegeSkillReorder(skillId) {
   };
 }
 
+let siegeSkillDetailId = null;
+let siegeSkillDetailReturnFocus = null;
+function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
+  siegeSkillDetailId = skillId;
+  const section = $('#siege-skills-section');
+  const listEl = $('#armory-siege-machines');
+  const card = $('#siege-skill-detail-card');
+  if (!section || !listEl || !card) return;
+  if (!skillId) {
+    card.hidden = true;
+    listEl.hidden = false;
+    section.classList.remove('showing-skill-detail');
+    return;
+  }
+  const machine = siegeArmoryView(siegeSelections()).find((item) => item.id === machineId);
+  const skill = machine?.skills?.find((s) => s.id === skillId);
+  if (!skill) {
+    setSiegeSkillDetail(null);
+    return;
+  }
+  $('#siege-skill-detail-name').textContent = skill.name;
+  const statusEl = $('#siege-skill-detail-status');
+  if (statusEl) statusEl.textContent = skill.equipped ? 'EQUIPPED' : 'AVAILABLE SKILL';
+  $('#siege-skill-detail-desc').textContent = skill.line;
+  const demoBtn = $('#siege-skill-detail-demo');
+  if (demoBtn) {
+    demoBtn.dataset.siegeMachine = machineId;
+    demoBtn.dataset.siegeSkill = skill.id;
+  }
+  listEl.hidden = true;
+  card.hidden = false;
+  section.classList.add('showing-skill-detail');
+}
+
+function updateSiegeWorkshopStageUI(status) {
+  const stage = $('#armory-siege');
+  const img = $('#siege-static-preview');
+  const statusBox = $('#siege-model-status');
+  const statusText = $('#siege-model-status-text');
+  const retryBtn = $('#siege-model-retry');
+  if (!stage || !status?.id) return;
+  const previewPath = appUrl(`/client/assets/props/siege-portraits/workshop-${status.id}.webp`);
+  if (img) {
+    if (img.dataset.machine !== status.id) {
+      img.dataset.machine = status.id;
+      img.src = previewPath;
+    }
+    img.hidden = Boolean(status.firstFrameReady);
+  }
+  stage.classList.toggle('is-static-preview', !status.firstFrameReady);
+  if (statusBox) {
+    if (status.firstFrameReady) {
+      statusBox.hidden = true;
+    } else if (status.loadState === 'error') {
+      statusBox.hidden = false;
+      if (statusText) statusText.textContent = 'Static preview · Interactive 3D failed to load';
+      if (retryBtn) retryBtn.hidden = false;
+    } else {
+      statusBox.hidden = false;
+      if (statusText) statusText.textContent = 'Loading interactive 3D…';
+      if (retryBtn) retryBtn.hidden = true;
+    }
+  }
+}
+
 function renderSiegeWorkshop(machineId = 'soFist') {
+  const switched = armoryLocation.siegeMachine !== machineId;
   armoryLocation.siegeMachine = machineId;
   saveArmoryLocation(armoryLocation);
+  if (switched) setSiegeSkillDetail(null);
 
   for (const tab of document.querySelectorAll('[data-siege-tab]')) {
     const isCurrent = tab.dataset.siegeTab === machineId;
@@ -2672,6 +2915,7 @@ function renderSiegeWorkshop(machineId = 'soFist') {
   }
 
   menuScene?.siegeWorkshop?.selectMachine(machineId);
+  if (menuScene?.siegeWorkshop) updateSiegeWorkshopStageUI(menuScene.siegeWorkshop.getActiveModelStatus());
   const panel = $('#armory-siege .siege-inspector-scroll');
   if (panel && panel.dataset.machine !== machineId) {
     panel.dataset.machine = machineId;
@@ -2704,12 +2948,16 @@ function renderSiegeWorkshop(machineId = 'soFist') {
   $('#armory-siege-machines').innerHTML = `
     <article class="siege-armory-card">
       <div class="armory-spells" role="radiogroup" aria-label="${m.name} Skills">
-        ${sortedSkills.map((skill) => `<button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
-          <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
-          <small>${skill.line}</small></button>`).join('')}
+        ${sortedSkills.map((skill) => `<div class="equipment-row siege-equipment-row">
+          <button type="button" class="spell-card${skill.equipped ? ' equipped' : ''}" role="radio" aria-checked="${skill.equipped}" data-siege-machine="${m.id}" data-siege-skill="${skill.id}" ${m.skills.length === 1 ? 'disabled' : ''}>
+            <span class="spell-name">${escapeHtml(skill.name)}</span>${skill.equipped ? '<i>EQUIPPED</i>' : ''}
+            <small>${escapeHtml(skill.summary || skill.line)}</small></button>
+          <button type="button" class="equipment-info" data-siege-skill-info="${skill.id}" data-siege-machine="${m.id}" aria-label="Details: ${escapeHtml(skill.name)}" title="Full mechanics & controls">i</button>
+        </div>`).join('')}
       </div>
     </article>
   `;
+  if (siegeSkillDetailId) setSiegeSkillDetail(siegeSkillDetailId, m.id);
 
   $('#siege-ctrl-desktop').textContent = m.controls?.desktop || 'Standard vehicle movement';
   $('#siege-ctrl-touch').textContent = m.controls?.touch || 'Touch movement stick & aim';
@@ -2751,7 +2999,11 @@ function navigateToArmorySection(region, { preserveInspector = false, immediate 
 
   const backBtn = $('#armory-back');
   if (backBtn) {
-    backBtn.textContent = region === 'kit' && !armoryLocation.inspectorOpen ? '← MAIN MENU' : '← BACK';
+    backBtn.textContent = region === 'siege' && armoryReturnScreen === SCREEN_IDS.SIEGE_BLADES_MENU
+      ? '← SIEGE BLADES'
+      : region === 'kit' && !armoryLocation.inspectorOpen
+      ? '← MAIN MENU'
+      : '← BACK';
   }
 
   $('#armory-kit-tab')?.setAttribute('aria-pressed', String(region === 'kit'));
@@ -2864,6 +3116,13 @@ $('#siege-attacks-list')?.addEventListener('click', (event) => {
 });
 
 $('#armory-siege-machines').addEventListener('click', (event) => {
+  const infoBtn = event.target.closest('[data-siege-skill-info]');
+  if (infoBtn) {
+    siegeSkillDetailReturnFocus = infoBtn.dataset.siegeSkillInfo;
+    setSiegeSkillDetail(infoBtn.dataset.siegeSkillInfo, infoBtn.dataset.siegeMachine);
+    $('#siege-skill-detail-back')?.focus({ preventScroll: true });
+    return;
+  }
   const button = event.target.closest('[data-siege-skill]');
   if (!button || button.disabled) return;
   const setting = button.dataset.siegeMachine === 'biBye' ? 'loadout.bibyeSkill' :
@@ -2878,6 +3137,25 @@ $('#armory-siege-machines').addEventListener('click', (event) => {
     updateSiegePreviewUI(started?button.dataset.siegeSkill:null,
       started?null:button.dataset.siegeSkill);
   }
+});
+
+$('#siege-skill-detail-back')?.addEventListener('click', () => {
+  const targetId = siegeSkillDetailReturnFocus;
+  siegeSkillDetailReturnFocus = null;
+  setSiegeSkillDetail(null);
+  if (targetId) document.querySelector(`[data-siege-skill-info="${targetId}"]`)?.focus({ preventScroll: true });
+});
+
+$('#siege-skill-detail-demo')?.addEventListener('click', (event) => {
+  const btn = event.currentTarget;
+  const skillId = btn.dataset.siegeSkill;
+  if (!skillId) return;
+  const started = menuScene?.siegeWorkshop?.playPreview(skillId) === true;
+  updateSiegePreviewUI(started ? skillId : null, started ? null : skillId);
+});
+
+$('#siege-model-retry')?.addEventListener('click', () => {
+  menuScene?.siegeWorkshop?.retryLoad(armoryLocation.siegeMachine);
 });
 
 document.querySelector('.siege-machine-nav')?.addEventListener('click', (event) => {
@@ -2925,6 +3203,7 @@ $('#armory-siege')?.addEventListener('dblclick', (e) => {
 });
 
 $('#armory-button').addEventListener('click', () => {
+  armoryReturnScreen = SCREEN_IDS.MAIN_MENU;
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
@@ -2937,17 +3216,25 @@ for (const id of ['armory-kit-tab', 'armory-siege-tab', 'armory-heraldry-tab']) 
   });
 }
 
+function exitArmoryToOrigin() {
+  const dest = armoryReturnScreen || SCREEN_IDS.MAIN_MENU;
+  armoryReturnScreen = SCREEN_IDS.MAIN_MENU;
+  route(dest);
+}
+
 $('#armory-back').addEventListener('click', () => {
   if (armoryLocation.region === 'challenges') {
     navigateToArmorySection(armoryLocation.previousRegion || 'kit');
   } else if (armoryLocation.inspectorOpen) {
     closeInspector();
+  } else if (armoryLocation.region === 'siege' && armoryReturnScreen !== SCREEN_IDS.MAIN_MENU) {
+    exitArmoryToOrigin();
   } else if (armoryLocation.region !== 'kit') {
     const source = armoryLocation.region;
     navigateToArmorySection('kit');
     $(source === 'heraldry' ? '#armory-slot-heraldry' : '#armory-nav-siege')?.focus({ preventScroll: true });
   } else {
-    route(SCREEN_IDS.MAIN_MENU);
+    exitArmoryToOrigin();
   }
 });
 
@@ -3072,14 +3359,22 @@ document.addEventListener('keydown', event => {
       closeInspector();
       return;
     }
+    if (armoryLocation.region === 'siege' && armoryReturnScreen !== SCREEN_IDS.MAIN_MENU) {
+      exitArmoryToOrigin();
+      return;
+    }
     if (armoryLocation.region !== 'kit') {
       navigateToArmorySection('kit');
       return;
     }
-    route(SCREEN_IDS.MAIN_MENU);
+    exitArmoryToOrigin();
     return;
   }
-  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
+  if (router.current === SCREEN_IDS.PRIVATE_MENU) {
+    route(privateReturnScreen ?? SCREEN_IDS.MAIN_MENU);
+  } else if (router.current === SCREEN_IDS.ROOMS_MENU) {
+    route(roomsReturnScreen ?? SCREEN_IDS.MAIN_MENU);
+  } else if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.SIEGE_BLADES_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     returnToMenu();
@@ -3855,6 +4150,10 @@ const LINK_MARK = Object.freeze({ online: 'Multiplayer online', waking: 'Multipl
 const ONLINE_COMMANDS = ['#quick-play', '#private-button'];
 const seekDuelCopy = $('#seek-duel small');
 const SEEK_COPY = seekDuelCopy?.textContent ?? '';
+const siegeSeekBtn = $('#siege-seek');
+const siegeSeekCopy = $('#siege-seek-copy');
+const SIEGE_SEEK_COPY = siegeSeekCopy?.textContent ?? 'Online · 1v1 · 3 rounds · Random battlefield';
+const siegePlayBotsBtn = $('#siege-play-bots');
 function renderLinkStatus(status) {
   const view = linkStatusView(status);
   linkStatus.classList.toggle('hidden', !view.title);
@@ -3869,6 +4168,15 @@ function renderLinkStatus(status) {
   linkMark.querySelector('[data-link-mark-label]').textContent = markLabel;
   linkMark.title = markLabel;
   if (seekDuelCopy) seekDuelCopy.textContent = (view.online || view.tone === 'dormant') ? SEEK_COPY : 'If multiplayer is unavailable, a bot steps in';
+  const siegeOnline = view.tone !== 'offline';
+  if (siegeSeekBtn) {
+    siegeSeekBtn.disabled = !siegeOnline;
+    siegeSeekBtn.setAttribute('aria-disabled', String(!siegeOnline));
+    siegeSeekBtn.classList.toggle('needs-server', !siegeOnline);
+    siegeSeekBtn.classList.toggle('primary-command', siegeOnline);
+  }
+  if (siegeSeekCopy) siegeSeekCopy.textContent = siegeOnline ? SIEGE_SEEK_COPY : 'Multiplayer offline — Play with Bots remains ready';
+  siegePlayBotsBtn?.classList.toggle('primary-command', !siegeOnline);
   requestAnimationFrame(updateMenuScrollCue);
 }
 // the herald's banner, when the server answers after keeping everyone waiting

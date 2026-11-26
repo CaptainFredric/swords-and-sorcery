@@ -1,5 +1,5 @@
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
-import { createSoFistication, primeSoFistSkill, fireSoFistication } from './soFistication.mjs';
+import { createSoFistication, primeSoFistSkill, fireSoFistication, flickSoFistication, shuntSoFistication } from './soFistication.mjs';
 import {
   createBiByeLlista, toggleBiByeDeploy, fireBiByeMobile, fireBiByeFullVolley, biByeTargetAim,
 } from './biByeLlista.mjs';
@@ -51,26 +51,28 @@ function blocked(room, a, b) {
 
 function predicted(from, target, speed, tuning, delay = 0) {
   const v = target.velocity ?? {};
-  const t = clamp(dist(from, target.position) / speed + delay, 0, 3) * (tuning.lead ?? 0.5);
+  const leadScale = tuning.lead ?? 0.5;
+  const maxLead = 0.85 * leadScale + 0.15;
+  const t = Math.min(maxLead, clamp(dist(from, target.position) / speed + delay, 0, 2.2) * leadScale);
   return {
     x: target.position.x + (v.x ?? 0) * t,
-    y: target.position.y + (v.y ?? 0) * t,
+    y: target.position.y + clamp((v.y ?? 0) * t * 0.65, -2.5, 2.5),
     z: target.position.z + (v.z ?? 0) * t,
   };
 }
 
-function aimInput(from, target, ai, tuning, speed = 48) {
+function aimInput(from, target, ai, tuning, speed = 48, targetHeight = 1.0) {
   const point = predicted(from, target, speed, tuning);
   const error = Math.sin((ai.decisions ?? 0) * 2.71 + (ai.seed ?? 1)) * (tuning.error ?? 0);
   const yaw = bearing(from, point) + error;
   return {
     point,
     yaw,
-    pitch: Math.atan2(point.y + 1.0 - (from.y + 1.5), dist(from, point)) + error * 0.5,
+    pitch: Math.atan2(point.y + targetHeight - (from.y + 1.5), Math.max(0.5, dist(from, point))) + error * 0.5,
   };
 }
 
-function drive(room, m, target, ai, tuning, { ideal = 10, deadZone = 2, reverse = true } = {}) {
+function drive(room, m, target, ai, tuning, { ideal = 10, deadZone = 2, reverse = true, checkBlocked = true } = {}) {
   const point = predicted({ x: m.x, y: m.y, z: m.z }, target.position ? target : { position: target, velocity: {} }, 36, tuning);
   const at = { x: m.x, y: m.y, z: m.z };
   const d = dist(at, point);
@@ -79,9 +81,12 @@ function drive(room, m, target, ai, tuning, { ideal = 10, deadZone = 2, reverse 
   let forward = d > ideal + deadZone ? 1 : d < ideal - deadZone && reverse ? -0.7 : 0;
   if (Math.abs(err) > 1.4 && forward > 0) forward = 0.4;
   let right = clamp(-err * 1.25, -1, 1);
-  const look = 4.2;
-  const front = { x: at.x - Math.sin(m.heading) * look, y: at.y, z: at.z - Math.cos(m.heading) * look };
-  if (forward > 0 && blocked(room, at, front)) {
+  if (checkBlocked) {
+    const look = 4.2;
+    const front = { x: at.x - Math.sin(m.heading) * look, y: at.y, z: at.z - Math.cos(m.heading) * look };
+    ai.frontBlocked = forward > 0 && blocked(room, at, front);
+  }
+  if (forward > 0 && ai.frontBlocked) {
     right = ai.side ?? 1;
     forward = 0.45;
   }
@@ -90,10 +95,10 @@ function drive(room, m, target, ai, tuning, { ideal = 10, deadZone = 2, reverse 
     forward = -0.65;
   }
   const moved = dist(at, ai.lastPosition ?? at);
-  if ((ai.now ?? 0) - (ai.lastSampleAt ?? ai.now ?? 0) > 1.8) {
-    if (forward > 0.3 && moved < 0.35) {
+  if ((ai.now ?? 0) - (ai.lastSampleAt ?? ai.now ?? 0) > 1.5) {
+    if (forward > 0.3 && moved < 0.4) {
       ai.side = -(ai.side ?? 1);
-      ai.stuckUntil = (ai.now ?? 0) + 1.3;
+      ai.stuckUntil = (ai.now ?? 0) + 1.2;
     }
     ai.lastPosition = { ...at };
     ai.lastSampleAt = ai.now ?? 0;
@@ -116,6 +121,7 @@ export function createSiegeBladesState(room, options = {}) {
   const machineSelection = settings.machineSelection ?? 'random';
   const clashStarts = settings.clashStarts ?? null;
 
+  const initialRadius = room.worldId === 'outerworks' ? 24.0 : room.worldId === 'blackbell-foundry' ? 26.0 : room.worldId === 'high-grounds' ? 28.0 : 26.0;
   return {
     format,
     matchRounds,
@@ -139,13 +145,17 @@ export function createSiegeBladesState(room, options = {}) {
     matchWinner: null,
 
     overtimeActive: false,
+    overtimeStartedAt: null,
     overtimeHoldRequired: 20.0,
     zone: {
       center: { x: 0, y: 0, z: 0 },
-      radius: room.worldId === 'outerworks' ? 24.0 : room.worldId === 'blackbell-foundry' ? 26.0 : room.worldId === 'high-grounds' ? 28.0 : 26.0,
+      centerY: surfaceHeightAt(0, 0, 2.5, room.world) ?? 0,
+      initialRadius,
+      radius: initialRadius,
       controllingTeam: null,
       holdSec: 0,
       contested: false,
+      initialAltitudeLimit: 4.0,
       altitudeLimit: 4.0,
     },
 
@@ -486,6 +496,9 @@ export function resetSiegeBladesRound(room, nowSec) {
   state.roundWinner = null;
   state.roundResetCountdown = null;
   state.overtimeActive = false;
+  state.overtimeStartedAt = null;
+  state.zone.radius = state.zone.initialRadius ?? state.zone.radius;
+  state.zone.altitudeLimit = state.zone.initialAltitudeLimit ?? 4.0;
   state.zone.controllingTeam = null;
   state.zone.holdSec = 0;
   state.zone.contested = false;
@@ -547,6 +560,27 @@ export function resetSiegeBladesRound(room, nowSec) {
   beginSiegeBladesSelection(room, nowSec);
 }
 
+function chooseBotTarget(room, bot, m, kind, enemies, ai, state) {
+  const at = { x: m.x, y: m.y, z: m.z };
+  let best = enemies[0], bestScore = Infinity;
+  for (const foe of enemies) {
+    const fm = room.getMachineForPlayer(foe.id);
+    const fKind = fm ? getMachineKind(fm) : 'foot';
+    const d = dist(at, foe.position);
+    let score = d;
+    const hpRatio = fm ? (fm.health / Math.max(1, fm.maxHealth)) : (foe.health / 100);
+    score -= (1 - hpRatio) * 14;
+    if (ai.targetId === foe.id) score -= 5.5; // prevent jitter swapping
+    if (kind === 'ram' && fKind === 'ballista') score -= 4;
+    if (kind === 'flight' && fKind === 'flight') score -= 6;
+    if (kind === 'flight' && fm?.rotorHP > 0 && fm.rotorHP < 55) score -= 5;
+    if (state?.overtimeActive && dist(foe.position, state.zone.center) <= state.zone.radius) score -= 8;
+    if (score < bestScore) { bestScore = score; best = foe; }
+  }
+  ai.targetId = best?.id ?? null;
+  return best;
+}
+
 function stepSiegeBladesBots(room, nowSec) {
   const state = room.siegeBlades;
   if (!state || state.roundResetCountdown > 0) return;
@@ -563,109 +597,164 @@ function stepSiegeBladesBots(room, nowSec) {
     );
     if (!enemies.length) continue;
 
-    enemies.sort((a, b) => dist(bot.position, a.position) - dist(bot.position, b.position));
-    const target = enemies[0];
     const ai = bot.siegeAi ?? { seed: 1, decisions: 0, side: 1, stuckUntil: 0, now: nowSec };
     ai.now = nowSec;
-
     const kind = getMachineKind(m);
+    const decide = nowSec >= (ai.nextDecisionAt ?? 0);
 
-    // Skilled and Champion bots actively consider Sheathe in Steel repair
+    let target = ai.targetId ? enemies.find(e => e.id === ai.targetId) : null;
+    if (!target || decide) {
+      target = chooseBotTarget(room, bot, m, kind, enemies, ai, state);
+    }
+
     if (bot.spell === 'steel') {
       considerOperatorSteel(room, bot, m, kind, target, nowSec);
     }
 
-    // Enforce reaction intervals
-    if (nowSec < (ai.nextDecisionAt ?? 0)) continue;
-    ai.nextDecisionAt = nowSec + tuning.reaction;
-    ai.decisions++;
+    if (decide) {
+      ai.nextDecisionAt = nowSec + tuning.reaction;
+      ai.decisions++;
+    }
 
     if (kind === 'ram') {
-      stepUppercuff(room, bot, m, target, ai, tuning, nowSec);
+      stepUppercuff(room, bot, m, target, ai, tuning, nowSec, decide, state);
     } else if (kind === 'ballista') {
-      stepBallistefan(room, bot, m, target, ai, tuning, nowSec);
+      stepBallistefan(room, bot, m, target, ai, tuning, nowSec, decide, state);
     } else if (kind === 'flight') {
-      stepDonte(room, bot, m, target, ai, tuning, nowSec);
+      stepDonte(room, bot, m, target, ai, tuning, nowSec, decide, state);
     }
   }
 }
 
-function stepUppercuff(room, a, m, target, ai, tuning, now) {
+function stepUppercuff(room, a, m, target, ai, tuning, now, decide, state) {
   const at = { x: m.x, z: m.z };
-  const d = dist(at, target.position);
+  const targetM = room.getMachineForPlayer(target.id);
+  const targetKind = targetM ? getMachineKind(targetM) : 'foot';
+  const otNeeded = Boolean(state?.overtimeActive && dist(at, state.zone.center) > Math.max(4, state.zone.radius - 2));
+  const dTarget = dist(at, target.position);
   const recoveringFist = m.skill?.id === 'longArmToTheJaw' && m.detachedFist?.state === 'resting';
-  const destination = recoveringFist ? { position: m.detachedFist.position, velocity: {} } : target;
+  const destination = recoveringFist ? { position: m.detachedFist.position, velocity: {} }
+    : (otNeeded && dTarget > state.zone.radius) ? { position: state.zone.center, velocity: {} }
+    : target;
+
+  const d = dist(at, target.position);
+  const pistonAge = m.strikeAt == null ? 99 : Math.max(0, now - m.strikeAt);
+  const pistonReady = pistonAge >= 3.95;
+  const inCooldown = pistonAge >= 0.35 && pistonAge < 3.65;
   const approach = drive(room, m, destination, ai, tuning, {
-    ideal: recoveringFist ? 1.2 : 2.8,
-    deadZone: recoveringFist ? 0.45 : 1.2,
-    reverse: !recoveringFist,
+    ideal: recoveringFist ? 1.0 : pistonReady ? 2.4 : 4.8,
+    deadZone: recoveringFist ? 0.45 : 1.1,
+    reverse: recoveringFist || (!inCooldown && d < 2.1),
+    checkBlocked: decide,
   });
 
-  if (m.strikeAt != null && now - m.strikeAt < 1.1) {
-    approach.forward = 0.82;
-    approach.right = clamp(-approach.err * 0.42, -0.5, 0.5);
-  } else if (d < 3.8 && !recoveringFist) {
-    approach.forward = -0.8;
-    approach.right = clamp(-approach.err * 0.5, -1, 1);
+  // Smooth flanking turn during piston cooldown rather than oscillating back-and-forth at 3.8m
+  if (inCooldown && d < 6.0 && !recoveringFist) {
+    approach.forward = d < 3.4 ? 0.55 : 0.85;
+    approach.right = clamp(-approach.err * 0.65 + (ai.side ?? 1) * 0.48, -1, 1);
   }
-  const forwardFacing = Math.abs(approach.err) < 0.5;
+  const forwardFacing = Math.abs(approach.err) < 0.48;
   const healthy = (m.components?.Fist?.health ?? 0) > 0 && (m.components?.Drive?.health ?? 0) > 0;
+  const targetAbove = target.position.y - m.y;
+  const elevateUp = targetKind === 'flight' && targetAbove > 0.7 && d < 15;
+  const lowerDown = !elevateUp && ((m.ramLiftY ?? 0) > 0.08 || (m.ramElevPitch ?? 0) > 0.05);
+
   a.input = {
     ...a.input,
     forward: approach.forward,
     right: approach.right,
-    sprint: forwardFacing && d > 5 && d < 22 && m.pressure > 28 && healthy,
+    sprint: forwardFacing && d > 5.2 && d < 26 && (m.pressure ?? 0) > 25 && healthy && !inCooldown,
+    ramRaise: elevateUp && (m.ramLiftY ?? 0) < 0.9,
+    ramPitchUp: elevateUp,
+    ramLower: lowerDown && (m.ramLiftY ?? 0) > 0.05,
+    ramPitchDown: lowerDown && (m.ramElevPitch ?? 0) > 0.04,
     yaw: m.heading,
     pitch: 0,
   };
 
+  if (!decide) return;
+
+  // Tactical commitment: Shunt Dash gap closer / punish, Flick, Skills, and timed Piston strikes
+  if (healthy && forwardFacing && Math.abs(approach.err) < 0.38 &&
+      d > 4.6 && d < 9.5 && (m.pressure ?? 0) >= 22 && now >= (m.shuntReadyAt ?? 0) &&
+      (pistonReady || (m.charging && d < 8.5)) && ai.difficulty !== 'learner') {
+    shuntSoFistication(room, m, now, 1);
+  }
+
   const chosen = m.skill?.id;
   const ready = now + 1e-8 >= (m.skill?.readyAt ?? 0);
-  const visibleThreat = Boolean(target.attackActive || target.pendingSpell || (target.dashUntil ?? -Infinity) > now);
+  const visibleThreat = Boolean(target.attackActive || target.pendingSpell || (target.dashUntil ?? -Infinity) > now || (targetM && (targetM.speed ?? 0) > 4.5));
 
-  if (chosen === 'beatToThePunch' && forwardFacing && d < 11 && visibleThreat && m.skill?.phase === 'idle' && healthy) {
+  if (chosen === 'beatToThePunch' && forwardFacing && d < 12 && visibleThreat && m.skill?.phase === 'idle' && healthy) {
     primeSoFistSkill(room, m, a, now);
   }
   if (chosen === 'longArmToTheJaw' && now >= (ai.nextSkillAt ?? 0)) {
-    if (m.detachedFist?.state === 'resting' || (m.fistMounted !== false && forwardFacing && d > 5.5 && d < 18 && ready && healthy)) {
+    const antiAirWindow = targetKind === 'flight' && targetAbove < 4.2 && d < 20;
+    if (m.detachedFist?.state === 'resting' || (m.fistMounted !== false && forwardFacing && (antiAirWindow || (d > 5.2 && d < 18)) && ready && healthy)) {
       const problem = primeSoFistSkill(room, m, a, now);
-      ai.nextSkillAt = now + (problem ? 0.8 : 3.6);
+      ai.nextSkillAt = now + (problem ? 0.7 : 3.2);
     }
   }
-  if (chosen === 'hellpingHand' && forwardFacing && d < 6.2 && healthy && (!m.hellping || m.hellping.phase === 'open') && now >= (ai.nextSkillAt ?? 0) && ready) {
+  if (chosen === 'hellpingHand' && forwardFacing && d < 6.0 && healthy && (!m.hellping || m.hellping.phase === 'open') && now >= (ai.nextSkillAt ?? 0) && ready) {
     const problem = primeSoFistSkill(room, m, a, now);
-    ai.nextSkillAt = now + (problem ? 0.8 : 0.3);
+    ai.nextSkillAt = now + (problem ? 0.7 : 0.3);
   }
 
-  if (forwardFacing && d >= 2.1 && d < 6.2 && now >= (ai.nextRamAt ?? 0) && (m.strikeAt == null || now - m.strikeAt >= 3.95)) {
+  if (forwardFacing && targetAbove < 3.6 && d >= 1.9 && d < 6.1 && now >= (ai.nextRamAt ?? 0) && pistonReady) {
     if (fireSoFistication(room, m, now)) ai.nextRamAt = now + 3.95;
+  } else if (ai.difficulty !== 'learner' && forwardFacing && d < 4.5 && targetAbove < 3.5 && now >= (ai.nextRamAt ?? 0) && pistonReady && Math.abs(approach.err) > 0.25) {
+    if (flickSoFistication(room, m, now)) ai.nextRamAt = now + 3.95;
   }
 }
 
-function stepBallistefan(room, a, m, target, ai, tuning, now) {
+function stepBallistefan(room, a, m, target, ai, tuning, now, decide, state) {
   const at = { x: m.x, y: m.y, z: m.z };
   const d = dist(at, target.position);
-  const los = !blocked(room, at, target.position);
-  const desired = aimInput(at, target, ai, tuning, 48);
+  const targetM = room.getMachineForPlayer(target.id);
+  const targetKind = targetM ? getMachineKind(targetM) : 'foot';
+
+  if (decide || ai.cachedLos == null) {
+    ai.cachedLos = !blocked(room, at, target.position);
+  }
+  const los = ai.cachedLos;
+
+  // Component targeting: Rotor on Fight-and-Flight, Gauntlet/Fist on Ram
+  const aimH = targetKind === 'flight' && (targetM?.rotorHP ?? 0) > 0 ? 2.05
+    : targetKind === 'ram' ? 1.25 : 1.15;
+  const desired = aimInput(at, target, ai, tuning, 48, aimH);
+
+  // Closing speed & Time-To-Impact threat assessment
+  const tx = target.position.x - at.x, tz = target.position.z - at.z;
+  const distNorm = Math.max(0.1, Math.hypot(tx, tz));
+  const tvx = target.velocity?.x ?? 0, tvz = target.velocity?.z ?? 0;
+  const closingSpeed = -((tvx * tx + tvz * tz) / distNorm);
+  const tti = closingSpeed > 1.2 ? distNorm / closingSpeed : 99;
+  const highThreat = (closingSpeed > 4.2 && tti < 2.25 && d < 16) || d < 9.5;
 
   const sweepFocus = m.skill?.id === 'lookAroundAndFindOut';
-  if (los && d < 43 && ['MOBILE', 'DEPLOYED'].includes(m.mode) && m.skill?.id === 'coldHowTouching' && m.skill.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0)) {
-    requestColdHowTouching(room, m, a, now);
-  }
+  const otNeeded = Boolean(state?.overtimeActive && dist(at, state.zone.center) > Math.max(4, state.zone.radius - 2));
 
   if (m.mode === 'MOBILE') {
-    const wheel = drive(room, m, target, ai, tuning, {
-      ideal: sweepFocus ? 3.0 : tuning.preferred ?? 18,
-      deadZone: sweepFocus ? 0.5 : 3,
+    const dest = otNeeded && d > state.zone.radius ? { position: state.zone.center, velocity: {} }
+      : highThreat && !sweepFocus ? {
+          position: { x: at.x - (tx / distNorm) * 14 + (ai.side ?? 1) * (-tz / distNorm) * 6, y: at.y, z: at.z - (tz / distNorm) * 14 - (ai.side ?? 1) * (-tx / distNorm) * 6 },
+          velocity: {},
+        }
+      : target;
+    const wheel = drive(room, m, dest, ai, tuning, {
+      ideal: highThreat ? 0 : (sweepFocus ? 3.2 : tuning.preferred ?? 19),
+      deadZone: highThreat ? 0.5 : (sweepFocus ? 0.5 : 3.0),
+      reverse: !highThreat,
+      checkBlocked: decide,
     });
     a.input = {
       ...a.input,
       ...wheel,
       yaw: desired.yaw,
       pitch: desired.pitch,
-      siegeTarget: { ...desired.point, y: desired.point.y + 1.15 },
+      siegeTarget: { ...desired.point, y: desired.point.y + aimH },
     };
-    if (d > 9 && d < 42 && Math.abs(wheel.err) < 0.4 && los && Math.abs(m.speed ?? 0) < 0.3) {
+    if (decide && d > 13 && d < 42 && !highThreat && Math.abs(wheel.err) < 0.45 && los && Math.abs(m.speed ?? 0) < 0.4) {
       toggleBiByeDeploy(m, now, room.world);
     }
   } else {
@@ -676,11 +765,8 @@ function stepBallistefan(room, a, m, target, ai, tuning, now) {
       sprint: false,
       yaw: desired.yaw,
       pitch: desired.pitch,
-      siegeTarget: { ...desired.point, y: desired.point.y + 1.15 },
+      siegeTarget: { ...desired.point, y: desired.point.y + aimH },
     };
-    if (m.mode === 'DEPLOYED' && (!los || d < 7 || d > 47)) {
-      toggleBiByeDeploy(m, now, room.world);
-    }
   }
 
   if (m.sweep) {
@@ -690,22 +776,36 @@ function stepBallistefan(room, a, m, target, ai, tuning, now) {
     return;
   }
 
-  if (!los || m.mode === 'DESTROYED' || m.mode === 'DEPLOYING' || m.mode === 'RETRACTING') return;
-  const isAligned = Math.abs(difference(desired.yaw, m.mainYaw ?? m.heading)) < 0.2;
+  if (!decide || m.mode === 'DESTROYED' || m.mode === 'DEPLOYING' || m.mode === 'RETRACTING') return;
+
+  const isAligned = Math.abs(difference(desired.yaw, m.mainYaw ?? m.heading)) < 0.22;
   const competent = ai.difficulty !== 'learner';
 
-  if (m.skill?.id === 'lookAroundAndFindOut' && m.skill.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0) && d < (competent ? 3.8 : 2.9) && now >= (ai.nextSweepAt ?? 0) && (competent || ai.decisions % 3 === 0)) {
+  // Defensive answer BEFORE retracting when attacker enters sweep reach
+  if (los && m.skill?.id === 'lookAroundAndFindOut' && m.skill.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0) && d < (competent ? 4.2 : 3.0) && now >= (ai.nextSweepAt ?? 0) && (competent || ai.decisions % 3 === 0)) {
     const problem = requestLookAroundAndFindOut(room, m, a, now);
-    ai.nextSweepAt = now + (problem ? 1.25 : 4.5);
-    if (!problem) return;
-  }
-  if (d <= (competent ? 3.4 : 2.8) && now >= (ai.nextSweepAt ?? 0) && m.skill?.phase === 'idle' && (competent || ai.decisions % 3 === 0)) {
-    const problem = requestBiByeSharpTurn(room, m, a, now);
     ai.nextSweepAt = now + (problem ? 1.15 : 4.2);
     if (!problem) return;
   }
+  if (d <= (competent ? 3.8 : 2.9) && now >= (ai.nextSweepAt ?? 0) && m.skill?.phase === 'idle' && (competent || ai.decisions % 3 === 0)) {
+    const problem = requestBiByeSharpTurn(room, m, a, now);
+    ai.nextSweepAt = now + (problem ? 1.05 : 4.0);
+    if (!problem) return;
+  }
 
-  if (m.mode === 'DEPLOYED' && m.mainBoltLoaded && m.skill?.phase === 'idle' && isAligned && (m.pendingVolley || (!(ai.lastVolleyAt ?? 0) && d < 17))) {
+  // Threat-aware early retraction (TTI & closing speed rather than naive d < 7)
+  if (m.mode === 'DEPLOYED' && (otNeeded || !los || d > 47 || (highThreat && (!m.mainBoltLoaded || !isAligned || d < 8.5)))) {
+    toggleBiByeDeploy(m, now, room.world);
+    return;
+  }
+
+  if (!los) return;
+
+  if (d < 43 && ['MOBILE', 'DEPLOYED'].includes(m.mode) && m.skill?.id === 'coldHowTouching' && m.skill.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0) && (highThreat || d < 24)) {
+    requestColdHowTouching(room, m, a, now);
+  }
+
+  if (m.mode === 'DEPLOYED' && m.mainBoltLoaded && m.skill?.phase === 'idle' && isAligned && (m.pendingVolley || (!(ai.lastVolleyAt ?? 0) && d < 18))) {
     setBiByeWeaponFocus(m, 'MAIN', now);
     if (fireBiByeFullVolley(room, m, now)) ai.lastVolleyAt = now;
     return;
@@ -719,7 +819,7 @@ function stepBallistefan(room, a, m, target, ai, tuning, now) {
       setBiByeWeaponFocus(m, 'UPPER', now);
       if (fireBiByeMobile(room, m, now)) ai.lastShotIAt = now;
     }
-    if (now - (ai.lastShotIAt ?? 0) > 0.26 && isAligned && m.mainBoltLoaded && m.mobileShotPendingAt == null && now >= (m.mainSkillUntil ?? 0)) {
+    if (now - (ai.lastShotIAt ?? 0) > 0.24 && isAligned && m.mainBoltLoaded && m.mobileShotPendingAt == null && now >= (m.mainSkillUntil ?? 0)) {
       requestBiByeHeavySkill(room, m, a, now, biByeTargetAim);
     }
   } else if (m.mode === 'DEPLOYED' && m.mainBoltLoaded && m.skill?.phase === 'idle' && m.coupling === 'INDEPENDENT' && isAligned && now - (ai.lastVolleyAt ?? 0) > 4) {
@@ -731,18 +831,62 @@ function stepBallistefan(room, a, m, target, ai, tuning, now) {
   }
 }
 
-function stepDonte(room, a, m, target, ai, tuning, now) {
+function stepDonte(room, a, m, target, ai, tuning, now, decide, state) {
   const at = { x: m.x, y: m.y, z: m.z };
+  const targetM = room.getMachineForPlayer(target.id);
+  const targetKind = targetM ? getMachineKind(targetM) : 'foot';
+  const otNeeded = Boolean(state?.overtimeActive && dist(at, state.zone.center) > Math.max(3, state.zone.radius - 2));
+  const aimAnchor = otNeeded && dist(at, target.position) > state.zone.radius ? { position: state.zone.center, velocity: {} } : target;
   const d = dist(at, target.position);
   const charge = m.flightCharge ?? 0, ammo = m.ammo ?? 0;
   const skilled = ai.difficulty !== 'learner', formidable = ai.difficulty === 'formidable';
   const rotorIntact = (m.rotorHP ?? 0) > 0;
-  const aim = aimInput(at, target, ai, tuning, FLIGHT_REPEATER.speed);
-  const heading = bearing(at, aim.point), facing = Math.abs(difference(heading, m.heading ?? 0));
 
-  if (skilled && charge < 27) ai.regroupForCharge = true;
-  if (ai.regroupForCharge && charge >= (formidable ? 72 : 65)) ai.regroupForCharge = false;
-  const regroup = Boolean(skilled && ai.regroupForCharge);
+  // Target enemy Flight rotor overhead; hit ground hull otherwise
+  const aimH = targetKind === 'flight' && (targetM?.rotorHP ?? 0) > 0 ? 2.05 : 1.05;
+  const aim = aimInput(at, target, ai, tuning, FLIGHT_REPEATER.speed, aimH);
+  const steerHeading = otNeeded && dist(at, target.position) > state.zone.radius ? bearing(at, state.zone.center) : bearing(at, aim.point);
+  const facing = Math.abs(difference(bearing(at, aim.point), m.heading ?? 0));
+
+  // Explicit flight charge & landing reserve budget (never hover straight to empty stall)
+  const escapeReserve = formidable ? 24 : skilled ? 28 : 18;
+  if (charge < escapeReserve || (ammo <= 1 && m.skill?.phase !== 'active' && charge < 48)) ai.regroupForCharge = true;
+  if (ai.regroupForCharge && charge >= (formidable ? 70 : 62)) ai.regroupForCharge = false;
+  const regroup = Boolean(ai.regroupForCharge);
+
+  const attacking = Boolean(m.offensiveRun || m.flightDashHeld);
+  const maxHover = state?.overtimeActive ? Math.max(1.2, (state.zone.altitudeLimit ?? 4.0) - 0.5) : 4.5;
+  const optimalAltitude = clamp(d * 0.22, 1.3, maxHover);
+  const desiredHeight = attacking ? target.position.y + 0.3 :
+    regroup ? target.position.y : target.position.y + optimalAltitude;
+  const climb = rotorIntact && !regroup && charge >= (skilled ? 34 : 22) &&
+    (m.grounded || m.y < desiredHeight - 0.85);
+  const descend = !m.grounded && (regroup || m.y > desiredHeight + 1.05 || charge < 20);
+  const retreat = d < (targetKind === 'ram' ? 8.2 : skilled ? 5.8 : 2.1) && !attacking;
+  const steer = otNeeded ? 1.0 : regroup ? (targetKind === 'ram' && d < 14 ? -0.85 : 0.25) : retreat ? -0.9 : d > (skilled ? 12 : 5) ? 1 : 0.28;
+  const strafe = !attacking && d < 26 ? (ai.side ?? 1) * (targetKind === 'ram' ? 0.72 : 0.48) : 0;
+  const impact = { x: aim.point.x, y: aim.point.y + aimH, z: aim.point.z };
+  const solution = flightRepeaterAim(m, { siegeTarget: impact });
+
+  if (decide || ai.cachedLos == null) {
+    const muzzle = flightMuzzle(m, solution);
+    ai.cachedLos = !blocked(room, muzzle, impact);
+  }
+  const clear = ai.cachedLos;
+
+  a.input = {
+    ...a.input,
+    forward: steer,
+    right: strafe,
+    yaw: steerHeading,
+    pitch: clamp(solution.pitch, -1.45, 1.45),
+    siegeTarget: impact,
+    jump: climb,
+    crouch: descend,
+    sprint: m.grounded && !rotorIntact && d > 5,
+  };
+
+  if (!decide) return;
 
   const readyDash = skilled && rotorIntact && !m.grounded && !m.offensiveRun &&
     !m.flightDashHeld && !(m.terminalDive || m.terminalPrep) &&
@@ -761,52 +905,26 @@ function stepDonte(room, a, m, target, ai, tuning, now) {
     ai.dashDownAt = null;
   }
 
-  const attacking = Boolean(m.offensiveRun || m.flightDashHeld);
-  const optimalAltitude = clamp(d * 0.24, 1.3, 4.5);
-  const desiredHeight = attacking ? target.position.y + 0.3 :
-    regroup ? target.position.y : target.position.y + optimalAltitude;
-  const climb = rotorIntact && !regroup && charge >= (skilled ? 37 : 22) &&
-    (m.grounded || m.y < desiredHeight - 0.9);
-  const descend = !m.grounded && (regroup || m.y > desiredHeight + 1.15 || charge < 20);
-  const retreat = d < (skilled ? 5.8 : 2.1) && !attacking;
-  const steer = regroup ? 0.2 : retreat ? -0.9 : d > (skilled ? 11 : 5) ? 1 : 0.25;
-  const strafe = skilled && !attacking && d < 24 ? (ai.side ?? 1) * 0.48 : 0;
-  const impact = { x: aim.point.x, y: aim.point.y + 1.05, z: aim.point.z };
-
-  const solution = flightRepeaterAim(m, { siegeTarget: impact });
-  const muzzle = flightMuzzle(m, solution), clear = !blocked(room, muzzle, impact);
-  const accurate = solution.missDistance <= (formidable ? 0.32 : skilled ? 0.45 : 0.7) && !solution.limited;
+  const accurate = solution.missDistance <= (formidable ? 0.34 : skilled ? 0.48 : 0.72) && !solution.limited;
   const visible = clear && d < Math.min(FLIGHT_REPEATER.speed * FLIGHT_REPEATER.lifespan, 43) && facing < 1.02;
-
-  a.input = {
-    ...a.input,
-    forward: steer,
-    right: strafe,
-    yaw: heading,
-    pitch: clamp(solution.pitch, -1.45, 1.45),
-    siegeTarget: impact,
-    jump: climb,
-    crouch: descend,
-    sprint: false,
-  };
 
   const shotSeq = m.shotSeq ?? 0;
   if (ai.burstStartSeq == null) ai.burstStartSeq = shotSeq;
-  const maxBurst = formidable ? 5 : skilled ? 3 : 8;
+  const maxBurst = formidable ? 5 : skilled ? 3 : 7;
   if (shotSeq - ai.burstStartSeq >= maxBurst) {
-    ai.nextFireAt = now + (formidable ? 0.52 : skilled ? 0.78 : 0.18);
+    ai.nextFireAt = now + (formidable ? 0.48 : skilled ? 0.72 : 0.22);
     ai.burstStartSeq = shotSeq;
   }
-  const canSpend = ammo >= (skilled ? 3 : 1) || (d < 8 && ammo >= 1);
+  const canSpend = ammo >= (skilled ? 2 : 1) || (d < 8 && ammo >= 1);
 
   const fireAway = m.skill?.id === 'fireAwayRightHere' && m.skill.phase === 'active';
-  if (fireAway && (charge < 38 || !visible)) {
-    endFightFlightSkill(room, m, now, charge < 38 ? 'chargeReserve' : 'lostSight');
+  if (fireAway && (charge < 34 || !visible)) {
+    endFightFlightSkill(room, m, now, charge < 34 ? 'chargeReserve' : 'lostSight');
   }
   const chosen = m.skill?.id;
   if (m.skill?.phase === 'idle' && now + 1e-8 >= (m.skill.readyAt ?? 0) && visible && accurate && !regroup) {
     const want = chosen === 'fireAwayRightHere'
-      ? charge > 77 && ammo < 7 && d > 9 && d < 29 && !attacking
+      ? charge > 64 && ammo <= 8 && d > 8 && d < 28 && !attacking
       : chosen === 'narrowToOne' ? d > 7 && d < 34
       : chosen === 'doNotStopMyAscension' ? d > 4 && d < 20 && ammo > 3 && charge > 32
       : false;
@@ -814,10 +932,11 @@ function stepDonte(room, a, m, target, ai, tuning, now) {
   }
   const skillActive = m.skill?.phase === 'active' && m.skill.id === 'narrowToOne';
   const blastMode = m.skill?.phase === 'active' && m.skill.id === 'fireAwayRightHere';
-  const fire = visible && !regroup && !attacking && (accurate || skillActive) && now + 1e-8 >= (ai.nextFireAt ?? 0) && (blastMode ? charge > 38 : canSpend);
+  const groundedSwordOpportunity = m.grounded && d < 3.0;
+  const fire = visible && (!regroup || groundedSwordOpportunity) && !attacking && (accurate || skillActive) && now + 1e-8 >= (ai.nextFireAt ?? 0) && (blastMode ? charge > 34 : canSpend);
   requestFightFlightFire(room, m, a, fire, now);
 
-  const close = d < 2.7 && Math.abs(m.y - target.position.y) < 2.5;
+  const close = d < 2.75 && Math.abs(m.y - target.position.y) < 2.5;
   if (close && !attacking && !a.attackHeld && now >= (a.attackRestartAt ?? 0)) {
     beginAttack(room, a.id, now);
   } else if (a.attackHeld && !close) endAttack(room, a.id, now);
@@ -924,10 +1043,12 @@ export function stepSiegeBlades(room, dt, nowSec) {
     return;
   }
 
-  // Overtime Engagement Zone (Match format only, activates at 180s)
-  if (state.format === SIEGE_BLADES_FORMATS.MATCH && nowSec - state.roundStartedAt >= 180) {
+  // Overtime Engagement Zone (180s in Match; 240s anti-stall safety in Endless).
+  const overtimeAt = state.format === SIEGE_BLADES_FORMATS.MATCH ? 180 : 240;
+  if (nowSec - state.roundStartedAt >= overtimeAt) {
     if (!state.overtimeActive) {
       state.overtimeActive = true;
+      state.overtimeStartedAt = state.roundStartedAt + overtimeAt;
       room.events?.push({
         type: 'siegeBladesOvertimeStarted',
         center: state.zone.center,
@@ -935,6 +1056,13 @@ export function stepSiegeBlades(room, dt, nowSec) {
         at: nowSec,
       });
     }
+
+    const otElapsed = Math.max(0, nowSec - (state.overtimeStartedAt ?? nowSec));
+    const initialR = state.zone.initialRadius ?? 26.0;
+    const initialAlt = state.zone.initialAltitudeLimit ?? 4.0;
+    state.zone.radius = Math.max(8.5, initialR * (1 - Math.min(0.68, otElapsed / 55)));
+    state.zone.altitudeLimit = Math.max(1.8, initialAlt - otElapsed * 0.045);
+    const zoneBaseY = state.zone.centerY ?? 0;
 
     let azureInZone = false;
     let crimsonInZone = false;
@@ -946,11 +1074,13 @@ export function stepSiegeBlades(room, dt, nowSec) {
       const d = dist(pos, state.zone.center);
 
       if (d <= state.zone.radius) {
-        let validContest = true;
-        if (m && getMachineKind(m) === 'flight') {
+        // Shared fighting plane prevents vertical-layer bridge/roof contest exploits
+        // and gradually pulls low-hoverers into ground/melee reach.
+        const planeOffset = Math.abs(pos.y - zoneBaseY);
+        let validContest = planeOffset <= state.zone.altitudeLimit;
+        if (validContest && m && getMachineKind(m) === 'flight') {
           const groundY = surfaceHeightAt(m.x, m.z, m.y, room.world) ?? 0;
           const altitude = m.y - groundY;
-          // Flight must be within altitudeLimit (4.0m) to count as contesting
           validContest = altitude <= state.zone.altitudeLimit;
         }
         if (validContest) {
@@ -1038,7 +1168,8 @@ export const SIEGE_BLADES_HANDLER = Object.freeze({
       clashActive: s.clashActiveThisRound,
       zone: s.overtimeActive ? {
         center: { ...s.zone.center },
-        radius: s.zone.radius,
+        radius: Number(s.zone.radius.toFixed(2)),
+        altitudeLimit: Number((s.zone.altitudeLimit ?? 4.0).toFixed(2)),
         controllingTeam: s.zone.controllingTeam,
         holdSec: s.zone.holdSec,
         contested: s.zone.contested,

@@ -262,16 +262,17 @@ export class TouchControls {
     this.layer.addEventListener('contextmenu', (event) => event.preventDefault());
     // Embedded mobile browsers may fail pointer capture when a drag crosses an overlay
     // or browser chrome. Recover movement/end events delivered outside the touch layer.
+    const insideLayer = target => Boolean(target && typeof Node !== 'undefined' && target instanceof Node && this.layer.contains?.(target));
     this.onWindowStickMove = (event) => {
-      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
-      if (this.flightRailPointer === event.pointerId && !this.layer.contains?.(event.target)) this.#moveFlightRail(event);
+      if (this.stick?.id === event.pointerId && !insideLayer(event.target)) this.#moveStick(event);
+      if (this.flightRailPointer === event.pointerId && !insideLayer(event.target)) this.#moveFlightRail(event);
       if ((this.held.has(event.pointerId)||this.ritual?.pointerId===event.pointerId)
-        && !this.layer.contains?.(event.target)) this.#move(event);
+        && !insideLayer(event.target)) this.#move(event);
     };
     this.onWindowStickEnd = (event) => {
       if ((this.stick?.id === event.pointerId || this.flightRailPointer === event.pointerId ||
         this.held.has(event.pointerId)||this.ritual?.pointerId===event.pointerId)
-        && !this.layer.contains?.(event.target)) this.#up(event);
+        && !insideLayer(event.target)) this.#up(event);
     };
     window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
     window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
@@ -399,17 +400,14 @@ export class TouchControls {
     const feed=globalThis.document?.querySelector?.('#kill-feed');
     if(!feed?.style?.setProperty||!this.active||this.previewMode)return;
     const width=this.layer.clientWidth;
-    let top=width<=540?142:width<=700?68:72;
-    for(const action of ['siegeView','interact']){
+    const ballista=this.layer.classList.contains('touch-ballista');
+    let top=ballista?52:(width<=540?142:width<=700?68:72);
+    for(const action of ['siegeView','interact','deploy','siegeWeapon']){
       const btn=this.buttons[action];
       if(!btn||btn.hidden||globalThis.getComputedStyle?.(btn)?.display==='none')continue;
-      // Ballista intentionally keeps VIEW near the BOTH firing row. That
-      // button is already BELOW the feed and must not force kill messages
-      // onto the Attack button. Only controls intersecting the feed's
-      // upper lane reserve additional vertical space.
       if(Number.isFinite(btn.offsetTop)&&Number.isFinite(btn.offsetHeight)&&
          btn.offsetTop<top+Math.min(100,this.layer.clientHeight*.26))
-        top=Math.max(top,btn.offsetTop+btn.offsetHeight+9);
+        top=Math.max(top,btn.offsetTop+btn.offsetHeight+8);
     }
     feed.style.setProperty('--mobile-feed-top',Math.ceil(top)+'px');
   }
@@ -432,7 +430,7 @@ export class TouchControls {
     // current player state. None of these preview presses reach gameplay.
     if(mode){
       const visible=flight?['attack','guard','dash','jump','ultimate','siegeSkill','siegeWeapon','spell','interact','siegeView','pause','scores','practiceTools']:
-        ram?['attack','ramFlick','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
+        ram?['attack','ramFlick','dash','jump','crouch','siegeSkill','spell','interact','siegeView','pause','scores','practiceTools']:
         ballista?['attack','siegeSkill','siegeSweep','siegeWeapon','siegeBoth','deploy','spell','interact','siegeView','pause','scores','practiceTools']:
         ['attack','guard','dash','jump','spell','ultimate','technique','crouch','gauntlet','interact','siegeView','pause','scores','practiceTools'];
       for(const [action,button]of Object.entries(this.buttons))
@@ -801,6 +799,7 @@ export class TouchControls {
         const recovery=Math.max(piston,flick);
         setMountedRecovery(this.buttons.attack,recovery,cycle);
         setMountedRecovery(this.buttons.ramFlick,recovery,cycle);
+        setMountedRecovery(this.buttons.dash,Math.max(0,(rb.shuntReadyAt??0)-serverNow),5.5);
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(rb.skill?.readyAt??0)-serverNow),
           Math.max(1,SIEGE_SKILLS[rb.skill?.id]?.cooldown??24));
       }else if(flight&&fb){
@@ -924,10 +923,31 @@ export class TouchControls {
             uBtn.setAttribute('aria-label', `Committing Valkyrie Dive: ${remaining}s remaining`);
           }
         }
+      } else if (ram) {
+        const atkLabel = this.buttons.attack?.querySelector('span');
+        if(atkLabel)atkLabel.textContent='PISTON';
+        this.buttons.attack.setAttribute('aria-label','Ram piston attack');
+        const dashBtn = this.buttons.dash;
+        if (dashBtn) {
+          dashBtn.hidden = false;
+          dashBtn.querySelector('span').textContent = 'SHUNT';
+          const lowPressure = (rb?.pressure ?? 0) < 18;
+          dashBtn.classList.toggle('flight-no-prowess', lowPressure);
+          dashBtn.setAttribute('aria-label', lowPressure ? 'Shunt unavailable: low Drive Pressure' : 'Shunt forward burst · costs 18 Drive Pressure');
+        }
+        this.valkyrieEligible=false;
+        this.valkyriePreview=false;
+        this.valkyrieStencil.hidden=true;
+        this.valkyrieStencil.classList.toggle('ready',false);
+        this.valkyrieStencil.classList.toggle('unready',true);
+        this.#clearValkyrieRitual();
+        this.buttons.guard?.classList.remove('airborne-forbidden');
+        this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-rotor', 'flight-dash-active', 'flight-spinning', 'valkyrie-prep');
+        this.buttons.ultimate?.classList.remove('valkyrie-ready', 'valkyrie-prep');
       } else {
         const atkLabel = this.buttons.attack?.querySelector('span');
-        if(atkLabel)atkLabel.textContent=mounted?(ram?'PISTON':combat.primary.label):'ATTACK';
-        this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:ram?'Ram piston attack':'Attack');
+        if(atkLabel)atkLabel.textContent=mounted?combat.primary.label:'ATTACK';
+        this.buttons.attack.setAttribute('aria-label',ballista?combat.primary.description:'Attack');
         this.valkyrieEligible=false;
         this.valkyriePreview=false;
         this.valkyrieStencil.hidden=this.previewMode!=='flight';
@@ -1719,6 +1739,7 @@ export class TouchControls {
     }
     if (action === 'dash') {
       if (this.input.mountedFlight || this.flightMounted) this.input.flightDash(true, `touch:${event.pointerId}`);
+      else if (this.input.mountedRam || this.ramMounted) this.input.ramShunt?.();
       else this.input.dash();
     }
     if(this.ramMounted&&(action==='jump'||action==='crouch')){

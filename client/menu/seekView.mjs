@@ -14,11 +14,16 @@ export function seekView(status, serverNow, mode = 'PRACTICE') {
   if (!status?.active) return { visible: false };
   const waited = Number.isFinite(status.since) ? serverNow - status.since : 0;
   const others = Math.max(0, status.others ?? 0);
+  const siege = status.queue === 'siege';
+  const titlePrefix = siege ? 'SEEKING A SIEGE OPPONENT' : 'SEEKING A WORTHY CHALLENGER';
+  const queueScope = siege ? '1v1 · 3 rounds · Random battlefield · ' : '';
   return {
     visible: true,
-    title: `SEEKING A WORTHY CHALLENGER · ${clock(waited)}`,
-    detail: others === 0 ? 'No one else is seeking yet' : `${others} other${others === 1 ? '' : 's'} seeking`,
-    // once offered, a bot duel stays on offer while they practise (not once they are already fighting one)
-    offerBot: Boolean(status.botOffer) && mode !== 'BOT_DUEL',
+    queue: siege ? 'siege' : 'duel',
+    title: `${titlePrefix} · ${clock(waited)}`,
+    detail: `${queueScope}${others === 0 ? 'No one else is seeking yet' : `${others} other${others === 1 ? '' : 's'} seeking`}`,
+    // once offered, a bot match stays on offer while they practise (not once they are already fighting one)
+    offerBot: Boolean(status.botOffer) && mode !== 'BOT_DUEL' && (!siege || mode !== 'SIEGE_BLADES'),
+    botLabel: siege ? 'PLAY BOT SIEGE WHILE WAITING' : 'FIGHT A BOT WHILE WAITING',
   };
 }

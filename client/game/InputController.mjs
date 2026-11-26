@@ -15,6 +15,7 @@ const PRESS = {
   siegeSkill: (input) => input.siegeSkill(),
   siegeSweep: (input) => input.siegeSweep(),
   siegeWeapon: (input) => input.siegeWeapon(),
+  ballistaFocus: (input) => input.siegeWeapon(),
   technique: (input) => input.technique(true,'binding'),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
@@ -128,11 +129,15 @@ export class InputController {
   }
 
   #actionFor(code) {
-    // E is Dash on foot / Flight and ram hydraulic pitch, but Sharp Turn
-    // when mounted on the ballista. Respect remapped controls as well.
-    // Resolving by machine context prevents a duplicate default binding
-    // from silently replacing the Spellblade's Dash everywhere.
+    // Context-sensitive shared defaults:
+    // - E: Sharp Turn when mounted on ballista; otherwise Dash / ram hydraulic pitch.
+    // - X: Deploy/Retract when mounted on ballista; otherwise Technique / Flick / Flight Bolt.
+    // - B: Upper/main focus on ballista; accessible Skill shortcut on Fight-and-Flight.
     if(this.mountedBallista&&this.bindings.siegeSweep?.includes(code))return 'siegeSweep';
+    if(this.mountedBallista&&this.bindings.deploy?.includes(code))return 'deploy';
+    if(this.mountedBallista&&this.bindings.ballistaFocus?.includes(code))return 'ballistaFocus';
+    if(this.mountedFlight&&this.bindings.ballistaFocus?.includes(code))return 'siegeSkill';
+    if((!this.mountedBallista)&&this.bindings.siegeWeapon?.includes(code))return 'siegeWeapon';
     if(this.bindings.dash?.includes(code))return 'dash';
     return this.actionOf.get(code);
   }
@@ -145,7 +150,9 @@ export class InputController {
 
   #press(code, repeat = false) {
     const action = this.#actionFor(code);
-    if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if (!action || repeat || MENU_ACTIONS.has(action)) return;
+    if(this.mountedRam&&action==='jump'){this.ramSpaceDownAt=performance.now();this.ramLiftUsed=Boolean(this.held('dash')||this.held('crouch'));return;}
+    if (HELD.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     // Mounted X is this ram's Finger Flick, not the ballista weapon-focus command.
@@ -153,7 +160,8 @@ export class InputController {
     if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(true,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
-    if(this.mountedRam&&action==='dash')return;
+    if(this.mountedRam&&(action==='dash'||action==='crouch')){this.ramLiftUsed=true;if(action==='dash')return;}
+    if(this.mountedRam&&action==='guard'){this.ramShunt();return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -166,12 +174,20 @@ export class InputController {
   #release(code) {
     const action = this.#actionFor(code);
     if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
+    if(this.mountedRam&&action==='jump'){
+      const dtMs=this.ramSpaceDownAt!=null?(performance.now()-this.ramSpaceDownAt):Infinity;
+      this.ramSpaceDownAt=null;
+      if(!this.ramLiftUsed&&dtMs<260)this.ramShunt();
+      this.ramLiftUsed=false;
+      return;
+    }
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
     if(this.mountedRam&&action==='siegeWeapon')return; // Flick is one press, never a held strike.
     if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(false,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
+    if(this.mountedRam&&action==='guard')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -584,6 +600,12 @@ export class InputController {
   ramFlick(){
     if(!this.enabled||!this.mountedRam||this.allowAction?.('attack')===false)return;
     this.socket?.send?.({type:'ramFlick'});
+  }
+
+  ramShunt(){
+    if(!this.enabled||!this.mountedRam||this.allowAction?.('move')===false)return;
+    const forward=this.movement().forward;
+    this.socket?.send?.({type:'ramShunt',direction:forward<-.25?-1:1});
   }
 
   gauntlet() {

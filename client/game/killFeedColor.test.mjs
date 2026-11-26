@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {killFeedAppearance,killFeedTone,killFeedInfusionTags,killFeedColoredWords,KILLFEED_SOURCE_TONES,
+import {killFeedAppearance,killFeedTone,killFeedInfusionTags,killFeedColoredWords,killFeedColoredLetters,KILLFEED_SOURCE_TONES,
   KILLFEED_ELEMENTS,KILLFEED_TONES} from './killFeedColor.mjs';
 import {killFeedDeath,terminalAscensionFeed} from './killFeedText.mjs';
 
@@ -104,4 +104,20 @@ test('infusion colors live on the original words, never on appended FIRE · FROS
    'unknown or untrusted tones cannot become styles');
  assert.deepEqual(killFeedColoredWords('   ',infusions),[],
    'pure whitespace never receives phantom labels');
+});
+
+test('converged elemental kills get mixed appearance and letter-level ALL-natural coloring',()=>{
+  const event=lethal('fireball',{elementalCauses:['frost','gale','fire']});
+  const app=killFeedAppearance(event);
+  assert.equal(app.tone,'mixed');
+  assert.deepEqual(app.infusions.map(x=>x.tone),['fire','frost','gale']);
+  const all5=[{tone:'fire'},{tone:'frost'},{tone:'gale'},{tone:'lightning'},{tone:'steel'}];
+  const words=killFeedColoredWords('Perry died from ALL-natural causes.',all5);
+  const focal=words.find(w=>w.text.includes('ALL-natural'));
+  assert.ok(focal?.letters?.length==='ALL-natural '.length);
+  const letterTones=new Set(focal.letters.flatMap(l=>l.tones));
+  assert.deepEqual([...letterTones],['fire','frost','gale','lightning','steel']);
+  const fullLetters=killFeedColoredLetters('natural',[{tone:'frost'},{tone:'fire'}]);
+  assert.equal(fullLetters.map(l=>l.text).join(''),'natural');
+  assert.deepEqual([...new Set(fullLetters.flatMap(l=>l.tones))],['frost','fire']);
 });

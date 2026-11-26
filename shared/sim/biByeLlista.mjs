@@ -15,7 +15,7 @@ import {stepSiegeWheelContacts} from './siegeWheelContacts.mjs';
 import {damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
 import { sampleTransform } from './history.mjs';
-import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
+import { BI_BYE_TERRAIN, biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
 import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, requestBiByeSweepDischarge, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
@@ -778,8 +778,13 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const modeMobility=room.mode==='SIEGE_BLADES'?1.25:1;
         const baseSpeed=modeMobility*driveScale*affliction.speed*driveForward*(driveForward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
         const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(driveForward);
-        const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
-        const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
+        const maxGradeSin=Math.sin(BI_BYE_TERRAIN.mobileGrade);
+        const gradeScale=1-.60*Math.max(0,Math.min(1,ascent/maxGradeSin));
+        const steepStall=driveScale<.55&&ascent>Math.sin(18*Math.PI/180)?0:1;
+        let speed=baseSpeed*gradeScale*steepStall*Math.cos(ballista.chassisPitch??0);
+        if((Math.abs(driveForward)<.05||steepStall===0)&&Math.abs(ballista.chassisPitch??0)>.18){
+          speed-=Math.sin(ballista.chassisPitch??0)*1.9;
+        }
         ballista.steer=wheelSteer*affliction.steering;
         // Other siege machines and architecture remain solid. Players are
         // contacted by moving wheels, never included as immovable obstacles.
@@ -798,7 +803,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
             }
             const contact=biByeTerrainPose(candidate,ctx);if(!contact)continue;
             Object.assign(candidate,contact);
-            if(Math.abs(candidate.y-ballista.y)>.07||!biByeTerrainClear(candidate,ctx))continue;
+            if(Math.abs(candidate.y-ballista.y)>.14||!biByeTerrainClear(candidate,ctx))continue;
             Object.assign(ballista,{x:candidate.x,y:candidate.y,z:candidate.z,heading:candidate.heading,...contact});moved=true;break;
           }
           if(!moved)break;
@@ -843,11 +848,14 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       // A piston contact can begin at the boundary of the ram's hit volumes.
       // Escape from an initial overlap is safe only if separating from the
       // ram AND clearing the permanent world + player obstacles.
-      if(!safe&&initiallyBlocked&&room.soFistication){
-        const ram=room.soFistication;
-        const away=Math.hypot(proposed.x-ram.x,proposed.z-ram.z)>
-          Math.hypot(ballista.x-ram.x,ballista.z-ram.z)+1e-6;
-        if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
+      if(!safe&&initiallyBlocked){
+        const overlapMachines=getFleetMachines(room).filter(m=>m&&m.id!==ballista.id&&!m.retired&&m.health>0&&m.mode!=='DESTROYED');
+        const awayFromAll=overlapMachines.length>0&&overlapMachines.every(m=>{
+          const curD=Math.hypot(ballista.x-m.x,ballista.z-m.z);
+          const nextD=Math.hypot(proposed.x-m.x,proposed.z-m.z);
+          return curD>4.8||nextD>curD+1e-6;
+        });
+        if(awayFromAll) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
       }
       if(!safe){ballista.externalVelocity={x:0,z:0};break;}
       Object.assign(ballista,{x:proposed.x,y:proposed.y,z:proposed.z,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:pose.wheelOffsets});

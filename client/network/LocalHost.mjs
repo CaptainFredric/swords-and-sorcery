@@ -30,7 +30,7 @@ const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
   'siegeSkill','ultimate','oneHitRelease','oneHitFire','oneHitDetonate','practiceOneHit','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
-  'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual'
+  'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire','flightDash','flightUltimateHold','flightTerminalRitual','ramFlick','ramShunt'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
@@ -996,8 +996,10 @@ export class LocalHost {
   quickPlay() { this.#online(); }
   joinRoom() { this.#online(); }
   seekDuel() { this.#online(); }
+  seekSiege() { this.#online(); }
   cancelSeek() {}
   seekBotDuel() { this.#online(); }
+  seekBotSiege() { this.#online(); }
   listRooms() { this.#deliver({ type: 'roomList', rooms: [], serverTime: this.now() }); }
   createPublicRoom() { this.#online(); }
 }

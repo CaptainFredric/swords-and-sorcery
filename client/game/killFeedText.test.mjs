@@ -351,3 +351,21 @@ test('new lines keep actual player names and do not claim a killer for uncredite
  assert.ok(!withoutKiller.text.includes('Rowan'));
  assert.ok(!withoutKiller.text.includes('bested'));
 });
+
+test('elemental convergence and multi-infused Disaster produce natural-causes epitaphs',()=>{
+ const allFive={fire:2,frost:1,gale:2,lightning:1,steel:2};
+ assert.deepEqual(killFeedDeath({
+   source:'one_hit_of_wonders',killerId:'Rowan',victimId:'Perry',at:10,infusionTiers:allFive
+ },'Rowan','Perry'),{text:'Perry died from ALL-natural causes.',kind:'mixed'});
+ assert.deepEqual(killFeedDeath({
+   source:'one_hit_of_wonders',killerId:'Rowan',victimId:'Perry',at:10,
+   infusionTiers:{fire:2,frost:1,gale:0,lightning:0,steel:0}
+ },'Rowan','Perry'),{text:'Perry died from all-natural causes.',kind:'mixed'});
+ assert.deepEqual(killFeedDeath({
+   source:'fireball',killerId:'Rowan',victimId:'Perry',at:10,
+   elementalCauses:['frost','fire']
+ },'Rowan','Perry'),{text:'Perry died from natural causes.',kind:'mixed'});
+ assert.equal(allowsSharedHeroEpitaph({
+   source:'fireball',killerId:'Rowan',victimId:'Perry',elementalCauses:['frost','fire'],damageContributors:['Rowan','Rowan2']
+ }),false,'elemental convergence line is never overwritten by shared-hero joke');
+});

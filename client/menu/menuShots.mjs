@@ -29,6 +29,7 @@ export const MENU_SHOTS = Object.freeze({
 
 const SCREEN_SHOTS = Object.freeze({
   MAIN_MENU: 'main',
+  SIEGE_BLADES_MENU: 'breakthrough',
   BREAKTHROUGH_MENU: 'breakthrough',
   SOLO_MENU: 'solo',
   ROOMS_MENU: 'lobby',

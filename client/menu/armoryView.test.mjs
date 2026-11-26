@@ -77,10 +77,10 @@ test('the Armory states Chivalry’s actual duration', () => {
   assert.ok(source.includes(`For ${ULTIMATES.chivalry.activeSec} seconds, Sprint, attack, Guard, Dash and cast together.`));
 });
 
-test('Shared Practice invites use the available Private Match route', () => {
+test('Shared Practice invites use the available Private Rooms route', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /Friends: open Private Match, enter this code under Join by Code, then choose Join\./);
-  assert.match(html, /<h2>PRIVATE MATCH<\/h2>/);
+  assert.match(html, /Friends: open Private Rooms, enter this code under Join by Code, then choose Join\./);
+  assert.match(html, /<h2>PRIVATE ROOMS<\/h2>/);
   assert.match(html, /OR JOIN BY CODE/);
 });
 

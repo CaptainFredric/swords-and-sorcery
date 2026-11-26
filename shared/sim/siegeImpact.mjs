@@ -6,11 +6,12 @@ export const SIEGE_IMPACT=Object.freeze({
  minSoundSpeed:2.8,heavySpeed:10,
  ramReboundFraction:.16,ramReboundMax:1.55,
  pistonReboundMax:.78,ramReverseChargeAcceleration:6.25,
- ramPistonRecoilTransfer:.33,ramPistonRecoilMax:3.75,ramPistonRecoilBrake:4.9,
- mobileBallistaTransfer:.34,mobileBallistaMaxSpeed:5.6,
- ramTargetTransfer:.40,ramTargetMaxRecoil:5.4,flightTargetTransfer:.34,flightTargetMaxImpulse:6.5,
- mobileDrag:3.2,restSpeed:.06,rockDuration:1.3,rockPitch:.12,rockRoll:.075,
- uprootOutriggersSpeed:8,uprootRetractSeconds:.48,outriggerRecoverySec:2.2,
+ ramPistonRecoilTransfer:.42,ramPistonRecoilMax:4.5,ramPistonRecoilBrake:4.2,
+ mobileBallistaTransfer:.72,mobileBallistaMaxSpeed:8.8,
+ ramTargetTransfer:.74,ramTargetMaxRecoil:8.8,ramLateralMaxImpulse:9.2,ramLateralDrag:2.4,
+ flightTargetTransfer:.78,flightTargetMaxImpulse:11.5,flightLiftImpulse:4.6,flightImpactDriftSec:.38,
+ mobileDrag:2.5,restSpeed:.06,rockDuration:1.3,rockPitch:.14,rockRoll:.09,
+ uprootOutriggersSpeed:8,uprootRetractSeconds:.26,outriggerRecoverySec:2.2,
 });
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function recordSiegeImpact(room,machine,now,{speed=0,normal={x:0,z:0},kind='chassis',point=null}={}){
@@ -106,24 +107,41 @@ export function applyMachineImpact(room,target,now,{normal,speed,point=null}={})
  if(target.kind==='ballista'||target.class==='bi-bye-llista')
    return applyBallistaImpact(room,target,now,{normal:direction,speed,point});
  if(target.kind==='ram'||target.class==='so-fist-ication'){
-   // The wheeled ram has a longitudinal drivetrain; a head-on impact pushes
-   // it backwards while a rear hit drives it forward. Oblique contacts
-   // transfer only their physically supported longitudinal component.
+   // Heavy hits drive the target along BOTH its wheeled axis (rolling) and
+   // broadside skid (externalVelocity) so angled/side hits genuinely shove it.
    const forward={x:-Math.sin(target.heading),z:-Math.cos(target.heading)};
    const alignment=direction.x*forward.x+direction.z*forward.z;
-   const recoil=clamp(speed*SIEGE_IMPACT.ramTargetTransfer,0,SIEGE_IMPACT.ramTargetMaxRecoil)*alignment;
+   const rawMag=clamp(speed*SIEGE_IMPACT.ramTargetTransfer,0,SIEGE_IMPACT.ramTargetMaxRecoil);
+   const recoil=rawMag*alignment;
    target.recoilVelocity=clamp((target.recoilVelocity??0)+recoil,
      -SIEGE_IMPACT.ramTargetMaxRecoil,SIEGE_IMPACT.ramTargetMaxRecoil);
+   const latX=direction.x-alignment*forward.x,latZ=direction.z-alignment*forward.z;
+   const latMag=rawMag*0.86;
+   const oldExt=target.externalVelocity??{x:0,z:0};
+   const nx=oldExt.x+latX*latMag,nz=oldExt.z+latZ*latMag;
+   const nLen=Math.hypot(nx,nz);
+   const scale=nLen>SIEGE_IMPACT.ramLateralMaxImpulse?SIEGE_IMPACT.ramLateralMaxImpulse/nLen:1;
+   target.externalVelocity={x:nx*scale,z:nz*scale};
+   target.impactSlipUntil=Math.max(target.impactSlipUntil??-Infinity,now+.28);
+   const yawCross=forward.x*direction.z-forward.z*direction.x;
+   if(Math.abs(yawCross)>.15){
+     target.impactSpinVel=clamp((target.impactSpinVel??0)+yawCross*clamp(speed*.09,.35,1.15),-1.35,1.35);
+   }
    recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'ram-piston',point});
    return true;
  }
  if(target.kind==='flight'||target.class==='fight-and-flight'){
-   // Flight has full 3-D velocity; feed this into the same swept collision
-   // integrator as rotor strikes, rather than adjusting position directly.
+   // Flight has full 3-D velocity; feed both horizontal punt and upward lift
+   // into its swept solver, plus brief aerodynamic drift recovery.
    const impulse=clamp(speed*SIEGE_IMPACT.flightTargetTransfer,0,SIEGE_IMPACT.flightTargetMaxImpulse);
-   const old=target.externalSiegeImpulse??{x:0,z:0};
-   target.externalSiegeImpulse={x:clamp(old.x+direction.x*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
-     z:clamp(old.z+direction.z*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse)};
+   const old=target.externalSiegeImpulse??{x:0,z:0,y:0};
+   const lift=clamp(speed*0.36,1.8,SIEGE_IMPACT.flightLiftImpulse);
+   target.externalSiegeImpulse={
+     x:clamp(old.x+direction.x*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
+     z:clamp(old.z+direction.z*impulse,-SIEGE_IMPACT.flightTargetMaxImpulse,SIEGE_IMPACT.flightTargetMaxImpulse),
+     y:Math.max(old.y??0,lift),
+   };
+   target.siegeImpactDriftUntil=Math.max(target.siegeImpactDriftUntil??-Infinity,now+SIEGE_IMPACT.flightImpactDriftSec);
    recordSiegeImpact(room,target,now,{normal:direction,speed,kind:'flight-piston',point});
    return true;
  }
