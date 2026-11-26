@@ -8,7 +8,7 @@ import { keyLabel } from '../settings/settingsRegistry.mjs';
 //   (the seconds left); locked: interrupted a moment ago, or just ended (the seconds until it can be tried again).
 // While it runs: `left` (seconds), `charge` (the share of its stretch left), and for a Blazing Vortex its `emphasis`
 // ('balanced', 'blade' or 'fire': what the knight has steered it to, as the host has it) with a word for it (`word`).
-// practice: in the Practice Yard the key readies the ultimate itself, so the tile says READY whenever it would work.
+// Practice: readiness is independent of charge; show the measured percentage when usable.
 const EMPHASIS_WORDS = Object.freeze({ balanced: 'VORTEX', blade: 'BLADE', fire: 'FIRE' });
 
 export function ultimateView(local, serverNow, { practice = false } = {}) {
