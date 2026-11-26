@@ -2,8 +2,7 @@
 //
 // It comes from meaningful combat and nothing else: health taken off a foe most of all; health lost to a foe a
 // smaller share (the knight on the losing end is not locked out of theirs); a parry, a broken guard, a foe thrown
-// well off their feet a small fixed piece. Nothing for standing about, nothing for hurting yourself, nothing in the
-// Practice Yard, and nothing for what an ultimate does while it is active (Sunder does not pay for the next Sunder).
+// well off their feet a small fixed piece. Nothing for standing about, nothing for hurting yourself, nothing for what an ultimate does while it is active (Sunder does not pay for the next Sunder).
 // It holds one ultimate at most, it is kept through a death, and it starts each match empty. Tuned so it is an
 // event, not a routine: some two and a half health bars of back and forth (dealt and taken) earn one, or three to
 // four kills for a knight having it all their own way; two or three in a match to ten. Current tuning (provisional).
@@ -17,14 +16,16 @@ export const PROWESS = Object.freeze({
   displaced: 2.5,      // a foe thrown well off their feet (a gust's heart, a spell's burst square on)
 });
 
-/** Whether a room pays prowess (its mode says so: never the Practice Yard). */
+/** Whether a room pays prowess (its mode says so; Practice also records real combat gains). */
 export function earnsProwess(room) {
-  return room?.policy?.prowess !== false;
+  return room?.policy?.prowess !== false || (room?.mode==='PRACTICE'&&!room.localTutorial);
 }
 
 /** Add prowess to a knight (up to one full ultimate). */
 export function gainProwess(room, player, amount, rules = PROWESS) {
   if (!player || !earnsProwess(room) || !(amount > 0)) return 0;
+  // Only the practising knight gets a real training meter; opponents retain their prior policy.
+  if(room?.mode==='PRACTICE'&&room.policy?.prowess===false&&player.actorKind!=='human'&&!(room.inspectionEnabled&&player.id===room.inspectionControlId))return 0;
   const before = player.prowess ?? 0;
   player.prowess = Math.min(rules.full, before + amount);
   return player.prowess - before;
