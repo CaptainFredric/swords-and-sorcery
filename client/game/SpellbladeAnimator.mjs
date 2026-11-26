@@ -63,6 +63,24 @@ const _bq = new THREE.Quaternion();
 // a hammer fist on a casing: the wrist's first goal this far above the surface (metres; about how far the gauntlet
 // reaches below its wrist, aimed down and forward); the fist's own lowest plate then sets it exactly (#fistLowest)
 const STRIKE_HEEL = 0.185;
+// the sword arm's elbow (#tuckSwordElbow): the most it may point away from `pole` (root space: back, a little down and
+// out; the model faces -z), fading out as the wrist rises from fade[0] to fade[1] metres relative to the shoulder
+export const ELBOW_TUCK = Object.freeze({ pole: Object.freeze([0.2, -0.25, 0.95]), limit: (25 * Math.PI) / 180, fade: Object.freeze([-0.3, -0.1]), minOffset: 0.03, maxOut: 0.17 });
+// the magic hand through a cast's release (openCastPalm): its palm toward `palm` (root space: forward, a little out to
+// his left and up), its fingers as near `fingers` as that allows, weighted over the Cast clip's phase: in from
+// ramp[0] to ramp[1], held to ramp[2], out by ramp[3]
+export const CAST_PALM = Object.freeze({ palm: Object.freeze([-0.2, 0.08, -1]), fingers: Object.freeze([0.1, 1, 0.1]), ramp: Object.freeze([0.3, 0.45, 0.72, 0.88]) });
+function castPhaseOf(plan, duration) {
+  const layer = plan?.layers?.sorcery ?? plan;
+  if (layer?.clip !== 'Cast') return NaN;
+  const t = Number(layer.time);
+  if (!Number.isFinite(t)) return NaN;
+  return layer.normalized ? t : duration > 0 ? t / duration : NaN;
+}
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm3 = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
 
 function clampActionTime(action, time, loop) {
   const duration = Math.max(0.0001, action.getClip().duration || 0.0001);
@@ -71,8 +89,9 @@ function clampActionTime(action, time, loop) {
 }
 
 export class SpellbladeAnimator {
-  constructor(root, clips = [], onPose = null, { cloth = false, wristTwist = false } = {}) {
+  constructor(root, clips = [], onPose = null, { cloth = false, wristTwist = false, elbowTuck = false } = {}) {
     this.onPose = onPose;
+    this.elbowTuck = elbowTuck;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
     // (a model with cloth grids gets cloth; one with the older two-bone chains, their springs)
@@ -392,6 +411,8 @@ export class SpellbladeAnimator {
   }
 
   #followPauldrons() {
+    this.tuckSwordElbow();
+    this.openCastPalm();
     this.#spreadWristTwist();
     for (const { plate, arm, rest, share = pauldronFollow } of this.pauldrons) {
       // (they share a rest: how far the arm has turned from it)
@@ -410,6 +431,84 @@ export class SpellbladeAnimator {
       }
       plate.position.copy(arm.position);
     }
+  }
+
+  // The sword arm's elbow kept from jutting out: in the gaits (Walk, Run, Sprint) the clips carry the sword low at the
+  // side with the elbow pointing straight out from the body, a wing beside the steady magic arm (playtest). The arm is
+  // turned about its own shoulder-to-wrist line until the elbow points no further than ELBOW_TUCK.limit from back and
+  // down, as it does at rest, and the hand turned back by as much: the wrist, the grip and the sword do not move at
+  // all, only the elbow. Faded out as the hand rises toward the shoulder (a guard, a cut held high keep their own
+  // elbows). A clamp, so a second pass in the same frame changes nothing.
+  tuckSwordElbow() {
+    if (!this.elbowTuck) return;
+    this.#drawInSwordArm();
+    const api = this.boneApi;
+    const S = api.position('upper_arm.R'), E = api.position('forearm.R'), W = api.position('hand.R');
+    const along = norm3(sub3(W, S));
+    const flat = (v) => { const d = dot3(v, along); return sub3(v, along.map((x) => x * d)); };
+    const off = flat(sub3(E, S));
+    if (Math.hypot(...off) < ELBOW_TUCK.minOffset) return;
+    const pole = flat(ELBOW_TUCK.pole);
+    if (Math.hypot(...pole) < 1e-4) return;
+    const rise = W[1] - S[1];
+    const t = Math.max(0, Math.min(1, (ELBOW_TUCK.fade[1] - rise) / (ELBOW_TUCK.fade[1] - ELBOW_TUCK.fade[0])));
+    const w = t * t * (3 - 2 * t);
+    if (w <= 0) return;
+    const a = norm3(off), p = norm3(pole);
+    const angle = Math.atan2(dot3(cross3(p, a), along), dot3(p, a));
+    const limit = ELBOW_TUCK.limit + (Math.PI - ELBOW_TUCK.limit) * (1 - w);
+    if (Math.abs(angle) <= limit) return;
+    const turn = Math.sign(angle) * limit - angle;
+    api.rotate('upper_arm.R', along, turn);
+    api.rotate('hand.R', along, -turn);
+  }
+
+  // ...and the whole arm drawn in: the gaits carry the sword arm held out from the body, its elbow 25-30 cm out from the
+  // shoulder against the magic arm's 13-20. The upper arm is turned toward the body about the forward axis through the
+  // shoulder until the elbow is no more than ELBOW_TUCK.maxOut out, and the hand turned back by as much, so the sword
+  // keeps its angle and only comes in with the hand. Faded as the tuck is (a raised arm keeps its own reach).
+  #drawInSwordArm() {
+    const api = this.boneApi;
+    const S = api.position('upper_arm.R'), E = api.position('forearm.R'), W = api.position('hand.R');
+    const t = Math.max(0, Math.min(1, (ELBOW_TUCK.fade[1] - (W[1] - S[1])) / (ELBOW_TUCK.fade[1] - ELBOW_TUCK.fade[0])));
+    const w = t * t * (3 - 2 * t);
+    const dx = E[0] - S[0], dy = S[1] - E[1];
+    if (w <= 0 || dy <= 0.05) return;
+    const r = Math.hypot(dx, dy), phi = Math.atan2(dx, dy);
+    const want = Math.asin(Math.min(1, ELBOW_TUCK.maxOut / r));
+    if (phi <= want) return;
+    const turn = (want - phi) * w;
+    api.rotate('upper_arm.R', [0, 0, 1], turn);
+    api.rotate('hand.R', [0, 0, 1], -turn);
+  }
+
+  // The magic hand's cast: the clip turns the palm round to face out to his left as the spell leaves it (playtest:
+  // "turns to the left a bit too much"). Through the release it is turned instead to face forward, the way the spell
+  // goes, fingers up: an open palm put outward. Only the hand turns (the wrist stays where it is); the wrist twist
+  // that follows shares the roll with the forearm. Weighted in and out over CAST_PALM.ramp (the Cast clip's own
+  // 0..1 phase), so the gather and the recovery are the clip's.
+  openCastPalm() {
+    const u = this.castPhase;
+    if (!this.elbowTuck || !Number.isFinite(u)) return;
+    const [a, b, c, d] = CAST_PALM.ramp;
+    const s = (x) => x * x * (3 - 2 * x);
+    const w = u <= a || u >= d ? 0 : u < b ? s((u - a) / (b - a)) : u <= c ? 1 : s((d - u) / (d - c));
+    if (w <= 1e-3) return;
+    const api = this.boneApi;
+    const fingers = api.direction('hand.L', [0, 1, 0]), palm = api.direction('hand.L', [0, 0, 1]);
+    const wantPalm = norm3(CAST_PALM.palm);
+    const up = CAST_PALM.fingers, along = dot3(up, wantPalm);
+    const wantFingers = norm3(sub3(up, wantPalm.map((x) => x * along)));
+    // the turn taking the hand's (fingers, palm) frame onto the wanted one, `w` of the way
+    const from = new THREE.Matrix4().makeBasis(_v.fromArray(fingers), new THREE.Vector3().fromArray(palm), new THREE.Vector3().fromArray(cross3(fingers, palm)));
+    const to = new THREE.Matrix4().makeBasis(new THREE.Vector3().fromArray(wantFingers), new THREE.Vector3().fromArray(wantPalm), new THREE.Vector3().fromArray(cross3(wantFingers, wantPalm)));
+    const qFrom = new THREE.Quaternion().setFromRotationMatrix(from), qTo = new THREE.Quaternion().setFromRotationMatrix(to);
+    const turn = qTo.multiply(qFrom.invert());
+    const partial = new THREE.Quaternion().slerp(turn, w);
+    const angle = 2 * Math.acos(Math.min(1, Math.abs(partial.w)));
+    if (angle < 1e-4) return;
+    const axis = [partial.x, partial.y, partial.z].map((x) => x * Math.sign(partial.w || 1));
+    api.rotate('hand.L', axis, angle);
   }
 
   // (before the elbows' cops follow their forearms: they take the forearm's twist with it)
@@ -431,6 +530,8 @@ export class SpellbladeAnimator {
   }
 
   apply(plan, dt = 0) {
+    // (where a cast is in its clip, 0..1, for openCastPalm; NaN when there is none)
+    this.castPhase = castPhaseOf(plan, this.actions.get('Cast')?.getClip()?.duration);
     // (the character layer's changes first: it was applied last)
     this.#restoreCharacter();
     this.flightRider.restore();
