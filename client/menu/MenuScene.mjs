@@ -682,8 +682,7 @@ export class MenuScene {
       this.armoryActive = false;
       this.targetPosition.set(0, 0, 0);
       if (machineId) this.siegeWorkshop?.selectMachine(machineId);
-      const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 1.05;
-      this.setShot('siege', duration);
+      this.setShot('siege', 0.01);
     }
   }
 
