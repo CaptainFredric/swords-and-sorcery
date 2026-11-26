@@ -21,8 +21,8 @@ export const MENU_SHOTS = Object.freeze({
   armoryCenter: shot([0.2, 1.45, 1.5], [-1.0, 0.95, 5.5], 38),
   // Breakthrough deployment banner: wider view framing the Spellblade angled toward battle plan
   breakthrough: shot([2.1, 1.4, -0.4], [0.1, 2.9, 13.0], 43),
-  // Connected Siege Workshop in the engineering courtyard
-  siege: shot([21, 3.0, -5.4], [14, 1.1, 0], 40),
+  // Connected Siege Workshop in the engineering courtyard (clear of tourney fence pillars)
+  siege: shot([20.2, 2.45, -2.1], [14, 1.0, 0], 45),
   // Heraldry Chamber framing the Spellblade and his back banner / cape
   heraldry: shot([0.65, 1.45, 1.6], [-0.62, 0.95, 5.5], 38),
 });

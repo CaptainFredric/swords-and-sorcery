@@ -454,7 +454,7 @@ try {
   await until(() => evaluate('Math.abs(window.__ssMenu.siegeWorkshop.targetYaw-window.__ssMenu.siegeWorkshop.currentYaw)<.02'), 'machine reset settles');
 
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.siege-inspector-scroll > section > h4, #siege-story-details summary span:first-child')].map(el=>el.textContent)`),
-    ['SIEGE SKILLS · U', 'ABILITIES & ATTACKS', 'CONTROLS', 'OVERVIEW', 'STORY OF SIEGE']);
+    ['SIEGE SKILLS · U', 'BUILT-IN ABILITIES & ATTACKS', 'CONTROLS', 'OVERVIEW', 'STORY OF SIEGE']);
   assert.equal(await evaluate('document.querySelector("#siege-story-details").open'), false);
   const framing = await evaluate(`({
     bounds:window.__ssMenu.siegeWorkshop.presentationBounds(),
@@ -565,7 +565,7 @@ try {
   await sleep(1300);
   await screenshot('06b-flight-narrow-to-one.png');
   await evaluate('document.querySelector("[data-siege-skill=fireAwayRightHere]").click()');
-  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),27);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),36);
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.length'),3);
   await sleep(2900);
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.some(a=>a.lastHp<100)'),

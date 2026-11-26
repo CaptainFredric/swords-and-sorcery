@@ -559,7 +559,8 @@ export class MenuScene {
 
   #previewCamera(shot, dt) {
     const preview = this.previews.find(element => element.offsetWidth > 0 && element.offsetHeight > 0);
-    const easing = this.#reducedMotion() ? 1 : 1 - Math.exp(-dt * 14);
+    const siegeCoveringStatic = this.siegeActive && !this.siegeWorkshop?.firstFrameRendered?.has(this.siegeWorkshop?.activeMachineId);
+    const easing = (this.#reducedMotion() || siegeCoveringStatic) ? 1 : 1 - Math.exp(-dt * 14);
     const wasFramed = Boolean(this.previewFrame);
     let goal = shot;
     if (preview || wasFramed) {
@@ -570,7 +571,9 @@ export class MenuScene {
         preview.clientWidth, preview.clientHeight,
       ] : [0, 0, width, height];
       const old = this.previewFrame ?? [0, 0, width, height];
-      const frame = desired.map((v, i) => Math.abs(v - old[i]) < .5 ? v : old[i] + (v - old[i]) * easing);
+      const frame = siegeCoveringStatic
+        ? desired
+        : desired.map((v, i) => Math.abs(v - old[i]) < .5 ? v : old[i] + (v - old[i]) * easing);
       this.previewFrame = frame;
       this.camera.setViewOffset(frame[2], frame[3], -frame[0], -frame[1], width, height);
       if (!preview && frame.every((v, i) => v === desired[i])) {
@@ -584,7 +587,10 @@ export class MenuScene {
           min: [STAGE.x - reach, .02, STAGE.z - reach],
           max: [STAGE.x + reach, 1.94, STAGE.z + reach],
         };
-        if (bounds) goal = fitMenuSubject(shot, bounds, aspect, this.siegeActive ? 1.16 : 1.07);
+        const pad = this.siegeActive
+          ? (this.siegeWorkshop?.performance?.active ? 1.12 : 1.05)
+          : 1.07;
+        if (bounds) goal = fitMenuSubject(shot, bounds, aspect, pad);
       }
     }
     // Authored showcase shots already use the preview's aspect. Fit the
@@ -682,8 +688,8 @@ export class MenuScene {
       this.armoryActive = false;
       this.targetPosition.set(0, 0, 0);
       if (machineId) this.siegeWorkshop?.selectMachine(machineId);
-      const duration = immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : 1.05;
-      this.setShot('siege', duration);
+      // Snap the background Workshop camera cleanly so static still reveals never sweep through castle walls.
+      this.setShot('siege', 0.01);
     }
   }
 

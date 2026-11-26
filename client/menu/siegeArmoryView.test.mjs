@@ -28,14 +28,43 @@ test('creator-era siege stories are restored verbatim in Armory and Practice sou
   ram.preview+' The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.\n\nWill not leave a scratch.');
 });
 
-test('All Siege Skills provide compact distinctive summaries while retaining full mechanical details',()=>{
+test('All Siege Skills and Built-In Abilities provide reconciled summaries, functional sections, and accurate mechanics',()=>{
  const machines=siegeArmoryView();
  const ram=machines.find(m=>m.id==='soFist');
- const byId=Object.fromEntries(ram.skills.map(s=>[s.id,s]));
- assert.equal(byId.longArmToTheJaw.summary,'Launch your fist at distant foes and retrieve it. Deliver one last aimed punch upon destruction.');
- assert.equal(byId.hellpingHand.summary,'Unfold your fist to crush foes, carry allies or vault by pushing off the ground.');
- assert.equal(byId.beatToThePunch.summary,'Overload your engine to charge backwards and punch approaching foes automatically. Damage or instability may trigger the punch prematurely.');
+ const biBye=machines.find(m=>m.id==='biBye');
+ const flight=machines.find(m=>m.id==='fightFlight');
+ const ramSkills=Object.fromEntries(ram.skills.map(s=>[s.id,s]));
+ const biByeSkills=Object.fromEntries(biBye.skills.map(s=>[s.id,s]));
+ const flightSkills=Object.fromEntries(flight.skills.map(s=>[s.id,s]));
+
+ // Retained SO-FIST-ICATION Skill summaries
+ assert.equal(ramSkills.longArmToTheJaw.summary,'Launch your fist at distant foes and retrieve it. Deliver one last aimed punch upon destruction.');
+ assert.equal(ramSkills.hellpingHand.summary,'Unfold your fist to crush foes, carry allies or vault by pushing off the ground.');
+ assert.equal(ramSkills.beatToThePunch.summary,'Overload your engine to charge backwards and punch approaching foes automatically. Damage or instability may trigger the punch prematurely.');
+
+ // Reconciled Bi-Bye & Flight Skill summaries
+ assert.equal(biByeSkills.coldHowTouching.summary,'Give Bolt I a frost detonation on near misses until Bolt II is fired.');
+ assert.equal(biByeSkills.lookAroundAndFindOut.summary,'Sustain a sweeping rotation. Stop and unleash your loaded bolts when opportunity strikes.');
+ assert.equal(flightSkills.fireAwayRightHere.summary,'Rain bolts using flight charge instead of ammunition. Cease fire to conserve power while hovering.');
+ assert.equal(flightSkills.doNotStopMyAscension.summary,'Fuel rotor Dashes with flight charge until you fire. With Spells & Chivalry, commit to a Valkyrie Dive.');
+
+ // Sectioned complex skills vs simple skills, hull destruction discharge, and zero "electrify"
+ assert.equal(ramSkills.hellpingHand.sections.length,5);
+ assert.match(ramSkills.longArmToTheJaw.line,/hull is destroyed.*attached|physically mounted/i);
+ assert.equal(biByeSkills.coldHowTouching.sections,undefined);
+ assert.doesNotMatch(biByeSkills.coldHowTouching.summary+biByeSkills.coldHowTouching.line,/electrify/i);
+
+ // Audited built-in abilities including Shunt and Reciprocating Piston summary
+ const ramAbilities=Object.fromEntries(ram.attacks.map(a=>[a.id,a]));
+ assert.equal(ramAbilities.reciprocatingPiston.summary,'Drive your steel fist into enemies, sending them reeling and battering through fortifications.');
+ assert.ok(ramAbilities.ramShunt,'SO-FIST-ICATION must document its built-in Shunt maneuver');
+ assert.match(ramAbilities.ramShunt.facts,/7\.4 m\/s/);
+
  for(const m of machines){
+  for(const atk of m.attacks){
+   assert.ok(atk.id&&atk.name&&atk.icon&&atk.summary&&atk.facts&&atk.line,atk.name);
+   assert.ok(atk.summary.length>20&&atk.summary.length<130,atk.id);
+  }
   for(const s of m.skills){
    assert.ok(s.summary&&s.summary.length>25&&s.summary.length<150,s.id);
    assert.ok(s.line&&s.line.length>=s.summary.length,s.id);
