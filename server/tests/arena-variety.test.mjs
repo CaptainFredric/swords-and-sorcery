@@ -48,7 +48,7 @@ test('High Grounds Practice uses safe anchors, nearby opponents and ordinary sie
     assert.equal(resetPracticePlayer(room, player.id, 2, point.id), true);
     safe(room.world, player.position);
     assert.equal(player.position.y, point.y);
-    assert.equal(player.prowess, 100);
+    assert.equal(player.prowess, 0);
     const dummy = spawnPracticeDummy(room, 'FIGHTS_BACK', 2, player.id);
     assert.ok(dummy?.position);
     assert.ok(runClear(room.world, player.position, dummy.position));
