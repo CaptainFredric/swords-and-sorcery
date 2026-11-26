@@ -724,6 +724,7 @@ function ensureRuntime() {
 function runMenuAction(result, failureScreen) {
   pendingFailureScreen = failureScreen;
   if (result.ok) {
+    if(result.name){nameFields.forEach(field=>{field.value=result.name;});syncIdentityBars({collapseIfValid:true});}
     showMenuError('');
     return true;
   }
@@ -1851,7 +1852,6 @@ $('[data-tutorial-onboarding-skip]').addEventListener('click', () => {
 });
 $('[data-tutorial-begin]').addEventListener('click', () => {
   closeTutorialOffer();
-  if (!nameInput.value.trim()) nameFields.forEach(field=>{field.value='Spellblade';});
   startTutorial();
 });
 // The transcript: the asides heard (an aside is listed once it has been), the take being heard again, and the lesson
@@ -1964,11 +1964,9 @@ function revealTutorialControls(taught) {
 }
 function startTutorial() {
   showMenuError('');
-  let name = nameInput.value.trim().slice(0, 18);
-  if (!name) {
-    name = 'Spellblade';
-    nameFields.forEach((field) => { field.value = name; });
-  }
+  const name = menuController.nameForMatch(nameInput.value);
+  nameFields.forEach(field=>{field.value=name;});
+  syncIdentityBars({collapseIfValid:true});
   localStorage.setItem('ss-player-name', name);
   tutorialEquipment.reset();
   runtime?.weapon.setEquipment({ sword: false, hand: false });
@@ -2373,10 +2371,16 @@ function updatePlaques() {
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
+  const technique=SWORD_TECHNIQUES.find(t=>t.id===settings.get('loadout.technique'));
+  const techGlyph=iconSvg(technique?.icon??'attack');
+  const spellGlyph=iconSvg(currentSpellId);
+  const shortcutTech=$('#armory-technique-glyph'),shortcutSpell=$('#armory-spell-glyph');
+  if(shortcutTech){shortcutTech.innerHTML=techGlyph;shortcutTech.title=technique?.name??'Sword';}
+  if(shortcutSpell){shortcutSpell.innerHTML=spellGlyph;shortcutSpell.title=equippedSpell.name;shortcutSpell.dataset.spell=currentSpellId;}
   const techIcon = $('#plaque-icon-technique');
-  if (techIcon) techIcon.textContent = '⚔';
+  if (techIcon) techIcon.innerHTML = techGlyph;
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = 'None equipped';
+  if (techName) techName.textContent = technique?.name??'None equipped';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
