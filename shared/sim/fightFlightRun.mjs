@@ -182,8 +182,8 @@ export function stepFlightRun(room,m,dt,now){
      m.practiceDashRefilling=false;
    }else if(practice){
      // Keep the old cyclic Practice dash pacing, but give it a MACHINE-LOCAL
-     // training energy pool. The player's full personal Ultimate is reserved
-     // for Chivalry/Valkyrie and never drains (or fights an automatic refill).
+     // training energy pool. The player's earned Prowess is independent of it,
+     // while Practice Chivalry/Valkyrie readiness is unlimited.
      m.practiceDashEnergy??=PROWESS.full;
      if(m.practiceDashRefilling){
        m.practiceDashEnergy=clamp(m.practiceDashEnergy+VALKYRIE_RUN.practiceRefillPerSec*dt,0,PROWESS.full);
