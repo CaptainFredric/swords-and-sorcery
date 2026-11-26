@@ -177,7 +177,7 @@ test('Practice tracks earned and lost Prowess without automatic refill',()=>{
  room.mode='PRACTICE';room.policy={...room.policy,prowess:false};room.flightBurnZones=[];
  enemy.prowess=40;pilot.prowess=0;
  applyDamage(room,pilot.id,enemy.id,10,'sword',12);
- assert.equal(pilot.prowess,2.8);assert.equal(enemy.prowess,41.4);
+ assert.ok(Math.abs(pilot.prowess-2.8)<1e-8);assert.ok(Math.abs(enemy.prowess-41.4)<1e-8);
  applyDamage(room,pilot.id,enemy.id,20,'fight-flight-terminal',13,null,{ultimate:true});
- assert.equal(enemy.prowess,21.4);
+ assert.ok(Math.abs(enemy.prowess-21.4)<1e-8);
 });
