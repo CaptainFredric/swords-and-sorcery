@@ -18,6 +18,8 @@ import { iconSvg } from './icons.mjs';
 import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS } from '../../shared/src/swordTechniqueContracts.mjs';
+import { keyLabel } from '../settings/settingsRegistry.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
@@ -211,6 +213,8 @@ export class HUD {
     this.dash = document.querySelector('#dash-ability');
     const dashIcon = this.dash?.querySelector('.ability-icon');
     if (dashIcon) dashIcon.innerHTML = iconSvg('dash');
+    this.technique = document.querySelector('#technique-ability');
+    if(this.technique?.querySelector('.ability-icon'))this.technique.querySelector('.ability-icon').innerHTML=iconSvg('attack');
     this.ultimate = document.querySelector('#ultimate-ability');
     const ultimateIcon = this.ultimate?.querySelector('.ability-icon');
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
@@ -544,6 +548,15 @@ export class HUD {
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.dash.classList.toggle('practice', !inFlight&&practiceOverride(local, 'dash', serverNow, practice));
+    if(this.technique){
+      this.technique.hidden=!practice||Boolean(local.operatingFightFlightId||local.operatingRamId||local.operatingBallistaId);
+      const contract=SWORD_TECHNIQUE_CONTRACTS[local.technique];
+      this.technique.querySelector('em').textContent=local.technique==='whirl_wind'?'WHIRL':'RIPOSTE';
+      this.technique.querySelector('b').textContent=keyLabel(this.ballistaControls?.bindings?.technique?.[0]??'Mouse4');
+      this.#ability(this.technique,Math.max(0,(local.swordTechniqueReadyAt??0)-serverNow),contract?.cooldown??10);
+      this.technique.classList.toggle('practice',!local.swordTechnique&&practiceOverride(local,'technique',serverNow,practice));
+      if(local.swordTechnique&&local.swordTechnique.phase!=='interrupted')this.technique.querySelector('strong').textContent='ACTIVE';
+    }
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
@@ -1059,10 +1072,11 @@ export class HUD {
     // (while it runs: how much of its stretch is left, as a ring drawn round the tile)
     tile.style.setProperty('--left', view.state === 'active' ? view.charge.toFixed(3) : '0');
     tile.classList.toggle('ready', view.state === 'ready');
+    tile.classList.toggle('practice', practice && view.state === 'ready');
     tile.classList.toggle('cooling', view.state === 'charging' || view.state === 'locked');
     tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     // (running, it is lit, not shaded: what is left of it is the ring round it)
-    tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
+    tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' || (practice && view.state === 'ready') ? String(1 - view.charge) : '0');
     const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
     tile.style.setProperty('--prowess', `${prowess.toFixed(1)}%`);
     tile.style.setProperty('--prowess-fraction', (prowess / 100).toFixed(3));
@@ -1128,6 +1142,7 @@ export class HUD {
       :26;
     const rise=Math.max(0,Number.isFinite(bottom)?bottom:112)+height+9;
     this.root.style.setProperty('--status-caption-bottom',Math.ceil(rise)+'px');
+    this.root.style.setProperty('--death-caption-bottom',Math.ceil(rise+8)+'px');
   }
 
   /**

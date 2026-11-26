@@ -164,3 +164,13 @@ test('In Denial voice fact is restricted to actually prevented lethal damage',()
   assert.equal(hit(20,12.3).inDenial,undefined);
   assert.equal(ally.alive,false);
 });
+
+test('initial Valkyrie blast drains post-mitigation HP loss outside the fire and only once inside it',()=>{
+  const {room,pilot,enemy}=battle();
+  enemy.position.x=7;enemy.prowess=75;
+  applyDamage(room,pilot.id,enemy.id,20,'fight-flight-terminal',12,null,{ultimate:true});
+  assert.equal(enemy.health,80);assert.equal(enemy.prowess,55);
+  enemy.position.x=1;
+  applyDamage(room,pilot.id,enemy.id,20,'fight-flight-terminal',12.1,null,{ultimate:true});
+  assert.equal(enemy.health,60);assert.equal(enemy.prowess,35);
+});

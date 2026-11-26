@@ -16,7 +16,7 @@ export function requestSwordTechnique(room, playerId, down, nowSec) {
      nowSec<(player.oneHitFrozenUntil??-Infinity))return false;
   const contract=SWORD_TECHNIQUE_CONTRACTS[player.technique];
   const aerial=!player.grounded;
-  const action=beginSwordTechnique(player,contract,nowSec);
+  const action=beginSwordTechnique(player,contract,nowSec,{practice:practiceWhirl(room,player)});
   if(!action)return false;
   action.lungeYaw=player.yaw;
   action.aerial=aerial;

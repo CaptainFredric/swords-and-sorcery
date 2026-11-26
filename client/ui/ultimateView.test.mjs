@@ -47,7 +47,11 @@ test('while a Vortex runs the tile says how long is left and what it has been st
   assert.equal(sunder.left, 4);
 });
 
-test('in the Practice Yard the tile says READY whenever the key would work: the key readies the ultimate itself', () => {
+test('in Practice the key is ready independently of its real Prowess meter', () => {
+  const partial=ultimateView({prowess:37},10,{practice:true});
+  assert.equal(partial.state,'ready');
+  assert.equal(partial.charge,.37);
+  assert.equal(partial.label,'37%');
   assert.equal(ultimateView({ prowess: 0 }, 10, { practice: true }).state, 'ready');
   assert.equal(ultimateView({ prowess: 0 }, 10).state, 'charging', 'a real match waits for the meter');
   // not while one runs, nor in the moment after a Vortex, nor after an interruption

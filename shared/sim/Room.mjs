@@ -2,7 +2,6 @@ import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 import {normalizeSwordTechnique} from '../src/swordTechniqueContracts.mjs';
 import {interruptSwordTechnique} from './swordTechniqueLive.mjs';
 import { emptyInfusions } from '../src/oneHitInfusions.mjs';
-import { PROWESS } from '../src/prowess.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import {createStructureState,stepStructureRestoration} from './structures.mjs';
 import { dismountFightFlight } from './fightFlight.mjs';
@@ -446,9 +445,6 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
-    // Practice is a rehearsal: the HUD and server both start at a full
-    // personal Ultimate, independent of the Fight-and-Flight dash reserve.
-    if(this.mode===GAME_MODES.PRACTICE)player.prowess=PROWESS.full;
     player.startingSpell = player.spell;
     player.technique=normalizeSwordTechnique(technique);
     player.startingTechnique=player.technique;
@@ -1206,10 +1202,6 @@ export class Room {
       player.killfeedCircleChase=null;
       player.killfeedInsideCircles={};
       // startMatch resets all actor combat state, including Prowess. Restore
-      // Practice's fully charged personal Ultimate BEFORE the first snapshot,
-      // not one server tick later, without charging bots or normal matches.
-      if(this.mode===GAME_MODES.PRACTICE && player.actorKind==='human')
-        player.prowess=PROWESS.full;
       i += 1;
     }
     this.projectiles.clear();

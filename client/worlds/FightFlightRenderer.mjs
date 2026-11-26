@@ -30,7 +30,6 @@ export class FightFlightRenderer{
     this.burnCoreGeometry=new THREE.CircleGeometry(1,48);
     this.burnFlameGeometry=new THREE.CylinderGeometry(.025,.22,.72,9,1,true);
     this.burnRimGeometry=new THREE.CylinderGeometry(1,1,1,96,1,true);
-    this.burnSmokeGeometry=new THREE.IcosahedronGeometry(1,1);
     this.burnCrackGeometry=new THREE.PlaneGeometry(1,.06);
     this.burnZones=new Map();
     // The ground fire's light is made once and kept in the scene (dark until a fire needs it): adding a light at the
@@ -350,13 +349,7 @@ export class FightFlightRenderer{
       ring.rotation.x=-Math.PI/2;
       ring.renderOrder=4;group.add(ring);return ring;
     });
-    const smoke=Array.from({length:18},(_,i)=>{
-      const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
-        color:i%4===0?0x6c4939:i%3===0?0x433a35:0x262827,
-        transparent:true,opacity:0,depthWrite:false}));
-      cloud.renderOrder=5;group.add(cloud);return cloud;
-    });
-    return {group,core,rings,smoke};
+    return {group,core,rings};
   }
   spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5,burnExpiresAt=undefined,machineId=null){
     if(!point||![point.x,point.y,point.z].every(Number.isFinite)||
@@ -364,10 +357,10 @@ export class FightFlightRenderer{
     const radius=Math.max(2,Math.min(13,blastRadius));
     const power=Math.max(0,Math.min(1,condition));
     const expiresAt=valkyrieHaloExpiry(startedAt,duration,burnExpiresAt);
-    const {group,core,rings,smoke}=this.#haloParts();
+    const {group,core,rings}=this.#haloParts();
     group.position.set(point.x,point.y,point.z);
     this.haloRoot.add(group);
-    this.halos.push({group,core,rings,smoke,startedAt,expiresAt,radius,power,
+    this.halos.push({group,core,rings,startedAt,expiresAt,radius,power,
       zoneId:burnExpiresAt!==null&&machineId?machineId+'-burn':null,
       confirmedZone:false});
     // An event lost during a lag spike must never accumulate unbounded VFX.
@@ -390,7 +383,7 @@ export class FightFlightRenderer{
           effect.confirmedZone=true;
         }else if(effect.confirmedZone)effect.expiresAt=now;
       }
-      const {group,core,rings,smoke,radius,power}=effect;
+      const {group,core,rings,radius,power}=effect;
       const state=valkyrieSmokeHaloState(now,effect.startedAt,effect.expiresAt,radius,power);
       if(!state){
         group.removeFromParent();
@@ -414,19 +407,9 @@ export class FightFlightRenderer{
       rings[1].position.set(0,state.elevation,0);
       rings[1].scale.setScalar(state.ringRadius);
       rings[1].material.opacity=state.rimOpacity;
-      rings[1].rotation.y=elapsed*.11;
-      // A recognizable horizontal wreath of smoke; varying the perimeter
-      // slightly prevents a perfect torus of identical-looking particles.
-      for(let i=0;i<smoke.length;i++){
-        const puff=smoke[i];
-        const angle=2*Math.PI*i/smoke.length+.055*Math.sin(i*.71+elapsed*.36);
-        const spread=state.ringRadius*(.92+.08*Math.sin(i*1.37+elapsed*.23));
-        puff.position.set(Math.cos(angle)*spread,
-          state.elevation+Math.sin(i*2.31+elapsed*.7)*(.13+radius*.045),
-          Math.sin(angle)*spread);
-        puff.scale.setScalar(state.puffScale*(.83+(i%5)*.055));
-        puff.material.opacity=state.smokeOpacity*(.78+.22*(i%4)/3);
-      }
+      // Keep its plane parallel to the ground; rotation around world Y would tilt the torus in Euler order.
+      rings[1].rotation.set(-Math.PI/2,0,0);
+
     }
   }
   #burnVisual(){
@@ -467,14 +450,7 @@ export class FightFlightRenderer{
       mesh.rotation.y=i*2.4;mesh.renderOrder=5;
       group.add(mesh);flames.push(mesh);
     }
-    const soot=[];
-    for(let i=0;i<9;i++){
-      const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
-        color:i%3===0?0x5d4e42:0x322b29,transparent:true,opacity:0,
-        depthWrite:false,side:THREE.DoubleSide}));
-      cloud.renderOrder=6;group.add(cloud);soot.push(cloud);
-    }
-    return {group,scar,edge,core,glow,cracks,rim,flames,soot};
+    return {group,scar,edge,core,glow,cracks,rim,flames};
   }
   drawBurnZones(zones,now){
     const active=new Set();
@@ -523,18 +499,6 @@ export class FightFlightRenderer{
         flame.rotation.y=angle+Math.sin(age+i)*.13;
         flame.scale.set(.85+radius*.035,height/.72,.85+radius*.035);
         updateValkyrieFlame(flame.material,age*.72,remaining,extinguish);
-      }
-      for(let i=0;i<visual.soot.length;i++){
-        const cloud=visual.soot[i],angle=i*2.399963;
-        const phase=(age*.48+i/visual.soot.length)%1;
-        const born=age-phase/.48;
-        const distance=radius*(.25+.58*((i*5)%13)/13);
-        const spread=distance+phase*radius*.13;
-        cloud.position.set(Math.sin(angle)*spread+.34*phase*Math.sin(age+i),
-          .18+phase*(1.3+radius*.34),
-          Math.cos(angle)*spread+.34*phase*Math.cos(age+i));
-        cloud.scale.setScalar(.10+phase*(.50+radius*.065));
-        cloud.material.opacity=born<0?0:.22*Math.sqrt(remaining)*Math.min(1,phase/.12)*(1-phase)**1.5*extinguish;
       }
       if(visual.light){
         visual.light.intensity=1.2*remaining*extinguish*(.92+.08*Math.sin(now*11));
@@ -636,7 +600,7 @@ export class FightFlightRenderer{
     this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();
     this.warmTerminalGroup?.traverse(node=>{if(node.isMesh)node.material.dispose();});this.warmTerminalGroup=null;
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();this.burnRimGeometry.dispose();
-    this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
+    this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);
     this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
     this.trailRoot.removeFromParent();

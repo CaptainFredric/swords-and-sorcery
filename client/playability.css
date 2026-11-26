@@ -580,3 +580,10 @@
   .high-grounds-foundry summary { padding:7px 9px; font-size:9px; }
   .high-grounds-machine-buttons button { min-height:35px; padding:4px 7px; }
 }
+
+/* Death feedback must never occupy the subtitle lane, even when a line wraps.
+   Keep the ordinary lower-centre framing and only raise as far as needed. */
+#death-card { top: min(calc(76% - 12px), calc(100% - var(--death-caption-bottom, 155px) - 40px)); }
+.touch-ui #death-card { top: min(calc(76% - 12px), calc(100% - var(--death-caption-bottom, 72px) - 40px)); }
+
+#technique-ability[hidden] { display:none !important; }

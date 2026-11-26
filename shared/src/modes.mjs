@@ -91,7 +91,7 @@ const POLICIES = Object.freeze({
     minHumansToStart: 1,
     botCount: 0,
     scored: false,
-    // no prowess is earned here (the yard's tools can ready an ultimate to try)
+    // Ordinary Practice opponents do not earn Prowess; player-controlled training is handled by prowess.mjs.
     prowess: false,
     timed: false,
     scoreToWin: null,

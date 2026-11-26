@@ -49,7 +49,8 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
   if (state?.phase === 'startup') return { state: 'bracing', charge: 1, label: state.id === 'chivalry' ? 'PREPARE' : ultimate.hop ? 'IGNITE' : 'BRACE', ultimate };
   const locked = Math.max(local?.ultimateLockedUntil ?? -Infinity, local?.recoverUntil ?? -Infinity) - serverNow;
   if (locked > 0.01) return { state: 'locked', charge, label: locked.toFixed(1), ultimate };
-  if (charge >= 1 || practice) return { state: 'ready', charge: 1, label: 'READY', ultimate };
+  if (practice) return { state: 'ready', charge, label: `${Math.floor(charge * 100)}%`, ultimate };
+  if (charge >= 1) return { state: 'ready', charge: 1, label: 'READY', ultimate };
   return { state: 'charging', charge, label: `${Math.floor(charge * 100)}%`, ultimate };
 }
 
