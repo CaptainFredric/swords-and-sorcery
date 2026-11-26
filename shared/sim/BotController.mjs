@@ -1066,7 +1066,8 @@ export function stepBotControllers(
     // back to an intact, unoccupied machine. Regular foot combat resumes
     // when their assigned machine is destroyed or unavailable.
     if ((actor.operatingBallistaId || actor.operatingRamId || actor.operatingFightFlightId) ||
-        (actor.practiceSiegeOperator && actor.siegeAi?.phase === 'remount')) continue;
+        (actor.practiceSiegeOperator && actor.siegeAi?.phase === 'remount') ||
+        actor.practiceSiegeOperator?.machine === 'valkyrie') continue;
     const skill = botSkill(actor);
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
