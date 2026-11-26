@@ -439,7 +439,7 @@ function crashman(room,a,m,target,ai,now){
     if(m.terminalDive.resolved)return;
     // Aim at nearby supported ground; lead modestly, then steepen the
     // descent as horizontal range closes. Physics owns the actual contact.
-    const lead=clamp(d/20,0,.65),v=target.velocity??{};
+  const lead=clamp(d/20,0,.65)*(SIEGE_DIFFICULTIES[a.practiceSiegeOperator.difficulty]?.lead??1),v=target.velocity??{};
     const point={x:p.x+(v.x??0)*lead,z:p.z+(v.z??0)*lead,y:p.y};
     const range=dist(at,point);
     a.input={...a.input,forward:0,right:0,jump:false,crouch:false,
@@ -449,10 +449,16 @@ function crashman(room,a,m,target,ai,now){
   }
   requestFightFlightFire(room,m,a,false,now);
   if(m.skill?.phase!=='active')requestFightFlightSkill(room,m,a,now);
+  if(m.flightCharge<18)ai.rechargeForDive=true;
+  if(ai.rechargeForDive&&m.flightCharge>=75)ai.rechargeForDive=false;
+  if(ai.rechargeForDive){
+    a.input={...a.input,yaw,pitch:0,forward:0,right:0,jump:false,flightRise:false,crouch:!m.grounded,flightLower:!m.grounded};
+    return;
+  }
   // Climb before committing; close only until a workable dive geometry
   // exists. The normal rotor, charge, terrain and damage rules stay active.
   a.input={...a.input,yaw,pitch:0,forward:d>16?.85:d<8?-.7:0,right:0,
-    jump:m.grounded||height<5.5,crouch:height>7.5,sprint:false};
+    jump:m.grounded||height<5.5,flightRise:m.grounded||height<5.5,crouch:height>7.5,flightLower:height>7.5,sprint:false};
   if(!m.grounded&&height>=4.5&&height<9&&d>=6&&d<=18&&facing<.35&&
     m.flightCharge>10&&m.rotorHP>0&&m.skill?.phase==='active'){
     a.input.pitch=-clamp(Math.atan2(height+1.5,Math.max(1,d-2))+.12,.35,1.14);
@@ -502,7 +508,7 @@ function stepCrashman(room,a,now){
   room.fightFlightRevision=rev;info.machineId=next.id;
   a.prowess=100;a.spawnProtectionUntil=now+.35;
   a.input={...a.input,forward:0,right:0,jump:false,crouch:false};
-  ai.phase='mounted';
+  ai.phase='mounted';ai.rechargeForDive=false;
   room.events.push({type:'practiceSiegeOpponentSpawned',playerId:a.id,machineId:next.id,
     machine:'valkyrie',difficulty:info.difficulty,skill:info.skill,name:a.name,at:now});
 }
