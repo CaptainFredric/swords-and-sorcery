@@ -174,7 +174,7 @@ export function resetPracticePlayer(room, playerId, nowSec, destination = null) 
     }
   }
   resetActorAtSpawn(player, spawn, nowSec);
-  player.prowess=PROWESS.full;
+  player.prowess=0;
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
   return true;
 }
