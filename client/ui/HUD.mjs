@@ -18,6 +18,8 @@ import { iconSvg } from './icons.mjs';
 import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
+import { SWORD_TECHNIQUE_CONTRACTS } from '../../shared/src/swordTechniqueContracts.mjs';
+import { keyLabel } from '../settings/settingsRegistry.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
 import { oneHitSteelFloorActive } from '../../shared/src/oneHitInfusions.mjs';
 import { biByeHudView } from './biByeHudView.mjs';
@@ -211,6 +213,8 @@ export class HUD {
     this.dash = document.querySelector('#dash-ability');
     const dashIcon = this.dash?.querySelector('.ability-icon');
     if (dashIcon) dashIcon.innerHTML = iconSvg('dash');
+    this.technique = document.querySelector('#technique-ability');
+    if(this.technique?.querySelector('.ability-icon'))this.technique.querySelector('.ability-icon').innerHTML=iconSvg('attack');
     this.ultimate = document.querySelector('#ultimate-ability');
     const ultimateIcon = this.ultimate?.querySelector('.ability-icon');
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
@@ -544,6 +548,15 @@ export class HUD {
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.dash.classList.toggle('practice', !inFlight&&practiceOverride(local, 'dash', serverNow, practice));
+    if(this.technique){
+      this.technique.hidden=!practice||Boolean(local.operatingFightFlightId||local.operatingRamId||local.operatingBallistaId);
+      const contract=SWORD_TECHNIQUE_CONTRACTS[local.technique];
+      this.technique.querySelector('em').textContent=local.technique==='whirl_wind'?'WHIRL':'RIPOSTE';
+      this.technique.querySelector('b').textContent=keyLabel(this.ballistaControls?.bindings?.technique?.[0]??'Mouse4');
+      this.#ability(this.technique,Math.max(0,(local.swordTechniqueReadyAt??0)-serverNow),contract?.cooldown??10);
+      this.technique.classList.toggle('practice',!local.swordTechnique&&practiceOverride(local,'technique',serverNow,practice));
+      if(local.swordTechnique&&local.swordTechnique.phase!=='interrupted')this.technique.querySelector('strong').textContent='ACTIVE';
+    }
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
