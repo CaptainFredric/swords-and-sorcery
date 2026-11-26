@@ -388,3 +388,37 @@ test('each equippable siege Skill can be activated by a formidable hostile pilot
     cfg.machine==='so-fist-ication'?'soFist':'fightFlight'],cfg.skill);
  }
 });
+
+test('Crashman Burn uses the existing Valkyrie command and repeats with a new machine lifecycle',()=>{
+ const {room,player,command}=setup();
+ player.health=player.maxHealth=10000; // observe repeated impacts without respawning the target
+ assert.deepEqual(command('spawn','valkyrie','formidable'),{});
+ const first=room.fightFlight,pilot=room.players.get(first.operatorId);
+ assert.equal(pilot.name,'Crashman Burn');
+ assert.equal(pilot.siegeLoadout.fightFlight,'doNotStopMyAscension');
+ assert.equal(pilot.ultimate,'chivalry');
+ assert.equal(pilot.prowess,100);
+ assert.ok(command('spawn','fight-and-flight').rejected,'same physical machine slot');
+ advance(room,2,40);
+ const impacts=room.events.filter(e=>e.type==='fightFlightTerminalExplosion'&&e.operatorId===pilot.id);
+ assert.ok(impacts.length>=2,'real flight physics must produce repeated impacts');
+ assert.ok(new Set(impacts.map(e=>e.machineId)).size>=2,'one sacrifice per machine');
+ assert.ok(impacts.some(e=>Math.hypot(e.point.x,e.point.z)<e.fireRadius),'at least one impact reaches the stationary target with its ground flames');
+ assert.ok(room.events.some(e=>e.type==='fightFlightTerminalCommitted'&&e.operatorId===pilot.id));
+ assert.equal([...room.players.values()].filter(a=>a.practiceSiegeOperator?.machine==='valkyrie').length,1);
+ assert.deepEqual(command('remove','valkyrie','formidable',43),{});
+ assert.equal(room.fightFlight,null);
+ assert.ok(!(room.flightBurnZones??[]).some(z=>z.sourceId===pilot.id));
+ advance(room,43,5);
+ assert.equal(room.fightFlight,null,'removal stops repetition');
+});
+
+test('Crashman Burn rejects alternate skills and never replaces another pilot’s machine',()=>{
+ const {room,player,command}=setup();
+ assert.ok(applyRoomCommand(room,player,{type:'practiceSiegeOpponent',action:'spawn',machine:'valkyrie',difficulty:'skilled',skill:'narrowToOne'},2).rejected);
+ assert.equal(room.fightFlight,null);
+ assert.deepEqual(command('spawn','fight-and-flight'),{});
+ const first=room.fightFlight;
+ assert.ok(command('spawn','valkyrie').rejected);
+ assert.equal(room.fightFlight,first);
+});
