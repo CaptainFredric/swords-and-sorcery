@@ -102,3 +102,21 @@ test('a match keeps its ordinary cooldowns: no gate, no early recast, the fist o
   run(r, 11, 11.5);
   assert.equal(tryDash(r, 'a', { x: 0, z: -1 }, 11.5), false, 'the dash waits out its cooldown');
 });
+
+test('Practice preserves earned and lost Prowess across simulation ticks', async () => {
+  const { gainProwess, prowessForDamage } = await import('../../shared/src/prowess.mjs');
+  const { Room } = await import('../../shared/sim/Room.mjs');
+  const { applyDamage, stepRoom } = await import('../../shared/sim/combat.mjs');
+  const room = new Room('PRACTMETER',{mode:'PRACTICE',worldId:'castleward'});
+  const human=room.addPlayer({id:'human',token:'human',name:'Human'},0);
+  const opponent=room.addServerActor({id:'opponent',name:'Opponent',actorKind:'dummy'},0);
+  room.startMatch(0);room.state='PLAYING';
+  human.prowess=0;opponent.prowess=0;human.spawnProtectionUntil=0;
+  assert.equal(gainProwess(room,human,25),25);
+  prowessForDamage(room,opponent,human,10);
+  assert.equal(human.prowess,26.4);assert.equal(opponent.prowess,0);
+  applyDamage(room,opponent.id,human.id,10,'fight-flight-terminal',3,null,{ultimate:true});
+  assert.ok(Math.abs(human.prowess-16.4)<1e-8);
+  stepRoom(room,1/30,3.04,room.world);
+  assert.ok(Math.abs(human.prowess-16.4)<1e-8,'no automatic 100 refill');
+});
