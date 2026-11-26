@@ -47,16 +47,18 @@ export function strikeKind(variant, strike) {
   return (SWORD_CHAINS[variant] ?? SWORD_CHAINS[0]).kinds[strike] ?? strike;
 }
 
-// Which form a chain takes, decided the same way by the server and by the arms ahead of it (no word needed): a chain
-// that follows straight on from one that ran its whole course (held through, or pressed again before it ended, within
-// `RUN_GRACE` of its restart) is the other form; any other chain is the falling one. So holding the button alternates
-// falling, rising, falling...; tapping afresh always opens with the forehand.
+// Which form a chain takes, decided the same way by the server and by the arms ahead of it (no word needed): each chain
+// takes the other form from the one before it, however that one ended (run through, let go, or broken off). So the
+// sword never opens the same way twice running: a forehand chain, then one opening with the backhand from the low
+// left, then the forehand again, whether the button is held through or pressed afresh (the playtest: "tired of seeing
+// the same slash from the right to the left, startup, each and every single time"). The first chain of a life opens
+// with the forehand.
 export const CHAIN_RUN_GRACE = 0.25;
 
-/** The form of a chain begun at `startAt`, after `previous` ({ variant, restartAt }: the last chain that ran its course, or null). */
+/** The form of a chain begun at `startAt`, after `previous` ({ variant, restartAt }: the chain before it, or null). */
 export function nextChainVariant(previous, startAt) {
-  if (!previous || !Number.isFinite(previous.restartAt) || startAt > previous.restartAt + CHAIN_RUN_GRACE + 1e-9) return 0;
-  return ((previous.variant ?? 0) + 1) % SWORD_CHAINS.length;
+  if (!previous || !Number.isInteger(previous.variant)) return 0;
+  return (previous.variant + 1) % SWORD_CHAINS.length;
 }
 
 /**
