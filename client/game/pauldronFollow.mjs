@@ -4,10 +4,11 @@
 // flourish's reach, a reaction, a fall). An arm turned far from its rest (raised into a high guard, swung up overhead)
 // takes its plate further, up to PAULDRON_RAISED_FOLLOW: at PAULDRON_FOLLOW the plate stayed on the shoulder while the
 // arm left it, and tore the shoulder open between them.
-// (0.8 and 1 since each pauldron was turned onto its arm's line, tools/blender/characters/spellblade/upper-arm: it caps
-// the shoulder over the upper arm at rest and stays on a raised arm, over the rerebrace beneath it)
-export const PAULDRON_FOLLOW = 0.8;
-export const PAULDRON_RAISED_FOLLOW = 1;
+// (back to 0.6 and 0.95, with the pauldrons in their own shape on the shoulder: turned onto the arm's line and following it
+// further, they left the shoulder bare in a cast and a backhand; the rerebrace beneath, its top riding the pauldron's bone,
+// keeps a raised arm whole: tools/blender/characters/spellblade/upper-arm)
+export const PAULDRON_FOLLOW = 0.6;
+export const PAULDRON_RAISED_FOLLOW = 0.95;
 export const PAULDRON_RAISE = Object.freeze([55, 110]);   // (deg the arm turns from its rest: easing from one to the other)
 
 /** How far a pauldron turns with its arm, for an arm turned `turn` degrees from its rest. */

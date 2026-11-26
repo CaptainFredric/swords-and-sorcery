@@ -1,20 +1,16 @@
 {
   "tears": {
     "Breastplate chest~head": {
-      "edges": 303,
-      "worstCm": 9.7
+      "edges": 6,
+      "worstCm": 6.5
     },
-    "Breastplate chest~pelvis": {
-      "edges": 1705,
-      "worstCm": 29.4
-    },
-    "Breastplate chest~spine": {
-      "edges": 1549,
-      "worstCm": 21.1
+    "Breastplate chest~neck": {
+      "edges": 11,
+      "worstCm": 7.5
     },
     "Breastplate pelvis~spine": {
-      "edges": 1385,
-      "worstCm": 11.9
+      "edges": 3,
+      "worstCm": 7.2
     },
     "Breastplate pelvis~thigh.L": {
       "edges": 3042,
@@ -49,5 +45,5 @@
       "worstCm": 19.5
     }
   },
-  "throughTotal": 54
+  "throughTotal": 4
 }

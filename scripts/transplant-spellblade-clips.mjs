@@ -20,10 +20,16 @@
 //     (a prop rigid to one hand moved, in that hand's frame, so its shaft runs through the curled fingers)
 //   node scripts/transplant-spellblade-clips.mjs --reweight-overruns [--apply]
 //     (limb-bound vertices lying past the next joint handed on to it: the core's thigh tubes)
-//   node scripts/transplant-spellblade-clips.mjs --turn-pauldrons 0.75 [--apply]
+//   node scripts/transplant-spellblade-clips.mjs --turn-pauldrons <share> [--apply]   (0 in the shipped model since the playtest of 11-26)
 //     (each pauldron turned that share of the way about its shoulder joint onto the arm's line)
 //   node scripts/transplant-spellblade-clips.mjs --add-json-meshes tools/blender/characters/spellblade/upper-arm/rerebrace.json [--apply]
 //     (meshes made in Blender, each rigid on one bone, in the gauntlet's material)
+//   node scripts/transplant-spellblade-clips.mjs --blend-waist [--apply]
+//     (the breastplate's waist blended pelvis -> spine -> chest over 27 cm instead of changing hands in 10)
+//   node scripts/transplant-spellblade-clips.mjs --blend-collar [--apply]
+//     (the collar's column, the helmet's chin, blended chest -> neck -> head so it goes with the helmet)
+//   node scripts/transplant-spellblade-clips.mjs --add-backplate [--apply]
+//     (a steel backplate made from the core's own back, on its bones: the cuirass had no back)
 //   node scripts/transplant-spellblade-clips.mjs --fill-core [--apply]
 //     (the chainmail core's torso widened to fill the open-sided cuirass, and the core made dark matte mail)
 //   node scripts/transplant-spellblade-clips.mjs --drop-bells [--apply]
@@ -557,7 +563,12 @@ function reweightOverruns(baseFile, { band = 0.04, margin = 0.02 } = {}) {
 // shoulder (51 right, 42 left) is bound to the pauldron, which turns most of the way with a raised arm: the cuirass's
 // side tore 20 cm open against the chest beside it. A cuirass stays with the chest while the pauldron lifts over it.
 // Each is given its neighbours' weights instead (repeated, so a stray beside a stray takes them second-hand).
-const STRAYS = Object.freeze([{ mesh: 'Breastplate', limbs: /^(upper_arm|forearm|hand|pauldron)\.[LR]$/ }]);
+const STRAYS = Object.freeze([
+  { mesh: 'Breastplate', limbs: /^(upper_arm|forearm|hand|pauldron)\.[LR]$/ },
+  // (and the collar's top ring, 72 vertices up inside the helmet bound wholly to the head among chest-bound neighbours:
+  // a head tipped forward drew them out of the collar into a dark open "maw" under the helmet's jaw, edges 15 cm long)
+  { mesh: 'Breastplate', limbs: /^head$/ },
+]);
 function rebindStrays(baseFile) {
   const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0];
   const bin = Buffer.from(base.bin);
@@ -784,7 +795,16 @@ function addJsonMeshes(baseFile, file, material = 'SpellbladeLeftGauntlet1') {
     const min = [0, 1, 2].map((c) => Math.min(...part.position.filter((_, i) => i % 3 === c)));
     const max = [0, 1, 2].map((c) => Math.max(...part.position.filter((_, i) => i % 3 === c)));
     const joints = new Uint8Array(count * 4), weights = new Float32Array(count * 4);
-    for (let i = 0; i < count; i += 1) { joints[i * 4] = k; weights[i * 4] = 1; }
+    for (let i = 0; i < count; i += 1) {
+      // (per-vertex bones when the part has them: [[bone, weight], ...], else all on its one bone)
+      const own = part.weights?.[i]?.length ? part.weights[i] : [[part.bone, 1]];
+      const total = own.reduce((t, [, w]) => t + w, 0);
+      own.slice(0, 4).forEach(([bone, w], c) => {
+        const j = skin.joints.findIndex((n) => doc.nodes[n].name === bone);
+        if (j < 0) throw Error('No joint ' + bone);
+        joints[i * 4 + c] = j; weights[i * 4 + c] = w / total;
+      });
+    }
     const primitive = {
       attributes: {
         POSITION: accessor(new Float32Array(part.position), 5126, 'VEC3', count, { min, max, target: 34962 }),
@@ -805,6 +825,136 @@ function addJsonMeshes(baseFile, file, material = 'SpellbladeLeftGauntlet1') {
   doc.buffers[0].byteLength = bin.length;
   const data = encode(doc, bin);
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
+// The breastplate's waist: rigid on the chest above 1.25 m and on the pelvis below 1.15 m, it changed hands within
+// those 10 cm, so every turn of the trunk (a forehand winding up, a Sunder) folded the plate in and out right there.
+// Blended instead over the whole waist, pelvis to spine to chest (Bernstein weights: a smooth curve through the spine's
+// own joint), the same turn is spread over 27 cm and the plate bends a little rather than pinching.
+const WAIST = Object.freeze({ mesh: 'Breastplate', from: 1.08, to: 1.35, bones: ['pelvis', 'spine', 'chest'] });
+// The collar's column is the helmet's chin: the breastplate rises up the neck into the face plate under the visor's
+// eye slit, and was bound to the chest while the rest of the helmet rides the head, so a head tipped forward (a cast,
+// a Sunder) pulled the chin away from the brow into a stretched, open "maw". Blended chest -> neck -> head up the
+// column (within `radius` of the neck), the chin goes with the helmet and the bend sits low in the collar, under the
+// scarf.
+const COLLAR = Object.freeze({ mesh: 'Breastplate', from: 1.48, to: 1.60, bones: ['chest', 'neck', 'head'], radius: 0.2 });
+function blendWaist(baseFile, spec = WAIST) {
+  // (any vertical blend of one mesh across three bones, lowest to highest: the waist, the collar)
+  const base = glb(baseFile), doc = structuredClone(base.doc), skin = doc.skins[0], bin = Buffer.from(base.bin);
+  const names = skin.joints.map((j) => doc.nodes[j].name);
+  const k = (name) => { const i = names.indexOf(name); if (i < 0) throw Error('No joint ' + name); return i; };
+  const [pelvis, spine, chest] = spec.bones.map(k);
+  const neckAt = (() => { const a = doc.accessors[skin.inverseBindMatrices], v = doc.bufferViews[a.bufferView], o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0) + spine * 64;
+    const m = Array.from({ length: 16 }, (_, c) => base.bin.readFloatLE(o + c * 4)); return [0, 1, 2].map((r) => -(m[r * 4] * m[12] + m[r * 4 + 1] * m[13] + m[r * 4 + 2] * m[14])); })();
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], size = { 5121: 1, 5123: 2, 5126: 4 }[a.componentType];
+    const n = { VEC3: 3, VEC4: 4 }[a.type]; return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? size * n, size }; };
+  const get = (x, i, c) => { const at = x.o + i * x.stride + c * x.size;
+    const val = x.a.componentType === 5126 ? bin.readFloatLE(at) : x.a.componentType === 5123 ? bin.readUInt16LE(at) : bin.readUInt8(at);
+    return x.a.normalized ? val / (x.a.componentType === 5121 ? 255 : 65535) : val; };
+  const set = (x, i, c, value) => { const at = x.o + i * x.stride + c * x.size;
+    if (x.a.componentType === 5126) bin.writeFloatLE(value, at);
+    else if (x.a.componentType === 5123) bin.writeUInt16LE(x.a.normalized ? Math.round(value * 65535) : value, at);
+    else bin.writeUInt8(x.a.normalized ? Math.round(value * 255) : value, at); };
+  const mesh = doc.meshes.find((m) => m.name === spec.mesh);
+  if (!mesh) throw Error('No mesh ' + spec.mesh);
+  let moved = 0;
+  for (const prim of mesh.primitives) {
+    const P = view(prim.attributes.POSITION), J = view(prim.attributes.JOINTS_0), W = view(prim.attributes.WEIGHTS_0);
+    for (let i = 0; i < P.a.count; i += 1) {
+      const y = get(P, i, 1);
+      if (y < spec.from || (y > spec.to && !spec.radius)) continue;
+      if (spec.radius && Math.hypot(get(P, i, 0) - neckAt[0], get(P, i, 2) - neckAt[2]) > spec.radius) continue;
+      // only the trunk's own vertices (none that also follow a leg or an arm)
+      const slots = [0, 1, 2, 3].map((c) => ({ j: get(J, i, c), w: get(W, i, c) })).filter((s) => s.w > 0);
+      if (slots.some((s) => ![pelvis, spine, chest].includes(s.j))) continue;
+      const t = Math.min(1, (y - spec.from) / (spec.to - spec.from));
+      const out = [[pelvis, (1 - t) ** 2], [spine, 2 * t * (1 - t)], [chest, t ** 2]].sort((a, b) => b[1] - a[1]);
+      for (let c = 0; c < 4; c += 1) { set(J, i, c, out[c] ? out[c][0] : 0); set(W, i, c, out[c] ? out[c][1] : 0); }
+      moved += 1;
+    }
+  }
+  const data = encode(doc, bin.subarray(0, doc.buffers[0].byteLength));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.mesh, blended: moved }] };
+}
+
+// A backplate: the supplied cuirass is a front and sides only, and behind it there was nothing but the dark chainmail
+// core, so whenever the cape swung off his back (running, turning, the Armory's spin) it showed a black void from the
+// collar to the belt (playtest: "a huge cavity there"). The plate is made from the core's own back (its torso faces
+// turned to the back, between `from` and `to` metres up), set `offset` outside it, each vertex keeping the core's
+// bones and weights so it moves exactly as the torso does, drawn in the plates' steel with a bronze band at `bands`.
+const BACKPLATE = Object.freeze({ source: 'InnerSkeletonCore', name: 'Backplate', from: 1.04, to: 1.64, facing: -0.1, offset: 0.02,
+  // (the cuirass's own steel, so the back matches the front; the bands in the gauntlets' bronze)
+  material: 'Helmet Steel', steel: [0.4341, 0.3013], bandMaterial: 'SpellbladeLeftGauntlet1', bronze: [0.2311, 0.9848],
+  bands: Object.freeze([[1.04, 1.1], [1.56, 1.64]]) });
+function addBackplate(baseFile, spec = BACKPLATE) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin;
+  if (doc.meshes.some((m) => m.name === spec.name)) throw Error('The model already has ' + spec.name);
+  const SIZE = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }, COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
+  const read = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], n = COUNT[a.type], size = SIZE[a.componentType];
+    const o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride = v.byteStride ?? n * size;
+    return Array.from({ length: a.count }, (_, i) => Array.from({ length: n }, (_, c) => { const at = o + i * stride + c * size;
+      const x = a.componentType === 5126 ? bin0.readFloatLE(at) : size === 4 ? bin0.readUInt32LE(at) : size === 2 ? bin0.readUInt16LE(at) : bin0.readUInt8(at);
+      return a.normalized ? x / (size === 1 ? 255 : 65535) : x; })); };
+  const core = doc.meshes.find((m) => m.name === spec.source);
+  if (!core) throw Error('No mesh ' + spec.source);
+  const prim = core.primitives[0];
+  const P = read(prim.attributes.POSITION), J = read(prim.attributes.JOINTS_0), W = read(prim.attributes.WEIGHTS_0), I = read(prim.indices).map((x) => x[0]);
+  const sub = (a, b) => a.map((x, i) => x - b[i]), unit = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  // the core's own vertex normals (averaged over its faces, welded by position), to set the plate off along
+  const key = (p) => p.map((x) => x.toFixed(4)).join(',');
+  const normals = new Map();
+  const faces = [];
+  for (let t = 0; t < I.length; t += 3) {
+    const [a, b, c] = [I[t], I[t + 1], I[t + 2]];
+    let n = unit(cross(sub(P[b], P[a]), sub(P[c], P[a])));
+    const centre = [0, 1, 2].map((k) => (P[a][k] + P[b][k] + P[c][k]) / 3);
+    // (outward: away from the torso's own axis)
+    if (n[0] * centre[0] + n[2] * (centre[2] + 0.02) < 0) n = n.map((x) => -x);
+    faces.push({ a, b, c, n, centre });
+    for (const v of [a, b, c]) { const k = key(P[v]); const acc = normals.get(k) ?? [0, 0, 0]; normals.set(k, acc.map((x, i) => x + n[i])); }
+  }
+  const parts = [{ banded: false }, { banded: true }].map((p) => ({ ...p, pos: [], nrm: [], uv: [], joints: [], weights: [], index: [] }));
+  const bandAt = (y) => spec.bands.some(([lo, hi]) => y >= lo && y <= hi);
+  for (const f of faces) {
+    if (f.centre[1] < spec.from || f.centre[1] > spec.to || f.n[2] < spec.facing) continue;
+    const part = parts[bandAt(f.centre[1]) ? 1 : 0];
+    const texel = part.banded ? spec.bronze : spec.steel;
+    const first = part.pos.length / 3;
+    for (const v of [f.a, f.b, f.c]) {
+      const out = unit(normals.get(key(P[v])));
+      part.pos.push(...P[v].map((x, i) => x + out[i] * spec.offset));
+      part.nrm.push(...f.n); part.uv.push(...texel); part.joints.push(...J[v]); part.weights.push(...W[v]);
+    }
+    part.index.push(first, first + 1, first + 2);
+  }
+  if (!parts[0].index.length) throw Error('No back faces found on ' + spec.source);
+  const rig = doc.nodes.findIndex((n) => n.name === 'SpellbladeRig');
+  let bin = Buffer.from(bin0.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => { bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, target }); bin = Buffer.concat([bin, data]); return doc.bufferViews.length - 1; };
+  const accessor = (arr, componentType, type, count, extra = {}) =>
+    doc.accessors.push({ bufferView: append(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength), extra.target ?? 34962), componentType, count, type, ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
+  const primitives = parts.filter((p) => p.index.length).map((p) => {
+    const material = doc.materials.findIndex((m) => m.name === (p.banded ? spec.bandMaterial : spec.material));
+    if (material < 0) throw Error('No material for the backplate');
+    const count = p.pos.length / 3;
+    const min = [0, 1, 2].map((c) => Math.min(...p.pos.filter((_, i) => i % 3 === c))), max = [0, 1, 2].map((c) => Math.max(...p.pos.filter((_, i) => i % 3 === c)));
+    return { attributes: {
+      POSITION: accessor(new Float32Array(p.pos), 5126, 'VEC3', count, { min, max }),
+      NORMAL: accessor(new Float32Array(p.nrm), 5126, 'VEC3', count),
+      TEXCOORD_0: accessor(new Float32Array(p.uv), 5126, 'VEC2', count),
+      JOINTS_0: accessor(new Uint8Array(p.joints), 5121, 'VEC4', count),
+      WEIGHTS_0: accessor(new Float32Array(p.weights), 5126, 'VEC4', count),
+    }, indices: accessor(new Uint16Array(p.index), 5123, 'SCALAR', p.index.length, { target: 34963 }), material };
+  });
+  doc.meshes.push({ name: spec.name, primitives });
+  doc.nodes.push({ name: spec.name, mesh: doc.meshes.length - 1, skin: 0 });
+  doc.nodes[rig].children.push(doc.nodes.length - 1);
+  bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.name, triangles: parts.reduce((t, p) => t + p.index.length / 3, 0) }] };
 }
 
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
@@ -946,6 +1096,15 @@ if (arg('--seat-prop')) {
 } else if (arg('--add-json-meshes')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addJsonMeshes(join(dir, file), resolve(arg('--add-json-meshes')));
+} else if (process.argv.includes('--blend-waist')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = blendWaist(join(dir, file));
+} else if (process.argv.includes('--blend-collar')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = blendWaist(join(dir, file), COLLAR);
+} else if (process.argv.includes('--add-backplate')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = addBackplate(join(dir, file));
 } else if (process.argv.includes('--fill-core')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = fillCore(join(dir, file));
