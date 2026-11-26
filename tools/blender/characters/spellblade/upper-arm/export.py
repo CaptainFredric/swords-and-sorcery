@@ -8,7 +8,8 @@ exec(open('cand.py').read(), {'bpy': bpy, 'arm': arm, 'mathutils': mathutils, 'm
 out = {}
 for side in ('L', 'R'):
     ob = bpy.data.objects['Gauntlet.%s.Rerebrace' % side]; me = ob.data; uvl = me.uv_layers.active.data
-    pos, nrm, uv, idx = [], [], [], []
+    pos, nrm, uv, idx, wts = [], [], [], [], []
+    groups = {g.index: g.name for g in ob.vertex_groups}
     to_gl = lambda v: [v.x, v.z, -v.y]
     W = ob.matrix_world
     for p in me.polygons:
@@ -16,7 +17,9 @@ for side in ('L', 'R'):
         for li in p.loop_indices:
             v = W @ me.vertices[me.loops[li].vertex_index].co
             pos += to_gl(v); nrm += to_gl(n); u, vv = uvl[li].uv; uv += [u, 1 - vv]
+            vert = me.vertices[me.loops[li].vertex_index]
+            wts.append([[groups[g.group], round(g.weight, 4)] for g in vert.groups if g.weight > 1e-4])
         for i in range(1, p.loop_total - 1): idx += [base, base + i, base + i + 1]
-    out[side] = {'bone': 'upper_arm.' + side, 'name': 'Gauntlet.%s.Rerebrace' % side, 'position': pos, 'normal': nrm, 'uv': uv, 'index': idx}
+    out[side] = {'bone': 'upper_arm.' + side, 'name': 'Gauntlet.%s.Rerebrace' % side, 'position': pos, 'normal': nrm, 'uv': uv, 'index': idx, 'weights': wts}
     print('EXPORT', side, len(pos) // 3, 'verts', len(idx) // 3, 'tris')
 json.dump(out, open('rerebrace.json', 'w'))
