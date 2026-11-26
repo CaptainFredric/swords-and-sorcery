@@ -2,7 +2,6 @@ import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 import {normalizeSwordTechnique} from '../src/swordTechniqueContracts.mjs';
 import {interruptSwordTechnique} from './swordTechniqueLive.mjs';
 import { emptyInfusions } from '../src/oneHitInfusions.mjs';
-import { PROWESS } from '../src/prowess.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import {createStructureState,stepStructureRestoration} from './structures.mjs';
 import { dismountFightFlight } from './fightFlight.mjs';
