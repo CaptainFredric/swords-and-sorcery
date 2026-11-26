@@ -1059,10 +1059,12 @@ export class HUD {
     // (while it runs: how much of its stretch is left, as a ring drawn round the tile)
     tile.style.setProperty('--left', view.state === 'active' ? view.charge.toFixed(3) : '0');
     tile.classList.toggle('ready', view.state === 'ready');
+    tile.classList.toggle('practice', practice&&view.state==='ready');
+    tile.classList.toggle('practice-meter', practice&&view.state==='ready');
     tile.classList.toggle('cooling', view.state === 'charging' || view.state === 'locked');
     tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     // (running, it is lit, not shaded: what is left of it is the ring round it)
-    tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
+    tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' || (practice&&view.state==='ready') ? String(1 - view.charge) : '0');
     const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));
     tile.style.setProperty('--prowess', `${prowess.toFixed(1)}%`);
     tile.style.setProperty('--prowess-fraction', (prowess / 100).toFixed(3));
@@ -1128,6 +1130,7 @@ export class HUD {
       :26;
     const rise=Math.max(0,Number.isFinite(bottom)?bottom:112)+height+9;
     this.root.style.setProperty('--status-caption-bottom',Math.ceil(rise)+'px');
+    this.root.style.setProperty('--death-caption-bottom',isDialogue?Math.ceil(rise+5)+'px':'0px');
   }
 
   /**
