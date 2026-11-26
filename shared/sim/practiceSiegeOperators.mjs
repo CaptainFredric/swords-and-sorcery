@@ -12,7 +12,7 @@ import {requestFightFlightFire,flightMuzzle} from './fightFlightWeapons.mjs';
 import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
 import {requestFightFlightSkill,endFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
-import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
+import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
 import {practiceHostileSiegePlacement} from './practiceSiege.mjs';
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {wayToward} from './botNav.mjs';
@@ -24,6 +24,7 @@ export const SIEGE_OPERATORS=Object.freeze({
   'bi-bye-llista':Object.freeze({name:'Ballistefan',field:'biByeLlista'}),
   'so-fist-ication':Object.freeze({name:'Sir Uppercuff',field:'soFistication'}),
   'fight-and-flight':Object.freeze({name:'Mr. Donte Shoot',field:'fightFlight'}),
+  'valkyrie':Object.freeze({name:'Crashman Burn',field:'fightFlight'}),
 });
 export const SIEGE_DIFFICULTIES=Object.freeze({
   learner:Object.freeze({reaction:.48,lead:.12,preferred:17,skill:'squire',error:.065}),
@@ -31,14 +32,15 @@ export const SIEGE_DIFFICULTIES=Object.freeze({
   formidable:Object.freeze({reaction:.10,lead:1,preferred:21,skill:'spellblade',error:0}),
 });
 // A Sharp Turn belongs to every ballista, independent of equipped Skills.
-const SLOT=Object.freeze({'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight'});
+const SLOT=Object.freeze({'bi-bye-llista':'biBye','so-fist-ication':'soFist','fight-and-flight':'fightFlight','valkyrie':'fightFlight'});
+const isFlight=machine=>SLOT[machine]==='fightFlight';
 export const PRACTICE_SIEGE_SKILL_CHOICES=Object.freeze(Object.fromEntries(
   Object.entries(SLOT).map(([machine,slot])=>[machine,Object.freeze([
-    'auto',...SIEGE_SKILL_OPTIONS[slot],
+    'auto',...(machine==='valkyrie'?['doNotStopMyAscension']:SIEGE_SKILL_OPTIONS[slot]),
   ])])));
 export function practiceOperatorSkill(machine,choice='auto'){
   if(!PRACTICE_SIEGE_SKILL_CHOICES[machine]?.includes(choice))return null;
-  return choice==='auto'
+  return machine==='valkyrie'?'doNotStopMyAscension':choice==='auto'
     ?SIEGE_LOADOUT_DEFAULT[SLOT[machine]]:choice;
 }
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -141,6 +143,7 @@ export function seekSpellbladeSiegeMachine(room,actor,now){
   if(!foe||dist(actor.position,foe.position)<4)return false;
   const candidates=[];
   for(const [machine,def] of Object.entries(SIEGE_OPERATORS)){
+    if(machine==='valkyrie')continue; // specialized training only
     const m=room[def.field];
     if(!m||m.operatorId||m.retired||m.mode==='DESTROYED'||m.health<=0||
        (m.team&&m.team!==actor.team))continue;
@@ -178,9 +181,9 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
   if(!equipped)return {rejected:'Choose a valid Skill for the selected siege machine.'};
   if(room.players.size>=8)return {rejected:'Practice has reached the actor limit.'};
   if(room[def.field])return {rejected:'That machine is already in use. Remove or dismantle it before summoning its operator.'};
-  if([...room.players.values()].some(p=>p.practiceSiegeOperator?.machine===machine))
+  if([...room.players.values()].some(p=>SIEGE_OPERATORS[p.practiceSiegeOperator?.machine]?.field===def.field))
     return {rejected:'That hostile operator already exists. Remove or reset him first.'};
-  const candidate=machine==='fight-and-flight'?flightPlacement(room,requester):
+  const candidate=isFlight(machine)?flightPlacement(room,requester):
     practiceHostileSiegePlacement(room,requester,machine);
   if(!candidate)return {rejected:'No supported, unobstructed siege position is available nearby.'};
   const m=candidate.b??candidate,revision=def.field==='biByeLlista'?'biByeRevision':
@@ -190,12 +193,13 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
   m.lifecycleId=m.id;m.builtAt=now;m.team=null;
   const actor=room.addServerActor({id,name:def.name,actorKind:'bot',
     spell:difficulty==='learner'?'fireball':'steel',
-    ultimate:machine==='fight-and-flight'?'chivalry':'sunder'},now);
+    ultimate:isFlight(machine)?'chivalry':'sunder'},now);
   actor.botSkill=tuning.skill;actor.botProfile='melee';
   actor.siegeLoadout=normalizeSiegeLoadout({...actor.siegeLoadout,[SLOT[machine]]:equipped});
-  actor.practiceSiegeOperator={machine,difficulty,skill};
+  actor.practiceSiegeOperator={machine,difficulty,skill,...(machine==='valkyrie'?{machineId:m.id}:{})};
+  if(machine==='valkyrie')actor.prowess=100; // ready Chivalry for the repeatable exercise
   const entry=machine==='so-fist-ication'?soFistEntry(m,room.world):
-    machine==='fight-and-flight'?{x:m.x,y:m.y,z:m.z+1}:{x:m.x,y:m.y,z:m.z};
+    isFlight(machine)?{x:m.x,y:m.y,z:m.z+1}:{x:m.x,y:m.y,z:m.z};
   actor.position={...entry};actor.spawnProtectionUntil=now+.35;
   room[def.field]=m;
   const ok=machine==='bi-bye-llista'?mountBiByeLlista(m,actor,now):
@@ -247,7 +251,10 @@ export function removePracticeSiegeOperator(room,requester,machine='all',now=0){
     (machine==='all'||p.practiceSiegeOperator.machine===machine));
   if(!bots.length)return {rejected:'No matching hostile siege operator exists.'};
   for(const actor of bots){
-    const def=SIEGE_OPERATORS[actor.practiceSiegeOperator.machine],m=room[def.field];
+    const def=SIEGE_OPERATORS[actor.practiceSiegeOperator.machine],current=room[def.field];
+    const dedicated=actor.practiceSiegeOperator.machine==='valkyrie';
+    const m=dedicated&&current?.id!==actor.practiceSiegeOperator.machineId?null:current;
+    if(dedicated)room.flightBurnZones=(room.flightBurnZones??[]).filter(z=>z.sourceId!==actor.id);
     if(m?.operatorId===actor.id){
       if(def.field==='biByeLlista')dismountBiByeLlista(m,actor,false);
       if(def.field==='soFistication')dismountSoFistication(room,m,actor,{force:true,at:now});
@@ -416,6 +423,89 @@ function uppercuff(room,a,m,target,ai,tuning,now){
     if(fireSoFistication(room,m,now))ai.nextRamAt=now+3.95;
   }
 }
+// Specialized Practice drill: real Skill + full Chivalry + the same valid
+// ritual command as a player, followed by normal terminal steering/impact.
+// No scripted damage, forced crash, or teleporting an airborne machine.
+function crashman(room,a,m,target,ai,now){
+  const at={x:m.x,y:m.y,z:m.z},p=target?.position;
+  if(!p){
+    if(!m.terminalDive)a.input={...a.input,forward:0,right:0,jump:false,crouch:false};
+    else a.input={...a.input,pitch:-.85};
+    return;
+  }
+  const d=dist(at,p),height=m.y-p.y;
+  const yaw=bearing(at,p),facing=Math.abs(difference(yaw,m.heading));
+  if(m.terminalDive){
+    if(m.terminalDive.resolved)return;
+    // Aim at nearby supported ground; lead modestly, then steepen the
+    // descent as horizontal range closes. Physics owns the actual contact.
+    const lead=clamp(d/20,0,.65),v=target.velocity??{};
+    const point={x:p.x+(v.x??0)*lead,z:p.z+(v.z??0)*lead,y:p.y};
+    const range=dist(at,point);
+    a.input={...a.input,forward:0,right:0,jump:false,crouch:false,
+      yaw:range>.8?bearing(at,point):m.heading,
+      pitch:-clamp(Math.atan2(Math.max(.5,height+1.5),Math.max(1,range-1.5))+.12,.28,1.14)};
+    return;
+  }
+  requestFightFlightFire(room,m,a,false,now);
+  if(m.skill?.phase!=='active')requestFightFlightSkill(room,m,a,now);
+  // Climb before committing; close only until a workable dive geometry
+  // exists. The normal rotor, charge, terrain and damage rules stay active.
+  a.input={...a.input,yaw,pitch:0,forward:d>16?.85:d<8?-.7:0,right:0,
+    jump:m.grounded||height<5.5,crouch:height>7.5,sprint:false};
+  if(!m.grounded&&height>=4.5&&height<9&&d>=6&&d<=18&&facing<.35&&
+    m.flightCharge>10&&m.rotorHP>0&&m.skill?.phase==='active'){
+    a.input.pitch=-clamp(Math.atan2(height+1.5,Math.max(1,d-2))+.12,.35,1.14);
+    requestTerminalRitual(room,m,a,now);
+  }
+}
+
+// Repeat only after the old wreck and its fire have finished. This keeps
+// the drill readable, avoids accumulating zones, and never replaces a
+// player's machine. Retry safe placement if the target is under a canopy.
+function stepCrashman(room,a,now){
+  const info=a.practiceSiegeOperator,ai=a.siegeAi,m=room.fightFlight;
+  if(!ai)return;
+  const target=enemy(room,a);
+  if(m&&m.id!==info.machineId)return; // another operator owns this slot
+  if(m&&m.terminalDive&&!m.terminalDive.resolved){
+    if(a.alive)crashman(room,a,m,target,ai,now);
+    return;
+  }
+  if(m&&m.operatorId===a.id&&a.alive&&m.health>0&&m.rotorHP>0&&m.mode!=='DESTROYED'){
+    crashman(room,a,m,target,ai,now);return;
+  }
+  if(m&&m.mode!=='DESTROYED'&&!m.retired){
+    // An intact but dismounted machine is not disposable. Reclaim its seat.
+    if(a.alive&&tryHostileRemount(room,a,m,'fight-and-flight',ai,now,room.world))return;
+    // Broken rotor or a stolen seat: do not destroy another pilot's machine.
+    if(m.operatorId&&m.operatorId!==a.id)return;
+    if(m.rotorHP>0&&m.health>0)return;
+    // An unusable, landed training machine may be replaced, but never
+    // interrupt a falling chassis.
+    if(!m.grounded)return;
+    if(m.operatorId===a.id)dismountFightFlight(room,m,a,{force:true,at:now});
+  }
+  if(!target||!a.alive||now<(ai.nextRebuildAt??0))return;
+  if(m?.mode==='DESTROYED'&&!m.wreckVisualExpired&&!m.retired)return;
+  if((room.flightBurnZones??[]).some(z=>z.sourceId===a.id&&z.expiresAt>now))return;
+  ai.nextRebuildAt=now+1;
+  const next=flightPlacement(room,target);if(!next)return;
+  const rev=(room.fightFlightRevision??0)+1;
+  next.id='hostile-valkyrie-'+room.code+'-'+rev;
+  next.lifecycleId=next.id;next.builtAt=now;next.team=null;
+  const oldPosition=a.position;
+  a.position={x:next.x,y:next.y,z:next.z+1};
+  room.fightFlight=next;
+  if(!mountFightFlight(room,next,a,now)){room.fightFlight=m;a.position=oldPosition;return;}
+  if(m)m.retired=true;
+  room.fightFlightRevision=rev;info.machineId=next.id;
+  a.prowess=100;a.spawnProtectionUntil=now+.35;
+  a.input={...a.input,forward:0,right:0,jump:false,crouch:false};
+  ai.phase='mounted';
+  room.events.push({type:'practiceSiegeOpponentSpawned',playerId:a.id,machineId:next.id,
+    machine:'valkyrie',difficulty:info.difficulty,skill:info.skill,name:a.name,at:now});
+}
 function donte(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
   const charge=m.flightCharge??0,ammo=m.ammo??0;
@@ -583,8 +673,10 @@ function tryHostileRemount(room,a,m,machine,ai,now,world){
 export function stepPracticeSiegeOperators(room,now,world=room.world){
   if(room.mode!=='PRACTICE'||room.state!=='PLAYING')return;
   for(const a of room.players.values()){
-    if(!a.alive||!a.practiceSiegeOperator||room.inspectionFrozenActors?.has(a.id))continue;
+    if(!a.practiceSiegeOperator||room.inspectionFrozenActors?.has(a.id))continue;
     const {machine,difficulty}=a.practiceSiegeOperator,def=SIEGE_OPERATORS[machine];
+    if(machine==='valkyrie'){stepCrashman(room,a,now);continue;}
+    if(!a.alive)continue;
     const m=room[def.field],ai=a.siegeAi;
     if(!ai)continue;
     // Realistic retreat: an intact pilot can abandon a physically unusable
