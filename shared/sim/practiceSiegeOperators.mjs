@@ -24,7 +24,7 @@ export const SIEGE_OPERATORS=Object.freeze({
   'bi-bye-llista':Object.freeze({name:'Ballistefan',field:'biByeLlista'}),
   'so-fist-ication':Object.freeze({name:'Sir Uppercuff',field:'soFistication'}),
   'fight-and-flight':Object.freeze({name:'Mr. Donte Shoot',field:'fightFlight'}),
-  'valkyrie':Object.freeze({name:'Crashman Burn',field:'fightFlight'}),
+  'valkyrie':Object.freeze({name:'Crashmond Burn',field:'fightFlight'}),
 });
 export const SIEGE_DIFFICULTIES=Object.freeze({
   learner:Object.freeze({reaction:.48,lead:.12,preferred:17,skill:'squire',error:.065}),
@@ -427,7 +427,7 @@ function uppercuff(room,a,m,target,ai,tuning,now){
 // Specialized Practice drill: real Skill + full Chivalry + the same valid
 // ritual command as a player, followed by normal terminal steering/impact.
 // No scripted damage, forced crash, or teleporting an airborne machine.
-function crashman(room,a,m,target,ai,now){
+function crashmond(room,a,m,target,ai,now){
   const at={x:m.x,y:m.y,z:m.z},p=target?.position;
   if(!p){
     if(!m.terminalDive)a.input={...a.input,forward:0,right:0,jump:false,crouch:false,flightRise:false,flightLower:false};
@@ -470,17 +470,17 @@ function crashman(room,a,m,target,ai,now){
 // Repeat only after the old wreck and its fire have finished. This keeps
 // the drill readable, avoids accumulating zones, and never replaces a
 // player's machine. Retry safe placement if the target is under a canopy.
-function stepCrashman(room,a,now){
+function stepCrashmond(room,a,now){
   const info=a.practiceSiegeOperator,ai=a.siegeAi,m=room.fightFlight;
   if(!ai)return;
   const target=enemy(room,a);
   if(m&&m.id!==info.machineId)return; // another operator owns this slot
   if(m&&m.terminalDive&&!m.terminalDive.resolved){
-    if(a.alive)crashman(room,a,m,target,ai,now);
+    if(a.alive)crashmond(room,a,m,target,ai,now);
     return;
   }
   if(m&&m.operatorId===a.id&&a.alive&&m.health>0&&m.rotorHP>0&&m.mode!=='DESTROYED'){
-    crashman(room,a,m,target,ai,now);return;
+    crashmond(room,a,m,target,ai,now);return;
   }
   if(m&&m.mode!=='DESTROYED'&&!m.retired){
     // An intact but dismounted machine is not disposable. Reclaim its seat.
@@ -682,7 +682,7 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
   for(const a of room.players.values()){
     if(!a.practiceSiegeOperator||room.inspectionFrozenActors?.has(a.id))continue;
     const {machine,difficulty}=a.practiceSiegeOperator,def=SIEGE_OPERATORS[machine];
-    if(machine==='valkyrie'){if(!room.localTutorial)stepCrashman(room,a,now);continue;}
+    if(machine==='valkyrie'){if(!room.localTutorial)stepCrashmond(room,a,now);continue;}
     if(!a.alive)continue;
     const m=room[def.field],ai=a.siegeAi;
     if(!ai)continue;
