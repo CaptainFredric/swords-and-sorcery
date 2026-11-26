@@ -164,3 +164,20 @@ test('In Denial voice fact is restricted to actually prevented lethal damage',()
   assert.equal(hit(20,12.3).inDenial,undefined);
   assert.equal(ally.alive,false);
 });
+
+test('initial Valkyrie shock drains actual HP lost outside lingering ground flames',()=>{
+ const {room,pilot,enemy}=battle();
+ room.flightBurnZones=[];enemy.prowess=80;
+ applyDamage(room,pilot.id,enemy.id,25,'fight-flight-terminal',12,null,{ultimate:true});
+ assert.equal(enemy.health,75);assert.equal(enemy.prowess,55);
+ assert.ok(room.events.some(e=>e.type==='valkyrieProwessBurn'&&e.playerId===enemy.id&&e.amount===25));
+});
+test('Practice tracks earned and lost Prowess without automatic refill',()=>{
+ const {room,pilot,enemy}=battle();
+ room.mode='PRACTICE';room.policy={...room.policy,prowess:false};room.flightBurnZones=[];
+ enemy.prowess=40;pilot.prowess=0;
+ applyDamage(room,pilot.id,enemy.id,10,'sword',12);
+ assert.equal(pilot.prowess,2.8);assert.equal(enemy.prowess,41.4);
+ applyDamage(room,pilot.id,enemy.id,20,'fight-flight-terminal',13,null,{ultimate:true});
+ assert.equal(enemy.prowess,21.4);
+});
