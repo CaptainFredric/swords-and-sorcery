@@ -3382,8 +3382,7 @@ export function tryUltimate(room, playerId, nowSec, {held=false,released=false}=
     }
     return false;
   }
-  // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
-  // the last has run its course (the yard earns no prowess; a real match's meter is untouched)
+  // The Practice Yard waives the full-meter requirement, not actual Prowess accounting.
   if ((player.prowess ?? 0) < PROWESS.full && !practising(room, player)) return false;
   const ultimate = ultimateFor(player.ultimate);
   const plannedTiers=normalizeInfusions(player.practiceOneHit?.stages ?? player.oneHitInfusions);
