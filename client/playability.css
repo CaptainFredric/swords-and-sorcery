@@ -585,3 +585,5 @@
    Keep the ordinary lower-centre framing and only raise as far as needed. */
 #death-card { top: min(calc(76% - 12px), calc(100% - var(--death-caption-bottom, 155px) - 40px)); }
 .touch-ui #death-card { top: min(calc(76% - 12px), calc(100% - var(--death-caption-bottom, 72px) - 40px)); }
+
+#technique-ability[hidden] { display:none !important; }
