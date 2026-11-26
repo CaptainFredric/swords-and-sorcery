@@ -2149,3 +2149,12 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .yard-button .yard-eye {grid-column:1;grid-row:1 / span 2;width:19px;height:19px;fill:none;stroke:#d5b574;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
 .yard-button span {grid-column:2;grid-row:1;}
 .yard-button small {grid-column:2;grid-row:2;}
+
+@container app (max-width:699px) {
+  #siege-blades-menu {--banner-left:max(12px,calc(50cqw - 280px));--banner-width:min(560px,calc(100cqw - 24px));}
+  #siege-blades-menu > :is(.side-screen-inner,.companion-banner) {left:var(--banner-left);right:auto;width:var(--banner-width);max-width:calc(100cqw - 24px);}
+  #siege-blades-menu[data-panel="list"]::before,#siege-blades-menu[data-panel="details"]::after {display:none;}
+  #siege-blades-menu[data-panel="details"]::before {left:calc(var(--banner-left) - 12px);right:auto;width:calc(var(--banner-width) + 24px);}
+}
+#siege-blades-menu .siege-hub-inner .banner-topbar {justify-content:flex-start;}
+#menu #player-name::placeholder {font-size:.9em;}
