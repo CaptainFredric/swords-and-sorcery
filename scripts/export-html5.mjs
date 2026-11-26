@@ -26,6 +26,11 @@ export function archiveWarnings(count) {
   return count >= 900 ? [`HTML5 file budget: ${count} of 1000 files used; review growth before adding assets.`] : [];
 }
 
+/** Whether `name` is a WAV fallback whose AAC (`.m4a`) sits beside it among `names`. */
+export function redundantFallback(name, names) {
+  return /\.wav$/i.test(name) && names.has(name.replace(/\.wav$/i, '.m4a'));
+}
+
 export function checkLimits(entries) {
   if (entries.length > 1000) throw new Error('itch.io limit: 1000 files');
   for (const entry of entries) {
@@ -66,8 +71,13 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
     }
 
     const copy = async (directory) => {
-      for (const entry of (await readdir(path.join(root, directory), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const listing = (await readdir(path.join(root, directory), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
+      const names = new Set(listing.map((entry) => entry.name));
+      for (const entry of listing) {
         if (entry.name.startsWith('.') || /^(fixtures|__tests__|node_modules)$/.test(entry.name)) continue;
+        // (a WAV beside an AAC of the same take is only the loaders' fallback for a browser that cannot decode AAC,
+        // which every current one can: left out here, it kept the archive under itch.io's 1000 files; Pages keeps both)
+        if (redundantFallback(entry.name, names)) continue;
         const relative = `${directory}/${entry.name}`;
         if (entry.isDirectory()) await copy(relative);
         else if (entry.isFile() && ASSET_FILE.test(entry.name) && !/\.(test|spec|browser)\./.test(entry.name)

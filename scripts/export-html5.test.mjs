@@ -4,7 +4,7 @@ import { mkdtemp, readFile, readdir, writeFile, mkdir, rm, stat, symlink } from 
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { exportHtml5, configuredHtml, checkLimits } from './export-html5.mjs';
+import { exportHtml5, configuredHtml, checkLimits, redundantFallback } from './export-html5.mjs';
 import { gameServerUrl } from '../client/network/GameSocket.mjs';
 
 test('export config uses the existing secure server meta and preserves subdirectory paths', () => {
@@ -96,4 +96,12 @@ test('production export includes all local module, HTML and CSS dependencies', a
       if (!/^(https:|#)/.test(match[1])) assert(paths.has(match[1].replace(/^\.\//, '')), `index: missing ${match[1]}`);
     }
   } finally { await rm(out, { recursive: true, force: true }); }
+});
+
+test('a WAV fallback is left out only beside its own AAC', () => {
+  const names = new Set(['line-1.m4a', 'line-1.wav', 'only-wav.wav', 'cue.mp3', 'cue.m4a']);
+  assert.equal(redundantFallback('line-1.wav', names), true);
+  assert.equal(redundantFallback('only-wav.wav', names), false);
+  assert.equal(redundantFallback('line-1.m4a', names), false);
+  assert.equal(redundantFallback('cue.mp3', names), false);
 });
