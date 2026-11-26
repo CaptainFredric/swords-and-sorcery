@@ -28,6 +28,8 @@
 //     (the breastplate's waist blended pelvis -> spine -> chest over 27 cm instead of changing hands in 10)
 //   node scripts/transplant-spellblade-clips.mjs --blend-collar [--apply]
 //     (the collar's column, the helmet's chin, blended chest -> neck -> head so it goes with the helmet)
+//   node scripts/transplant-spellblade-clips.mjs --add-backplate [--apply]
+//     (a steel backplate made from the core's own back, on its bones: the cuirass had no back)
 //   node scripts/transplant-spellblade-clips.mjs --fill-core [--apply]
 //     (the chainmail core's torso widened to fill the open-sided cuirass, and the core made dark matte mail)
 //   node scripts/transplant-spellblade-clips.mjs --drop-bells [--apply]
@@ -875,6 +877,86 @@ function blendWaist(baseFile, spec = WAIST) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.mesh, blended: moved }] };
 }
 
+// A backplate: the supplied cuirass is a front and sides only, and behind it there was nothing but the dark chainmail
+// core, so whenever the cape swung off his back (running, turning, the Armory's spin) it showed a black void from the
+// collar to the belt (playtest: "a huge cavity there"). The plate is made from the core's own back (its torso faces
+// turned to the back, between `from` and `to` metres up), set `offset` outside it, each vertex keeping the core's
+// bones and weights so it moves exactly as the torso does, drawn in the plates' steel with a bronze band at `bands`.
+const BACKPLATE = Object.freeze({ source: 'InnerSkeletonCore', name: 'Backplate', from: 1.04, to: 1.64, facing: -0.1, offset: 0.02,
+  // (the cuirass's own steel, so the back matches the front; the bands in the gauntlets' bronze)
+  material: 'Helmet Steel', steel: [0.4341, 0.3013], bandMaterial: 'SpellbladeLeftGauntlet1', bronze: [0.2311, 0.9848],
+  bands: Object.freeze([[1.04, 1.1], [1.56, 1.64]]) });
+function addBackplate(baseFile, spec = BACKPLATE) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin;
+  if (doc.meshes.some((m) => m.name === spec.name)) throw Error('The model already has ' + spec.name);
+  const SIZE = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }, COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
+  const read = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], n = COUNT[a.type], size = SIZE[a.componentType];
+    const o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride = v.byteStride ?? n * size;
+    return Array.from({ length: a.count }, (_, i) => Array.from({ length: n }, (_, c) => { const at = o + i * stride + c * size;
+      const x = a.componentType === 5126 ? bin0.readFloatLE(at) : size === 4 ? bin0.readUInt32LE(at) : size === 2 ? bin0.readUInt16LE(at) : bin0.readUInt8(at);
+      return a.normalized ? x / (size === 1 ? 255 : 65535) : x; })); };
+  const core = doc.meshes.find((m) => m.name === spec.source);
+  if (!core) throw Error('No mesh ' + spec.source);
+  const prim = core.primitives[0];
+  const P = read(prim.attributes.POSITION), J = read(prim.attributes.JOINTS_0), W = read(prim.attributes.WEIGHTS_0), I = read(prim.indices).map((x) => x[0]);
+  const sub = (a, b) => a.map((x, i) => x - b[i]), unit = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  // the core's own vertex normals (averaged over its faces, welded by position), to set the plate off along
+  const key = (p) => p.map((x) => x.toFixed(4)).join(',');
+  const normals = new Map();
+  const faces = [];
+  for (let t = 0; t < I.length; t += 3) {
+    const [a, b, c] = [I[t], I[t + 1], I[t + 2]];
+    let n = unit(cross(sub(P[b], P[a]), sub(P[c], P[a])));
+    const centre = [0, 1, 2].map((k) => (P[a][k] + P[b][k] + P[c][k]) / 3);
+    // (outward: away from the torso's own axis)
+    if (n[0] * centre[0] + n[2] * (centre[2] + 0.02) < 0) n = n.map((x) => -x);
+    faces.push({ a, b, c, n, centre });
+    for (const v of [a, b, c]) { const k = key(P[v]); const acc = normals.get(k) ?? [0, 0, 0]; normals.set(k, acc.map((x, i) => x + n[i])); }
+  }
+  const parts = [{ banded: false }, { banded: true }].map((p) => ({ ...p, pos: [], nrm: [], uv: [], joints: [], weights: [], index: [] }));
+  const bandAt = (y) => spec.bands.some(([lo, hi]) => y >= lo && y <= hi);
+  for (const f of faces) {
+    if (f.centre[1] < spec.from || f.centre[1] > spec.to || f.n[2] < spec.facing) continue;
+    const part = parts[bandAt(f.centre[1]) ? 1 : 0];
+    const texel = part.banded ? spec.bronze : spec.steel;
+    const first = part.pos.length / 3;
+    for (const v of [f.a, f.b, f.c]) {
+      const out = unit(normals.get(key(P[v])));
+      part.pos.push(...P[v].map((x, i) => x + out[i] * spec.offset));
+      part.nrm.push(...f.n); part.uv.push(...texel); part.joints.push(...J[v]); part.weights.push(...W[v]);
+    }
+    part.index.push(first, first + 1, first + 2);
+  }
+  if (!parts[0].index.length) throw Error('No back faces found on ' + spec.source);
+  const rig = doc.nodes.findIndex((n) => n.name === 'SpellbladeRig');
+  let bin = Buffer.from(bin0.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => { bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, target }); bin = Buffer.concat([bin, data]); return doc.bufferViews.length - 1; };
+  const accessor = (arr, componentType, type, count, extra = {}) =>
+    doc.accessors.push({ bufferView: append(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength), extra.target ?? 34962), componentType, count, type, ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
+  const primitives = parts.filter((p) => p.index.length).map((p) => {
+    const material = doc.materials.findIndex((m) => m.name === (p.banded ? spec.bandMaterial : spec.material));
+    if (material < 0) throw Error('No material for the backplate');
+    const count = p.pos.length / 3;
+    const min = [0, 1, 2].map((c) => Math.min(...p.pos.filter((_, i) => i % 3 === c))), max = [0, 1, 2].map((c) => Math.max(...p.pos.filter((_, i) => i % 3 === c)));
+    return { attributes: {
+      POSITION: accessor(new Float32Array(p.pos), 5126, 'VEC3', count, { min, max }),
+      NORMAL: accessor(new Float32Array(p.nrm), 5126, 'VEC3', count),
+      TEXCOORD_0: accessor(new Float32Array(p.uv), 5126, 'VEC2', count),
+      JOINTS_0: accessor(new Uint8Array(p.joints), 5121, 'VEC4', count),
+      WEIGHTS_0: accessor(new Float32Array(p.weights), 5126, 'VEC4', count),
+    }, indices: accessor(new Uint16Array(p.index), 5123, 'SCALAR', p.index.length, { target: 34963 }), material };
+  });
+  doc.meshes.push({ name: spec.name, primitives });
+  doc.nodes.push({ name: spec.name, mesh: doc.meshes.length - 1, skin: 0 });
+  doc.nodes[rig].children.push(doc.nodes.length - 1);
+  bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, bin);
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.name, triangles: parts.reduce((t, p) => t + p.index.length / 3, 0) }] };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -1020,6 +1102,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--blend-collar')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = blendWaist(join(dir, file), COLLAR);
+} else if (process.argv.includes('--add-backplate')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = addBackplate(join(dir, file));
 } else if (process.argv.includes('--fill-core')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = fillCore(join(dir, file));
