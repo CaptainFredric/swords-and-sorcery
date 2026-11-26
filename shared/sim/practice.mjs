@@ -179,7 +179,7 @@ export function resetPracticePlayer(room, playerId, nowSec, destination = null) 
   return true;
 }
 
-/** The yard earns no prowess (prowess.mjs); its tools ready a knight's ultimate to try instead. */
+/** Explicitly fill the training meter for an ultimate or Prowess-loss drill. */
 export function readyPracticeUltimate(room, playerId) {
   if (!isPractice(room)) return false;
   const player = room.players.get(playerId);
