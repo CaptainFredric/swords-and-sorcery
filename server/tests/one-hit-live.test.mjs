@@ -119,13 +119,13 @@ test('Manual Practice tiers apply once when retention is unchecked and keep appl
   ticks(room,12.1,32);
   assert.equal(a.practiceOneHit.stages.gale,2,'infinite manual preset survives a real commit');
 });
-test('Human Practice resource stays fully charged in snapshots even after Ultimate commitment',()=>{
+test('Human Practice can use an Ultimate without falsely filling the earned Prowess meter',()=>{
   const {room,a}=battle('PRACTICE');
-  assert.equal(a.prowess,PROWESS.full,'new Practice actor starts full');
+  assert.equal(a.prowess,0,'new Practice actor starts empty');
   assert.equal(tryUltimate(room,'a',9),true);
   ticks(room,9,35);
-  assert.equal(a.prowess,PROWESS.full);
-  assert.equal(serializeSnapshot(room,11,'a').players.find(p=>p.id==='a').prowess,PROWESS.full);
+  assert.equal(a.prowess,0);
+  assert.equal(serializeSnapshot(room,11,'a').players.find(p=>p.id==='a').prowess,0);
 });
 test('Line of Conduct hits through actual shared spell casting and grants one stage per spell use',()=>{
   const {room,a,b}=battle();
