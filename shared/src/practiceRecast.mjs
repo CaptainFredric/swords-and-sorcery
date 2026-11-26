@@ -8,8 +8,7 @@
 
 export const PRACTICE_RECAST = Object.freeze({
   gateSec: 0.3,
-  // what the gate covers: the spell slot (every spell, and Sheathe in Steel) and, as a movement drill, the dash
-  // (each with the field that holds its real cooldown)
+  // Spell slot, Dash and sword technique; the field holds the real cooldown.
   keys: Object.freeze({ spell: 'spellReadyAt', dash: 'dashReadyAt', technique: 'swordTechniqueReadyAt' }),
 });
 
