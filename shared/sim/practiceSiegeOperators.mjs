@@ -178,6 +178,7 @@ export function spawnPracticeSiegeOperator(room,requester,machine,difficulty='sk
     requester.actorKind!=='human'||room.players.get(requester.id)!==requester)
     return {rejected:'Only a living Practice player can summon hostile operators.'};
   if(!def||!tuning)return {rejected:'Choose a siege opponent and difficulty.'};
+  if(machine==='valkyrie'&&room.localTutorial)return {rejected:'The Valkyrie drill is available in the Practice Yard.'};
   if(!equipped)return {rejected:'Choose a valid Skill for the selected siege machine.'};
   if(room.players.size>=8)return {rejected:'Practice has reached the actor limit.'};
   if(room[def.field])return {rejected:'That machine is already in use. Remove or dismantle it before summoning its operator.'};
@@ -429,7 +430,7 @@ function uppercuff(room,a,m,target,ai,tuning,now){
 function crashman(room,a,m,target,ai,now){
   const at={x:m.x,y:m.y,z:m.z},p=target?.position;
   if(!p){
-    if(!m.terminalDive)a.input={...a.input,forward:0,right:0,jump:false,crouch:false};
+    if(!m.terminalDive)a.input={...a.input,forward:0,right:0,jump:false,crouch:false,flightRise:false,flightLower:false};
     else a.input={...a.input,pitch:-.85};
     return;
   }
@@ -681,7 +682,7 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
   for(const a of room.players.values()){
     if(!a.practiceSiegeOperator||room.inspectionFrozenActors?.has(a.id))continue;
     const {machine,difficulty}=a.practiceSiegeOperator,def=SIEGE_OPERATORS[machine];
-    if(machine==='valkyrie'){stepCrashman(room,a,now);continue;}
+    if(machine==='valkyrie'){if(!room.localTutorial)stepCrashman(room,a,now);continue;}
     if(!a.alive)continue;
     const m=room[def.field],ai=a.siegeAi;
     if(!ai)continue;
