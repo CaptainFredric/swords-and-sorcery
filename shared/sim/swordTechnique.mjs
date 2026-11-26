@@ -2,6 +2,7 @@
 // The room adapter owns eligibility, terrain-aware movement, defenses, damage and replication.
 import { BLADE, aimFrame, occluded, segmentDistance, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT } from '../src/movement.mjs';
+import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 
 const MAX_SAMPLE_TRAVEL = .035;
 const difference = (a, b) => ({ x: a.x-b.x, y: a.y-b.y, z: a.z-b.z });
@@ -67,21 +68,21 @@ export function sweepTechniqueTrack(track, from, to, transformAt, bodiesAt, worl
   return contacts;
 }
 
-export function beginSwordTechnique(player, contract, nowSec) {
-  if(!contract || !player.alive || player.swordTechnique || nowSec<(player.swordTechniqueReadyAt??0) ||
+export function beginSwordTechnique(player, contract, nowSec, { practice = false } = {}) {
+  if(!contract || !player.alive || player.swordTechnique || !recastReady(player,'technique',nowSec,practice) ||
      nowSec<(player.staggerUntil??0) || player.ultimateState || player.attackActive || player.attackSweep || player.pendingSpell ||
      player.guarding || player.operatingBallistaId || player.operatingRamId || player.operatingFightFlightId) return null;
   if(!player.grounded){
     if(contract.kind==='riposte') {
-      if(nowSec<(player.dashReadyAt??0))return null;
+      if(!recastReady(player,'dash',nowSec,practice))return null;
       // Consume the ordinary Dash clock without a second instantaneous Dash.
-      player.dashReadyAt=nowSec+MOVEMENT.dashCooldown;
+      recordUse(player,'dash',nowSec,MOVEMENT.dashCooldown,practice);
     } else if(contract.kind==='whirl'&&player.spell!=='gale')return null;
   }
   player.swordTechniqueHeld=true;
   player.swordTechniqueExit=null;
   return player.swordTechnique={
-    id:contract.id,contract,startedAt:nowSec,initialStartedAt:nowSec,
+    id:contract.id,contract,practice,startedAt:nowSec,initialStartedAt:nowSec,
     phase:'startup',sampledTo:contract.activeFrom,
     revolutions:1,hitIds:new Set(),lastHitAt:new Map(),intercepted:false,
   };
@@ -105,7 +106,8 @@ export function interruptSwordTechnique(player, nowSec, reason='interrupted') {
       aerial:!player.grounded,
     };
   }else player.swordTechniqueExit=null;
-  player.swordTechniqueReadyAt=Math.max(player.swordTechniqueReadyAt??0,nowSec+action.contract.cooldown);
+  if(action.practice)recordUse(player,'technique',nowSec,action.contract.cooldown,true);
+  else player.swordTechniqueReadyAt=Math.max(player.swordTechniqueReadyAt??0,nowSec+action.contract.cooldown);
   return true;
 }
 

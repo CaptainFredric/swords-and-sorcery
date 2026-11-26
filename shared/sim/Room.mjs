@@ -446,9 +446,8 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
-    // Practice is a rehearsal: the HUD and server both start at a full
-    // personal Ultimate, independent of the Fight-and-Flight dash reserve.
-    if(this.mode===GAME_MODES.PRACTICE)player.prowess=PROWESS.full;
+    // Ordinary Practice tracks earned Prowess; the tutorial retains its authored meter.
+    if(this.mode===GAME_MODES.PRACTICE&&this.localTutorial)player.prowess=PROWESS.full;
     player.startingSpell = player.spell;
     player.technique=normalizeSwordTechnique(technique);
     player.startingTechnique=player.technique;
@@ -1205,10 +1204,8 @@ export class Room {
       player.killfeedDamageContributors=[];
       player.killfeedCircleChase=null;
       player.killfeedInsideCircles={};
-      // startMatch resets all actor combat state, including Prowess. Restore
-      // Practice's fully charged personal Ultimate BEFORE the first snapshot,
-      // not one server tick later, without charging bots or normal matches.
-      if(this.mode===GAME_MODES.PRACTICE && player.actorKind==='human')
+      // Only the authored tutorial begins with a prefilled Prowess meter.
+      if(this.mode===GAME_MODES.PRACTICE && this.localTutorial && player.actorKind==='human')
         player.prowess=PROWESS.full;
       i += 1;
     }

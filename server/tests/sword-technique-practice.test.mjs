@@ -101,3 +101,16 @@ test('the owner predicts the climb on past the fifth revolution in Practice only
   assert.equal(galeLiftPrediction({ auth: auth(2, 25), held: true, practice: false, serverNow: 20.1 }).until, Infinity);
   assert.equal(galeLiftPrediction({ auth: auth(2, 0), held: true, practice: false, serverNow: 20.1 }).until, end, 'a match: no Prowess, no more');
 });
+
+test('Practice technique recast opens after .3s of recovery without restarting its visible cooldown',()=>{
+  const y=yard('PRACTICE',{prowess:0});
+  y.a.technique='rigid_riposte';
+  y.press(true);y.press(false);
+  y.run(1.2);
+  assert.equal(y.a.swordTechnique,null);
+  const real=y.a.swordTechniqueReadyAt;
+  assert.ok(real>y.now());
+  y.run(.4);y.press(true);assert.ok(y.a.swordTechnique);
+  y.press(false);y.run(1.2);
+  assert.equal(y.a.swordTechniqueReadyAt,real);
+});

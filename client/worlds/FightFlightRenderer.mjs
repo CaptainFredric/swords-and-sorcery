@@ -42,6 +42,7 @@ export class FightFlightRenderer{
     // continue rising after the pilot and apparatus have been destroyed.
     this.haloRoot=everywhere(new THREE.Group());this.scene.add(this.haloRoot);
     this.haloGeometry=new THREE.TorusGeometry(1,.085,7,56);
+    this.smokeHaloGeometry=new THREE.TorusGeometry(1,.14,10,80);
     this.blastCoreGeometry=new THREE.IcosahedronGeometry(1,2);
     this.halos=[];
     this.trailRoot=everywhere(new THREE.Group());this.scene.add(this.trailRoot);
@@ -342,7 +343,7 @@ export class FightFlightRenderer{
       depthWrite:false}));
     group.add(core);
     const rings=[0,1].map(i=>{
-      const ring=new THREE.Mesh(this.haloGeometry,new THREE.MeshBasicMaterial({
+      const ring=new THREE.Mesh(i?this.smokeHaloGeometry:this.haloGeometry,new THREE.MeshBasicMaterial({
         color:i?0x65605b:0xf6a14a,transparent:true,opacity:.5,
         depthWrite:false,side:THREE.DoubleSide}));
       // Both rings lie horizontally: golden shock at impact, smoky wreath
@@ -350,13 +351,7 @@ export class FightFlightRenderer{
       ring.rotation.x=-Math.PI/2;
       ring.renderOrder=4;group.add(ring);return ring;
     });
-    const smoke=Array.from({length:18},(_,i)=>{
-      const cloud=new THREE.Mesh(this.burnSmokeGeometry,new THREE.MeshBasicMaterial({
-        color:i%4===0?0x6c4939:i%3===0?0x433a35:0x262827,
-        transparent:true,opacity:0,depthWrite:false}));
-      cloud.renderOrder=5;group.add(cloud);return cloud;
-    });
-    return {group,core,rings,smoke};
+    return {group,core,rings};
   }
   spawnTerminalHalo(point,startedAt,duration,blastRadius=8,condition=.5,burnExpiresAt=undefined,machineId=null){
     if(!point||![point.x,point.y,point.z].every(Number.isFinite)||
@@ -364,10 +359,10 @@ export class FightFlightRenderer{
     const radius=Math.max(2,Math.min(13,blastRadius));
     const power=Math.max(0,Math.min(1,condition));
     const expiresAt=valkyrieHaloExpiry(startedAt,duration,burnExpiresAt);
-    const {group,core,rings,smoke}=this.#haloParts();
+    const {group,core,rings}=this.#haloParts();
     group.position.set(point.x,point.y,point.z);
     this.haloRoot.add(group);
-    this.halos.push({group,core,rings,smoke,startedAt,expiresAt,radius,power,
+    this.halos.push({group,core,rings,startedAt,expiresAt,radius,power,
       zoneId:burnExpiresAt!==null&&machineId?machineId+'-burn':null,
       confirmedZone:false});
     // An event lost during a lag spike must never accumulate unbounded VFX.
@@ -390,7 +385,7 @@ export class FightFlightRenderer{
           effect.confirmedZone=true;
         }else if(effect.confirmedZone)effect.expiresAt=now;
       }
-      const {group,core,rings,smoke,radius,power}=effect;
+      const {group,core,rings,radius,power}=effect;
       const state=valkyrieSmokeHaloState(now,effect.startedAt,effect.expiresAt,radius,power);
       if(!state){
         group.removeFromParent();
@@ -413,20 +408,9 @@ export class FightFlightRenderer{
       rings[1].visible=state.rimOpacity>.001;
       rings[1].position.set(0,state.elevation,0);
       rings[1].scale.setScalar(state.ringRadius);
-      rings[1].material.opacity=state.rimOpacity;
-      rings[1].rotation.y=elapsed*.11;
-      // A recognizable horizontal wreath of smoke; varying the perimeter
-      // slightly prevents a perfect torus of identical-looking particles.
-      for(let i=0;i<smoke.length;i++){
-        const puff=smoke[i];
-        const angle=2*Math.PI*i/smoke.length+.055*Math.sin(i*.71+elapsed*.36);
-        const spread=state.ringRadius*(.92+.08*Math.sin(i*1.37+elapsed*.23));
-        puff.position.set(Math.cos(angle)*spread,
-          state.elevation+Math.sin(i*2.31+elapsed*.7)*(.13+radius*.045),
-          Math.sin(angle)*spread);
-        puff.scale.setScalar(state.puffScale*(.83+(i%5)*.055));
-        puff.material.opacity=state.smokeOpacity*(.78+.22*(i%4)/3);
-      }
+      rings[1].material.opacity=state.smokeOpacity;
+      // Torus is authored in XY; rotate about X ONLY to keep it level in XZ.
+      rings[1].rotation.set(-Math.PI/2,0,0);
     }
   }
   #burnVisual(){
@@ -638,7 +622,7 @@ export class FightFlightRenderer{
     this.burnGeometry.dispose();this.burnCoreGeometry.dispose();this.burnFlameGeometry.dispose();this.burnRimGeometry.dispose();
     this.burnSmokeGeometry.dispose();this.burnCrackGeometry.dispose();
     this.drawTerminalHalos(Infinity);
-    this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.blastCoreGeometry.dispose();
+    this.haloRoot.removeFromParent();this.haloGeometry.dispose();this.smokeHaloGeometry.dispose();this.blastCoreGeometry.dispose();
     this.trailRoot.removeFromParent();
     this.wreckRoot.removeFromParent();
     for(const mesh of [...this.wreckSmoke,...this.wreckBurst])mesh.material.dispose();

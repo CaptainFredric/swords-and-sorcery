@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { stepRoom, tryCastOrGauntlet, tryCastSpell, tryDash } from '../../shared/sim/combat.mjs';
-import { PRACTICE_RECAST, practiceOverride } from '../../shared/src/practiceRecast.mjs';
+import { PRACTICE_RECAST, practiceOverride, recastReady, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 
@@ -102,3 +102,17 @@ test('a match keeps its ordinary cooldowns: no gate, no early recast, the fist o
   run(r, 11, 11.5);
   assert.equal(tryDash(r, 'a', { x: 0, z: -1 }, 11.5), false, 'the dash waits out its cooldown');
 });
+
+ test('Sword technique practice gate waits .3s and preserves the actual cooldown',()=>{
+  const p={swordTechniqueReadyAt:0};
+  recordUse(p,'technique',10,10,true);
+  assert.equal(p.swordTechniqueReadyAt,20);
+  assert.equal(recastReady(p,'technique',10.29,true),false);
+  assert.equal(recastReady(p,'technique',10.31,true),true);
+  assert.equal(practiceOverride(p,'technique',10.31,true),true);
+  assert.equal(recastReady(p,'technique',10.31,false),false);
+  recordUse(p,'technique',11,10,true);
+  assert.equal(p.swordTechniqueReadyAt,20);
+  assert.equal(recastReady(p,'technique',11.29,true),false);
+  assert.equal(recastReady(p,'technique',11.31,true),true);
+ });

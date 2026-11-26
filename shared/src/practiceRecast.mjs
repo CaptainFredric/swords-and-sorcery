@@ -8,15 +8,15 @@
 
 export const PRACTICE_RECAST = Object.freeze({
   gateSec: 0.3,
-  // what the gate covers: the spell slot (every spell, and Sheathe in Steel) and, as a movement drill, the dash
-  // (each with the field that holds its real cooldown)
-  keys: Object.freeze({ spell: 'spellReadyAt', dash: 'dashReadyAt' }),
+  // Spell slot, Dash and sword technique; the field holds the real cooldown.
+  keys: Object.freeze({ spell: 'spellReadyAt', dash: 'dashReadyAt', technique: 'swordTechniqueReadyAt' }),
 });
 
-/** Whether `ability` ('spell', 'dash') may be used now: its real cooldown run out, or (in the yard) its gate open. */
+/** Whether `ability` ('spell', 'dash', 'technique') may be used now: its real cooldown run out, or (in the yard) its gate open. */
 export function recastReady(player, ability, nowSec, practice) {
   const field = PRACTICE_RECAST.keys[ability];
   if (!player || !field) return false;
+  if (practice && ability==='technique' && nowSec<(player.practiceGate?.technique??-Infinity)) return false;
   if (nowSec >= (player[field] ?? 0)) return true;
   return Boolean(practice) && nowSec >= (player.practiceGate?.[ability] ?? -Infinity);
 }

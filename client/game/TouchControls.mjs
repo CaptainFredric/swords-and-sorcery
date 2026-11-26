@@ -691,6 +691,7 @@ export class TouchControls {
     // the Practice Yard: the real cooldown shown, and a mark while the button works anyway
     this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.buttons.dash?.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
+    this.buttons.technique?.classList.toggle('practice', !local.swordTechnique&&practiceOverride(local,'technique',serverNow,practice));
     for (const { element, timer, key, seconds } of this.cooldowns) {
       if (this.flightMounted && element === this.buttons.dash) {
         element.classList.remove('cooling');
@@ -1081,6 +1082,10 @@ export class TouchControls {
     button.style.setProperty('--left', view.state === 'active' ? view.charge.toFixed(3) : '0');
     button.classList.toggle('charging', view.state === 'charging' || view.state === 'locked');
     button.classList.toggle('ready', view.state === 'ready');
+    button.classList.toggle('practice',practice&&view.state==='ready');
+    button.classList.toggle('practice-meter',practice&&view.state==='ready');
+    if(practice){button.dataset.prowessValue='true';button.style.setProperty('--practice-prowess-label',JSON.stringify(Math.floor(Math.max(0,Math.min(100,local.prowess??0)))+'%'));}
+    else {delete button.dataset.prowessValue;button.style.removeProperty('--practice-prowess-label');}
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
     button.style.setProperty('--charge', view.charge.toFixed(3));
     const prowess = Math.max(0, Math.min(100, local.prowess ?? 0));

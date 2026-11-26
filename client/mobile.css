@@ -978,3 +978,7 @@ body.touch-layout-editor-open #practice-overlay {
     transform:none;width:min(208px,32cqw);justify-items:start;
   }
 }
+
+/* Practice readiness is independent of the measured Prowess fill. */
+.touch-ultimate.practice-meter::after {display:block;}
+.touch-ultimate[data-prowess-value] .touch-face::before {content:var(--practice-prowess-label,'');position:absolute;right:5%;top:8%;z-index:4;font:800 9px/1 system-ui,sans-serif;color:#f5e0b0;text-shadow:0 1px 3px #000;pointer-events:none;}

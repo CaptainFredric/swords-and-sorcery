@@ -580,3 +580,6 @@
   .high-grounds-foundry summary { padding:7px 9px; font-size:9px; }
   .high-grounds-machine-buttons button { min-height:35px; padding:4px 7px; }
 }
+
+/* Leave the actual Prowess number readable beside the Practice marker. */
+.ability.ultimate.practice-meter::before {content:"\\221E";left:6px;right:auto;bottom:4px;font-size:11px;letter-spacing:0;}

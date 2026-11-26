@@ -134,7 +134,7 @@ export function deathCamera(age, death, killer = null, { policy = { look: 'follo
   };
 }
 
-const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', vortexFire: 'Blazing Vortex', vortexBlaze: 'Blazing Vortex', abyss: 'The fall' });
+const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', vortexFire: 'Blazing Vortex', vortexBlaze: 'Blazing Vortex', 'fight-flight-terminal': 'Flight to the Valkyrie', 'fight-flight-burning-ground': 'Valkyrie flames', abyss: 'The fall' });
 
 /**
  * What the death card says: who (and how), and how close it was: SLAIN BY ASTRA, 3 HP REMAINING.
@@ -143,6 +143,6 @@ const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Firebal
 export function deathCardText({ killerName = null, source = null, killerHealth = null } = {}) {
   const how = HOW[source] ?? (source ? source[0].toUpperCase() + source.slice(1) : '');
   if (!killerName) return { name: source === 'abyss' ? 'THE ABYSS' : 'THE FALL', how: HOW.abyss, left: '' };
-  const left = Number.isFinite(killerHealth) && killerHealth > 0 ? `${Math.ceil(killerHealth)} HP REMAINING` : '';
+  const left = source !== 'fight-flight-terminal' && Number.isFinite(killerHealth) && killerHealth > 0 ? `${Math.ceil(killerHealth)} HP REMAINING` : '';
   return { name: killerName, how, left };
 }

@@ -174,12 +174,12 @@ export function resetPracticePlayer(room, playerId, nowSec, destination = null) 
     }
   }
   resetActorAtSpawn(player, spawn, nowSec);
-  player.prowess=PROWESS.full;
+  player.prowess=room.localTutorial?PROWESS.full:0;
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
   return true;
 }
 
-/** The yard earns no prowess (prowess.mjs); its tools ready a knight's ultimate to try instead. */
+/** Explicit meter-fill tool; ordinary Practice readiness does not require it. */
 export function readyPracticeUltimate(room, playerId) {
   if (!isPractice(room)) return false;
   const player = room.players.get(playerId);
@@ -232,7 +232,6 @@ export function configurePracticeOneHit(room,playerId,message,nowSec=0) {
       }
     }else return false;
   }
-  player.prowess=PROWESS.full;
   room.events.push({type:'practiceOneHitConfigured',playerId,stages:{...(
     player.practiceOneHit?.stages??player.oneHitInfusions)},
     enabled:Boolean(player.practiceOneHit?.enabled),at:nowSec});
