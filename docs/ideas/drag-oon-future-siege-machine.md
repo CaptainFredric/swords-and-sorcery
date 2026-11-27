@@ -1,20 +1,20 @@
 # DRAG-OON — Incendiary Cooperative Siege Engine (Experimental Prototype)
 
-Status: **Playable experimental prototype** (`feat/drag-oon-prototype`). Excluded from public matchmaking (`seekSiege`), public room creation/browsing, and the standard 3-machine Siege Blades roster unless explicitly opted in for local/private Siege Blades bots, Private Rooms (`experimentalDragOon`), or the Practice Yard (`DRAG-OON [EXPERIMENTAL]`). Gemini Neon is developing the final production 3D GLB model separately; this prototype uses procedural V3.1 geometry and centralized mount/station origins in [`shared/src/dragOonConfig.mjs`](../../shared/src/dragOonConfig.mjs).
+Status: **Playable V4.1 production-asset prototype** (`feat/drag-oon-prototype`). Excluded from public matchmaking (`seekSiege`), public room creation/browsing, and the standard 3-machine Siege Blades roster unless explicitly opted in for local/private Siege Blades bots, Private Rooms (`experimentalDragOon`), or the Practice Yard (`DRAG-OON [EXPERIMENTAL]`). Gemini Neon's V4.1 production GLBs (`drag-oon-v4.1-master.glb` & `drag-oon-v4.1-lod.glb`) are integrated cleanly via [`client/worlds/DragOonRenderer.mjs`](../../client/worlds/DragOonRenderer.mjs) alongside V4.1 geometry in [`shared/src/dragOonConfig.mjs`](../../shared/src/dragOonConfig.mjs).
 
 ---
 
 ## 1. Identity & Construction
 
-DRAG-OON plays on *dragon*, *dragoon*, and *drag-on*. It is a slow, heavily armored eight-wheeled enclosed mobile furnace that can pivot in place, fire twin low-mounted four-nozzle flame cannons (±60° traverse), propel itself through the air with ignited underside fuel, and house allied Spellblades at shielded casting apertures to infuse its thermal weapons with their elements.
+DRAG-OON plays on *dragon*, *dragoon*, and *drag-on*. It is a slow, heavily armored eight-wheeled enclosed mobile furnace that can pivot in place, fire twin low-mounted four-nozzle flame cannons (±60° traverse), propel itself through the air with ignited underside fuel, and house allied Spellblades at four shielded casting apertures (`L1`, `R1`, `L2`, `R2`) to infuse its thermal weapons with their elements.
 
 ### Core Chassis & Protection Rules
-- **Authoritative hull state:** 2200 hull HP (`DRAG_OON_TUNING.maxHealth`), independent left/right twin cannons and 8 wheel stations (`Wheel_FL1..RR2`).
+- **Authoritative hull state:** 2200 hull HP (`DRAG_OON_TUNING.maxHealth`), independent left/right twin cannons (`CannonMount_L/R`, `CannonAssembly_L/R`, `fx_nozzle_*`) and 8 wheel stations (`Wheel_L1..R4`), synchronized to V4.1 dimensions (`4.650 × 2.994 × 6.653 m`).
 - **Perpetual Sheathed in Steel:** The chassis carries perpetual Steel protection (`innateSteelStrength: 0.55`) plus **hull DoT immunity** against persistent fire/burn sources (`hullDotImmuneSources` in `dragOonConfig.mjs`). Direct projectile blasts, ram impacts, sword/fist hits, and heavy bolts still damage the hull normally.
 - **Crew aperture protection & timed boarding/evacuation:**
-  - 1 Operator station + configurable passenger stations (`defaultPassengerCapacity: 4`, `maxPassengerCapacity: 6`).
-  - Timed boarding (`0.85s`) and timed evacuation (`1.05s`; extended to `1.95s` when unlatching during **Camp Fire**).
-  - Living passengers inside closed apertures fire their personal spells from the station's exterior aperture origin without self-colliding against DRAG-OON's hull (`raycastFleet` / `cast` origin support), while being shielded from direct outside impacts unless internal overpressure heat exceeds insulation thresholds or hull rupture catches them mid-evacuation.
+  - 1 Operator station (`seat_operator`) + 4 passenger aperture stations (`defaultPassengerCapacity: 4`, `maxPassengerCapacity: 4`: `L1`, `R1`, `L2`, `R2`).
+  - Timed rear-bay boarding (`0.85s`) and timed evacuation (`1.05s`; extended to `1.95s` when unlatching during **Camp Fire**), spreading simultaneously disembarking/ejected crew cleanly across staggered rally points (`exit_rear`, `evac_rally_L`, `evac_rally_R`).
+  - Living passengers inside open apertures fire personal spells from `fx_spellcast_*` outward within each station's outward cone (`±28°` yaw, `-25°..+30°` pitch) without self-colliding against DRAG-OON's hull (`raycastFleet` / `cast` origin support), blocking external casts when sealed or port-obstructed.
   - Passengers still retain **Burning Brotherhood** affinity while riding (`pilotContributes: false`; passengers' primary equipped spells drive elemental infusions: Fire, Frostfire, Gale, Lightning, Steel — partial at 1 matching passenger, full at 2+ or via Practice overrides).
 
 ---
@@ -65,6 +65,11 @@ DRAG-OON plays on *dragon*, *dragoon*, and *drag-on*. It is a slow, heavily armo
    - Sustains furnace overpressure past normal `100` heat up to `220` (`+19` heat/s), scaling all DRAG-OON flame output up to `+65%`.
    - Past insulation threshold (`110` heat), occupants suffer escalating internal thermal DPS (`3.5` → `16.0` DPS) and risk a massively amplified **All Abort!** detonation (`1.42×` radius, `1.55×` blast, `1.45×` crew trauma). Under Full Fire infusion, high overpressure heat dissipates more slowly (`0.42×` decay).
 
+### Experimental Terminal Synergy: **Rite of Ascension**
+- *"Unite the prowess of your crew to ascend upon an inferno. Guide DRAG-OON toward its final destination and unleash a catastrophic explosion."*
+- Available when **Flight Like Hell** is equipped, **Full Gale** (`tier >= 2`) is active, and the operator plus **every actual occupied passenger** (default minimum 3 participants, empty seats not required) carry ready **Spells & Chivalry** (`prowess = 100`) and explicitly opt in (`dragOonRiteCommit`).
+- Consumes participants' Prowess atomically upon activation, locks crew transfers, propels DRAG-OON skyward under operator steering toward a chosen target, and detonates deliberately or upon impact/timeout through **All Abort!**'s single atomic blast with amplified damage, radius, and elemental modifiers.
+
 ---
 
 ## 3. Provisional Tuning Values Summary
@@ -90,10 +95,9 @@ All values live centrally in [`shared/src/dragOonConfig.mjs`](../../shared/src/d
 3. **Passenger Prepared Spell Contributions:** `allowMultiPreparedSpells` is currently `false` (passengers contribute their primary equipped spell only); decide whether Chivalry multi-prepared cycling should contribute multiple infusions.
 4. **Raze Interrupt & Self-Thermal Punishment:** Confirm whether interrupted Raze casts should drop a smaller volatile puddle or strictly fizzle with partial fuel refund.
 
-### Neon Production 3D Asset Dependencies
-While all simulation hitboxes, stations, cannon traversal bounds, and emitters operate cleanly off V3.1 coordinates in [`shared/src/dragOonConfig.mjs`](../../shared/src/dragOonConfig.mjs), final handoff of Gemini Neon's production GLB will cleanly replace [`client/worlds/DragOonRenderer.mjs`](../../client/worlds/DragOonRenderer.mjs) procedural geometry when wired with matching named pivots/bones:
-- `Wheel_FL1..RR2` wheel pivots & steering axles.
-- `cannonL` / `cannonR` articulated mounts and `nozzle_L1`, `nozzle_L2`, `nozzle_R1`, `nozzle_R2` tip empties.
-- `undersideIgnitionOrigin`, `landingImpactOrigin`, `fuelOutletOrigins`, `steamExhaustOrigins`.
-- Armor hatch/shutter meshes for **Camp Fire** & **Fuel's the Limit**, interior seating + exterior aperture bone transforms (`stations.passengers[0..5]`, `stations.exits[0..7]`).
-- Three dedicated emissive heat material slots (`cannons`, `underside`, `furnaceInterior`) + final Workshop thumbnail/portrait and animation clips (`Walk`, `Leap`, `CampFire`, `Raze`, `Abort`).
+### Gemini Neon V4.1 Production Assets (Integrated)
+Gemini Neon's V4.1 production GLBs are live in [`client/assets/props/drag-oon/`](../../client/assets/props/drag-oon/):
+- `drag-oon-v4.1-master.glb` (`SHA-256: 37d639e6...`) and `drag-oon-v4.1-lod.glb` (`SHA-256: 97937f89...`).
+- Wheel nodes `Wheel_L1..R4`, articulated `CannonMount_L/R` -> `CannonAssembly_L/R` -> `fx_nozzle_*`, four passenger `seat_passenger_L1/R1/L2/R2` + `fx_spellcast_*` + `cam_passenger_*`, `fp_camera`, `cam_aim_external`, `cam_airborne_down`, `fx_launch_explosion`, `fx_fuel_outlet_*`, `fx_steam_vent_*`, and `fx_campfire_ring_01..08`.
+- Four isolated thermal emissive materials (`Mat_HeatZone_Cannons`, `Mat_HeatZone_UndersideIgnition`, `Mat_HeatZone_FurnaceInterior`, `Mat_HeatZone_SteamVents`) + 4-layer `Comp_*` animation composition (`MachineAnimationComposition`).
+- Reference integration docs preserved under [`docs/assets/drag-oon-v4.1/`](../assets/drag-oon-v4.1/).

@@ -205,8 +205,8 @@ Allied Spellblades can climb inside to fire personal spells through sealed-frame
       name: 'BURNING BROTHERHOOD',
       icon: 'steel',
       summary: 'Seat allied Spellblades at casting apertures to infuse your fire and steam.',
-      facts: 'Up to 6 aperture stations · timed entry & exit',
-      line: 'Allies may board unoccupied stations to fire their own spells through shielded apertures while infusing DRAG-OON with Fire, Frostfire, Gale, Lightning, or Steel.',
+      facts: 'Up to 4 aperture stations · timed rear bay entry & exit',
+      line: 'Allies may board unoccupied stations (L1, R1, L2, R2) via the rear bay to fire their own spells through shielded apertures while infusing DRAG-OON with Fire, Frostfire, Gale, Lightning, or Steel.',
     },
     {
       id: 'allAbort',
@@ -226,14 +226,14 @@ Allied Spellblades can climb inside to fire personal spells through sealed-frame
     },
   ],
   controls: {
-    desktop: '[W/A/S/D] Pivot & Drive · [Left Click / Hold F] Desolation Spray · [Space] Fuel’s the Limit · [Right Click / G] Steam the Team · [U] Skill · [Z] Camera · [T] Board / Evacuate · [Q] Passenger Cast',
-    touch: 'Left Stick: Pivot & Drive · SPRAY: Desolation Spray · LEAP: Fuel’s the Limit · STEAM: Steam the Team · SKILL: Skill · MOUNT / LEAVE: Board or Evacuate · CAST (Pax): Aperture Spell',
+    desktop: '[W/A/S/D] Pivot & Drive · [Left Click / Hold F] Desolation Spray · [Space] Fuel’s the Limit · [Right Click / G] Steam the Team · [U] Skill · [R] Rite of Ascension · [Z] Camera · [T] Board / Evacuate · [Q] Passenger Cast',
+    touch: 'Left Stick: Pivot & Drive · SPRAY: Desolation Spray · LEAP: Fuel’s the Limit · STEAM: Steam the Team · SKILL: Skill · ULT: Rite · MOUNT / LEAVE: Board or Evacuate · CAST (Pax): Aperture Spell',
   },
 });
 
 const EXPLANATIONS={
  razeThePasture:'Hold Skill to flood fuel into an expanding ground ring, then release to ignite after a brief delay. Tight releases burn for over 14 seconds; wide holds deliver heavy initial blast damage for a shorter burn.',
- flightLikeHell:'Engage while airborne to tilt both twin cannons straight down, hovering softly while scorching everything beneath you. Inflicts reversible max health loss and suppresses overlapping enemy field hazards until landing safely.',
+ flightLikeHell:'Engage while airborne to tilt both twin cannons straight down, hovering softly while scorching everything beneath you. Inflicts reversible max health loss and suppresses overlapping enemy field hazards until landing safely. With Full Gale active and an opted-in crew carrying full Spells & Chivalry, ignite Rite of Ascension to unite the prowess of your crew to ascend upon an inferno, guide DRAG-OON toward its final destination, and unleash a catastrophic explosion.',
  campFire:'Settle the chassis and seal every hatch, venting excess heat while periodically mending nearby allies. Sealed armor halves Steel repair costs and blocks enemy boarding, while external passenger casts pause until reopened.',
  brimmingWithPotential:'Push furnace pressure past normal limits to amplify flame and steam damage up to +65% while drawing heavier heat and risking internal burn trauma to crew above 110 heat.',
  boltToTheOccasion:'Prime independent heavy aiming while Deployed, then fire Bolt II on a second Skill press (or Right Click). You may keep firing Bolt I in between (after a 0.2s safety catch). Cancelling before Bolt II spends no cooldown; firing starts a 24s cooldown.',
@@ -247,6 +247,10 @@ const EXPLANATIONS={
  doNotStopMyAscension:'Until you fire a repeating crossbow bolt, every rotor Dash uses flight charge at the Rise rate instead of spending personal Prowess (24s cooldown starts on activation). While active—with an intact rotor, positive flight charge, and full Spells & Chivalry—hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 const SKILL_SECTIONS={
+ flightLikeHell:[
+  {title:'Concentrated Inferno & Suppression',text:'Engage while airborne to tilt both twin cannons straight down, hovering softly while scorching everything beneath you with reversible max health loss and stifling overlapping enemy hazards.'},
+  {title:'Rite of Ascension',text:'Unite the prowess of your crew to ascend upon an inferno. Guide DRAG-OON toward its final destination and unleash a catastrophic explosion. Requires Flight Like Hell, Full Gale infusion, and every seated crewmate opting in with full Spells & Chivalry Prowess.'}
+ ],
  longArmToTheJaw:[
   {title:'Detached Strike & Exposed Piston',text:'Launches the armored fist downrange at 23 m/s (125 close to 55 far damage across 12–36 m). While detached, the carriage’s exposed piston keeps working for ordinary punches.'},
   {title:'Retrieval & Abyss Recovery',text:'Drive alongside the grounded fist with unobstructed sightlines and press Skill to retrieve it (24s cooldown). If lost into an abyss, return to your deployment site and dismount for a locked 24s restoration at its previous HP.'},

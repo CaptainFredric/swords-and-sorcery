@@ -153,7 +153,11 @@ export class InputController {
     const action = this.#actionFor(code);
     if (!action || repeat || MENU_ACTIONS.has(action)) return;
     if(this.mountedRam&&action==='jump'){this.ramSpaceDownAt=performance.now();this.ramLiftUsed=Boolean(this.held('dash')||this.held('crouch'));return;}
-    if(this.mountedDragOon&&action==='jump'){this.socket?.send?.({type:'dragOonLeap'});return;}
+    if(this.mountedDragOon&&action==='jump'){
+      if (this.dragOonRiteActive) this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+      else this.socket?.send?.({ type: 'dragOonLeap' });
+      return;
+    }
     if (HELD.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
@@ -165,6 +169,16 @@ export class InputController {
     if(this.mountedRam&&(action==='dash'||action==='crouch')){this.ramLiftUsed=true;if(action==='dash')return;}
     if(this.mountedRam&&action==='guard'){this.ramShunt();return;}
     if(this.mountedDragOon&&action==='guard'){this.socket?.send?.({type:'dragOonSteam'});return;}
+    if((this.mountedDragOon||this.aboardDragOon)&&action==='ultimate'){
+      if (this.dragOonRiteActive && this.mountedDragOon) {
+        this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+      } else if (this.mountedDragOon && this.dragOonRiteEligible && this.dragOonRiteCommitted) {
+        this.socket?.send?.({ type: 'dragOonRiteActivate' });
+      } else {
+        this.socket?.send?.({ type: 'dragOonRiteCommit', committed: !this.dragOonRiteCommitted });
+      }
+      return;
+    }
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -192,6 +206,7 @@ export class InputController {
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedRam&&action==='guard')return;
     if(this.mountedDragOon&&action==='guard')return;
+    if((this.mountedDragOon||this.aboardDragOon)&&action==='ultimate')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');

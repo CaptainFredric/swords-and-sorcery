@@ -30,6 +30,8 @@ import { effectiveFuelCapacity } from './dragOonThermal.mjs';
 import { triggerDesolationSpray, requestFiresTheLimit, requestSteamTheTeam } from './dragOonAbilities.mjs';
 import { requestDragOonSkill } from './dragOonSkills.mjs';
 import { requestDragOonBoard, requestDragOonDisembark } from './dragOonCrew.mjs';
+import { setDragOonRiteCommit, activateDragOonRite, detonateDragOonRite } from './dragOonRite.mjs';
+import { triggerAllAbortDestruction } from './dragOon.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import { spawnPracticeSiegeOperator, removePracticeSiegeOperator, resetPracticeSiegeOperator } from './practiceSiegeOperators.mjs';
@@ -237,6 +239,12 @@ export function serializeDragOon(m, nowSec = 0) {
     flightLikeHell: m.flightLikeHell ? { ...m.flightLikeHell } : null,
     campFire: m.campFire ? { ...m.campFire } : null,
     brimming: m.brimming ? { ...m.brimming } : null,
+    rite: m.rite ? { ...m.rite, frozenTiers: m.rite.frozenTiers ? { ...m.rite.frozenTiers } : null } : null,
+    riteCommitments: m.riteCommitments ? { ...m.riteCommitments } : {},
+    riteStatus: m.riteStatus ? {
+      ...m.riteStatus,
+      participants: (m.riteStatus.participants ?? []).map(p => ({ ...p })),
+    } : null,
     skill: m.skill ? { ...m.skill } : null,
     infusions: m.infusions ? { counts: { ...m.infusions.counts }, tiers: { ...m.infusions.tiers } } : null,
     components: m.components ? Object.fromEntries(Object.entries(m.components).map(([k, v]) => [k, { ...v }])) : {},
@@ -878,6 +886,27 @@ export function applyRoomCommand(room, player, message, time) {
     case 'dragOonSteam': {
       const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
       const res = requestSteamTheTeam(room, d, player, time);
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteCommit': {
+      const dragId = player.operatingDragOonId || player.aboardDragOonId;
+      const d = dragId ? (room.machines?.get(dragId) || room.dragOon) : room.dragOon;
+      const committed = message.committed !== false;
+      const res = setDragOonRiteCommit(room, d, player, committed, time);
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteActivate': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = activateDragOonRite(room, d, player, time, {
+        onDetonate: (payload) => triggerAllAbortDestruction(room, d, time, payload),
+      });
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteDetonate': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = detonateDragOonRite(room, d, player, time, 'manual', {
+        onDetonate: (payload) => triggerAllAbortDestruction(room, d, time, payload),
+      });
       return res?.rejected ? { rejected: res.rejected } : {};
     }
     case 'siegeSkill': {

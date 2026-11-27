@@ -73,7 +73,7 @@ export class MachineFleetRenderer {
       }
 
       if (type === 'dragoon') {
-        entry.renderer.update(serverNow, machine, dt);
+        entry.renderer.update(serverNow, machine, dt, { cameraPosition: options.cameraPosition });
       } else if (type === 'flight') {
         const proj = (snapshot.fightFlightProjectiles || []).filter(p => p.flightId === machine.id || !p.flightId);
         const burns = (snapshot.flightBurnZones || []).filter(b => b.flightId === machine.id || !b.flightId);

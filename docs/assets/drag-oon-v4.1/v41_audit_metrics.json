@@ -1,0 +1,200 @@
+{
+  "Master": {
+    "nodes": 134,
+    "unique_meshes": 19,
+    "scene_primitives": 49,
+    "scene_triangles": 57270,
+    "materials": 6,
+    "textures": 6,
+    "animations": 21,
+    "rest_bounds": [
+      [
+        -2.325000047683716,
+        0.001900017261505127,
+        -3.1395211219787598
+      ],
+      [
+        2.325000047683716,
+        2.9954850673675537,
+        3.5135498046875
+      ]
+    ],
+    "clip_ground_clearances": {
+      "Val_01_Stationary_Rest": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_02_Wheels_Forward_Reverse": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_03_Wheels_CounterRotate_Turn": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_04_Cannons_DesolationSpray_Aim": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_05_Cannons_FlightLikeHell_Down": {
+        "full_machine_min_y": -0.212,
+        "lowest_node": "CannonAssembly_L",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_06_Cannons_Safe_Landing_Return": {
+        "full_machine_min_y": -0.212,
+        "lowest_node": "CannonAssembly_L",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_07_Underside_Shutters_OpenClose": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_08_Rear_Boarding_And_Shutters": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2469,
+        "skids_min_y": 0.2
+      },
+      "Val_09_SteamTheTeam_RadialVent": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2232,
+        "skids_min_y": 0.1764
+      },
+      "Val_10_CampFire_Deploy_Recover": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.0519,
+        "skids_min_y": 0.005
+      },
+      "Val_11_Brimming_Overpressure_Tremor": {
+        "full_machine_min_y": 0.0019,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2362,
+        "skids_min_y": 0.1893
+      }
+    },
+    "safe_landing_return_end_min_y": 0.0019,
+    "ray_audit": {
+      "rest_fuel_hits": 0,
+      "open_steam_hits": 0,
+      "open_sorcery_hits": 0,
+      "campfire_steam_hits": 0,
+      "campfire_ring_hits": 0
+    },
+    "file_size": 5650920,
+    "sha256": "37d639e6f3eef173de16f2d450f84083b21b80b79a7f339b120933228c944c2a"
+  },
+  "LOD": {
+    "nodes": 134,
+    "unique_meshes": 19,
+    "scene_primitives": 49,
+    "scene_triangles": 22171,
+    "materials": 6,
+    "textures": 6,
+    "animations": 21,
+    "rest_bounds": [
+      [
+        -2.325000047683716,
+        0.03248676657676697,
+        -3.137726306915283
+      ],
+      [
+        2.325000047683716,
+        2.995051145553589,
+        3.5135498046875
+      ]
+    ],
+    "clip_ground_clearances": {
+      "Val_01_Stationary_Rest": {
+        "full_machine_min_y": 0.0325,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_02_Wheels_Forward_Reverse": {
+        "full_machine_min_y": 0.0145,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_03_Wheels_CounterRotate_Turn": {
+        "full_machine_min_y": 0.0145,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_04_Cannons_DesolationSpray_Aim": {
+        "full_machine_min_y": 0.0325,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_05_Cannons_FlightLikeHell_Down": {
+        "full_machine_min_y": -0.212,
+        "lowest_node": "CannonAssembly_L",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_06_Cannons_Safe_Landing_Return": {
+        "full_machine_min_y": -0.212,
+        "lowest_node": "CannonAssembly_L",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_07_Underside_Shutters_OpenClose": {
+        "full_machine_min_y": 0.0325,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_08_Rear_Boarding_And_Shutters": {
+        "full_machine_min_y": 0.012,
+        "lowest_node": "Rear_Boarding_Ramp",
+        "chassis_main_min_y": 0.2482,
+        "skids_min_y": 0.2
+      },
+      "Val_09_SteamTheTeam_RadialVent": {
+        "full_machine_min_y": 0.0325,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2246,
+        "skids_min_y": 0.1764
+      },
+      "Val_10_CampFire_Deploy_Recover": {
+        "full_machine_min_y": 0.005,
+        "lowest_node": "Underside_Ignition_Assembly",
+        "chassis_main_min_y": 0.0532,
+        "skids_min_y": 0.005
+      },
+      "Val_11_Brimming_Overpressure_Tremor": {
+        "full_machine_min_y": 0.0325,
+        "lowest_node": "Wheel_L1",
+        "chassis_main_min_y": 0.2375,
+        "skids_min_y": 0.1893
+      }
+    },
+    "safe_landing_return_end_min_y": 0.0325,
+    "ray_audit": {
+      "rest_fuel_hits": 0,
+      "open_steam_hits": 0,
+      "open_sorcery_hits": 0,
+      "campfire_steam_hits": 0,
+      "campfire_ring_hits": 0
+    },
+    "file_size": 1862976,
+    "sha256": "97937f893fda463ec196b3f4045179786d8150192a929f89d7b9c9b6c0c45e15"
+  }
+}

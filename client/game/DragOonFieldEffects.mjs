@@ -47,10 +47,14 @@ export class DragOonFieldEffects {
 
   onEvent(event) {
     if (!event) return;
-    if (event.type === 'dragOonLeapPhase' && (event.phase === 'launch' || event.phase === 'landing') && event.point) {
-      this.#spawnBurst(event.point, event.steelRupture ? 0xc8d8e8 : 0xff6620, event.phase === 'landing' ? 5.6 : 4.2, 0.55);
+    if (event.type === 'dragOonLeapPhase' && (event.phase === 'launch' || event.phase === 'landing') && (event.point || event.origin)) {
+      this.#spawnBurst(event.point ?? event.origin, event.steelRupture ? 0xc8d8e8 : 0xff6620, event.phase === 'landing' ? 5.6 : 4.2, 0.55);
+    } else if (event.type === 'dragOonRiteAscended' && event.point) {
+      this.#spawnBurst(event.point, 0xff5a18, 6.8, 0.75);
     } else if (event.type === 'dragOonDestroyed' && event.point) {
-      this.#spawnBurst(event.point, event.brimming ? 0xff3b18 : 0xff7728, event.radius ?? 8, 0.9);
+      const dur = event.isRiteOfAscension ? 1.45 : 0.9;
+      const hex = event.isRiteOfAscension ? 0xff4210 : (event.brimming ? 0xff3b18 : 0xff7728);
+      this.#spawnBurst(event.point, hex, event.radius ?? 8, dur);
     }
   }
 
@@ -73,7 +77,7 @@ export class DragOonFieldEffects {
     }
   }
 
-  update(snapshot, serverNow, dt = 1 / 60) {
+  update(snapshot, serverNow, dt = 1 / 60, resolveOrigin = null) {
     // Active bursts
     for (let i = this.bursts.length - 1; i >= 0; i--) {
       const b = this.bursts[i];
@@ -91,6 +95,26 @@ export class DragOonFieldEffects {
     }
 
     if (!snapshot) return;
+
+    // Emit dynamic exhaust plumes from V4.1 nodes for active Flight Like Hell, Camp Fire rings, & Rite of Ascension
+    if (typeof resolveOrigin === 'function') {
+      for (const m of snapshot.machines ?? []) {
+        if (!m || m.kind !== 'dragoon' || m.retired || m.health <= 0) continue;
+        if (m.rite?.active) {
+          const core = resolveOrigin(m.id, 'fx_launch_explosion');
+          if (core && (this._nextRitePlumeAt ?? 0) <= serverNow) {
+            this._nextRitePlumeAt = serverNow + 0.06;
+            this.#spawnBurst(core, 0xff5a18, 2.8, 0.34);
+          }
+        } else if (m.campFire?.flamesActive) {
+          const ringPt = resolveOrigin(m.id, `fx_campfire_ring_0${(Math.floor(serverNow * 12) % 8) + 1}`);
+          if (ringPt && (this._nextCampPlumeAt ?? 0) <= serverNow) {
+            this._nextCampPlumeAt = serverNow + 0.11;
+            this.#spawnBurst(ringPt, 0xff6a24, 1.35, 0.35);
+          }
+        }
+      }
+    }
 
     // 1. Desolation Spray segments + Steel/Gale flame barricades
     const flames = (snapshot.dragOonFlames ?? []).filter(f => serverNow < f.expiresAt);

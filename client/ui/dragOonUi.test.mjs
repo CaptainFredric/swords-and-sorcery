@@ -135,4 +135,20 @@ test('SiegeMachinePicker, Workshop, Practice, Private rules, and fleetRenderKind
   assert.equal(priv.ok, true);
   assert.equal(priv.settings.siegeBladesSettings.experimentalDragOon, true);
   assert.match(priv.summary, /DRAG-OON EXP/);
+
+  // Rite of Ascension HUD states & armory copy
+  const riteDrag = {
+    ...makeDragOonSnapshot({ skill: { id: 'flightLikeHell', phase: 'idle', readyAt: 0 } }),
+    riteCommitments: { p1: true, pax1: true, pax2: true },
+    riteStatus: { eligible: true, reason: null, skillOk: true, galeOk: true, committedCount: 3, participantCount: 3 },
+  };
+  const riteReadyHud = dragOonHudView(
+    { id: 'p1', alive: true, team: 'ATTACKERS', operatingDragOonId: 'drag-oon-1', ultimate: 'chivalry', prowess: 100, position: { x: 0, y: 0, z: 0 } },
+    { machines: [riteDrag], dragOon: riteDrag },
+    10
+  );
+  assert.match(riteReadyHud.status, /RITE READY \(3\/3\)/);
+  const flhSkill = dragEntry.skills.find(s => s.id === 'flightLikeHell');
+  assert.match(flhSkill.sections?.find(sec => sec.title === 'Rite of Ascension')?.text ?? '', /Unite the prowess of your crew to ascend upon an inferno/);
+  assert.match(flhSkill.line, /unite the prowess of your crew to ascend upon an inferno/i);
 });

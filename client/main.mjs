@@ -2991,8 +2991,12 @@ function updateSiegeWorkshopStageUI(status) {
     stage.classList.add('is-experimental-prototype');
     if (statusBox) {
       statusBox.hidden = false;
-      if (statusText) statusText.textContent = 'Experimental prototype geometry · Production 3D model in development';
-      if (retryBtn) retryBtn.hidden = true;
+      if (statusText) {
+        statusText.textContent = status.firstFrameReady
+          ? 'Experimental prototype · V4.1 production 3D model'
+          : (status.loadState === 'error' ? 'Experimental fallback geometry · V4.1 model failed to load' : 'Loading V4.1 DRAG-OON 3D model…');
+      }
+      if (retryBtn) retryBtn.hidden = status.loadState !== 'error';
     }
     return;
   }
@@ -3883,6 +3887,7 @@ practiceDragOonPanel?.addEventListener('click',event=>{
   else if(action==='setOverheatPenalty')socket.send({type:'practiceDragOon',action,penalty:val});
   else if(action==='setHullHealth')socket.send({type:'practiceDragOon',action,health:val});
   else if(action==='setFlightStage')socket.send({type:'practiceDragOon',action,stage:btn.dataset.dragoonStage});
+  else if(action==='presetScenario')socket.send({type:'practiceDragOon',action,preset:btn.dataset.dragoonPreset});
   else socket.send({type:'practiceDragOon',action});
 });
 practiceDragOonPanel?.addEventListener('change',event=>{

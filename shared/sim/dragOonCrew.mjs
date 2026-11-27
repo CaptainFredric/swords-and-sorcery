@@ -3,12 +3,14 @@
 import { elementForSpell } from '../src/oneHitInfusions.mjs';
 import { isSpell } from '../src/spells.mjs';
 import { areAllies } from '../src/teams.mjs';
-import { DRAG_OON_ELEMENTS, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
+import { segmentAabbHit } from '../src/collision.mjs';
+import { DRAG_OON_ELEMENTS, DRAG_OON_GEOMETRY, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
 import { launchBody } from '../src/movement.mjs';
 import {
   dragOonFrame,
   dragOonOperatorPose,
   dragOonPassengerStationPose,
+  clampDragOonPassengerAim,
   dragOonExit,
 } from './dragOonGeometry.mjs';
 
@@ -213,6 +215,9 @@ export function requestDragOonBoard(room, m, player, now, { role = 'auto', stati
   if (m.team && player.team && m.team !== player.team) {
     return { rejected: 'Cannot board an enemy DRAG-OON.' };
   }
+  if (m.rite?.active) {
+    return { rejected: 'Boarding is locked during Rite of Ascension.' };
+  }
   if (m.campFire?.sealed) {
     return { rejected: 'Hatches are sealed during Camp Fire.' };
   }
@@ -253,13 +258,17 @@ export function requestDragOonBoard(room, m, player, now, { role = 'auto', stati
     kind: 'board',
     role: resolvedRole,
     station: targetStation,
+    route: 'rear_bay_aisle',
     startedAt: now,
     endsAt: now + duration,
   };
   m.crewTransitions ??= [];
   m.crewTransitions.push(transition);
-  player.dragOonTransition = { machineId: m.id, kind: 'board', role: resolvedRole, station: targetStation, startedAt: now, endsAt: transition.endsAt };
-  room?.events?.push({ type: 'dragOonBoardStarted', machineId: m.id, playerId: player.id, role: resolvedRole, station: targetStation, endsAt: transition.endsAt, at: now });
+  player.dragOonTransition = {
+    machineId: m.id, kind: 'board', role: resolvedRole, station: targetStation,
+    route: 'rear_bay_aisle', startedAt: now, endsAt: transition.endsAt,
+  };
+  room?.events?.push({ type: 'dragOonBoardStarted', machineId: m.id, playerId: player.id, role: resolvedRole, station: targetStation, route: 'rear_bay_aisle', endsAt: transition.endsAt, at: now });
   return { transition };
 }
 
@@ -270,6 +279,9 @@ export function requestDragOonBoard(room, m, player, now, { role = 'auto', stati
 export function requestDragOonDisembark(room, m, player, now) {
   if (!m || !player || !isDragOonOccupant(m, player.id)) {
     return { rejected: 'Not aboard this DRAG-OON.' };
+  }
+  if (m.rite?.active) {
+    return { rejected: 'Evacuation is locked during Rite of Ascension.' };
   }
   if (!m.grounded && !m.campFire?.settled) {
     return { rejected: 'Cannot safely evacuate while DRAG-OON is airborne.' };
@@ -285,17 +297,21 @@ export function requestDragOonDisembark(room, m, player, now) {
     kind: 'disembark',
     role: m.operatorId === player.id ? 'operator' : 'passenger',
     station: player.dragOonStation ?? null,
+    route: 'rear_bay_aisle',
     startedAt: now,
     endsAt: now + duration,
   };
   m.crewTransitions ??= [];
   m.crewTransitions.push(transition);
-  player.dragOonTransition = { machineId: m.id, kind: 'disembark', startedAt: now, endsAt: transition.endsAt };
+  player.dragOonTransition = {
+    machineId: m.id, kind: 'disembark', station: transition.station,
+    route: 'rear_bay_aisle', startedAt: now, endsAt: transition.endsAt,
+  };
   // Sealed exits trigger hatch unsealing without keeping anyone permanently trapped inside.
   if (sealed && m.campFire && !m.campFire.reopeningAt) {
     m.campFire.reopeningForExitAt = now;
   }
-  room?.events?.push({ type: 'dragOonDisembarkStarted', machineId: m.id, playerId: player.id, endsAt: transition.endsAt, sealedExit: sealed, at: now });
+  room?.events?.push({ type: 'dragOonDisembarkStarted', machineId: m.id, playerId: player.id, endsAt: transition.endsAt, sealedExit: sealed, route: 'rear_bay_aisle', at: now });
   return { transition };
 }
 
@@ -319,6 +335,7 @@ export function removeDragOonOccupant(room, m, player, { exitPos = null, at = 0,
   player.aboardDragOonId = null;
   player.dragOonStation = null;
   player.dragOonTransition = null;
+  player.dragOonPose = null;
   if (exitPos) {
     player.position = { ...exitPos };
     player.velocity = { x: 0, y: 0, z: 0 };
@@ -388,7 +405,9 @@ export function stepDragOonCrew(room, m, dt, now) {
         continue;
       }
       if (now + 1e-8 >= t.endsAt) {
-        const exit = dragOonExit(room, m, p, [], { excludeHull: false }) ?? dragOonExit(room, m, p, [], { excludeHull: true });
+        const rallySlot = Number.isInteger(t.station) ? t.station + 1 : 0;
+        const exit = dragOonExit(room, m, p, [], { excludeHull: false, startIndex: rallySlot }) ??
+          dragOonExit(room, m, p, [], { excludeHull: true, startIndex: rallySlot });
         if (exit) {
           removeDragOonOccupant(room, m, p, { exitPos: exit, at: now, reason: 'disembark' });
           if (m.campFire?.reopeningForExitAt) {
@@ -415,6 +434,7 @@ export function stepDragOonCrew(room, m, dt, now) {
       op.sprinting = false;
       op.guarding = false;
       op.guardHeld = false;
+      op.dragOonPose = 'braced_seat';
     }
   }
   for (let i = 0; i < (m.passengers?.length ?? 0); i++) {
@@ -427,9 +447,32 @@ export function stepDragOonCrew(room, m, dt, now) {
     p.velocity = { ...(m.velocity ?? { x: 0, y: 0, z: 0 }) };
     p.grounded = Boolean(m.grounded);
     p.sprinting = false;
+    p.dragOonPose = 'braced_seat';
   }
 
   computeDragOonInfusions(room, m);
+}
+
+/** Validates whether an external passenger spell can currently clear their aperture port. */
+export function dragOonPassengerCanCast(room, m, player, spellId, aimYaw, aimPitch = 0) {
+  if (!m || !player || player.aboardDragOonId !== m.id) return { allowed: true };
+  if (spellId === 'steel') return { allowed: true };
+  if (m.campFire?.sealed) return { allowed: false, reason: 'Sorcery shutters sealed during Camp Fire.' };
+  if (m.rite?.active) return { allowed: false, reason: 'Apertures locked during Rite of Ascension.' };
+  const stationIdx = player.dragOonStation ?? 0;
+  const seat = dragOonPassengerStationPose(m, stationIdx, 'seat');
+  const aperture = dragOonPassengerStationPose(m, stationIdx, 'aperture');
+  const clamped = clampDragOonPassengerAim(m, stationIdx, aimYaw ?? aperture.yaw, aimPitch ?? 0);
+  const muzzle = {
+    x: aperture.x + clamped.direction.x * 0.95,
+    y: aperture.y + clamped.direction.y * 0.95,
+    z: aperture.z + clamped.direction.z * 0.95,
+  };
+  const blocked = (room?.world?.solids ?? []).some(box => {
+    if (String(box.id ?? '').startsWith('dragoon-')) return false;
+    return Boolean(segmentAabbHit([seat.x, seat.y + 0.55, seat.z], [muzzle.x, muzzle.y, muzzle.z], box));
+  });
+  return blocked ? { allowed: false, reason: 'Aperture port blocked by obstacle.' } : { allowed: true, aperture, clamped };
 }
 
 /**
@@ -440,9 +483,11 @@ export function ejectDragOonSurvivors(room, m, survivors, now) {
   const frame = dragOonFrame(m);
   let idx = 0;
   for (const p of survivors) {
+    const startIndex = Number.isInteger(p.dragOonStation) ? p.dragOonStation + 1 : idx;
     removeDragOonOccupant(room, m, p, { at: now, reason: 'all-abort' });
+    p.dragOonPose = null;
     if (!p.alive) continue;
-    const exit = dragOonExit(room, m, p, [], { excludeHull: true });
+    const exit = dragOonExit(room, m, p, [], { excludeHull: true, startIndex });
     if (exit) {
       p.position = exit;
     } else {

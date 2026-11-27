@@ -6,11 +6,12 @@
 import { GAME } from '../src/combat.mjs';
 import { STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import { areAllies } from '../src/teams.mjs';
+import { RUPTURE, planRupture } from '../src/rupture.mjs';
 import { DRAG_OON_GEOMETRY, DRAG_OON_ID, DRAG_OON_KIND, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
 import { selectedSiegeSkill } from '../src/siegeLoadout.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import { applyDamage } from './combat.mjs';
-import { getFleetSolids } from './fleetGeometry.mjs';
+import { getFleetMachines, damageFleetMachine, getFleetSolids } from './fleetGeometry.mjs';
 import { beginSiegeWreck, stepSiegeWreck } from './siegeWreck.mjs';
 import { mitigateSiegeSteel, endSiegeSteel } from './siegeSteel.mjs';
 import {
@@ -27,6 +28,7 @@ import {
   computeDragOonInfusions,
   dragOonOccupantIds,
   ejectDragOonSurvivors,
+  cancelCrewTransitionsForPlayer,
   stepDragOonCrew,
 } from './dragOonCrew.mjs';
 import {
@@ -34,6 +36,8 @@ import {
   stepDragOonRadiantHeat,
   stepFiresTheLimit,
 } from './dragOonAbilities.mjs';
+import { applyDragOonFrostInterference, createRazeField } from './dragOonFields.mjs';
+import { stepDragOonRite } from './dragOonRite.mjs';
 import {
   stepDragOonSkills,
 } from './dragOonSkills.mjs';
@@ -103,12 +107,20 @@ export function createDragOon(overrides = {}) {
     flightLikeHell: null,
     campFire: null,
     brimming: null,
+    rite: null,
+    riteCommitments: {},
+    riteStatus: null,
     brimmingBonusMult: 1,
     infusions: { counts: { fire: 0, frost: 0, gale: 0, lightning: 0, steel: 0 }, tiers: { fire: 0, frost: 0, gale: 0, lightning: 0, steel: 0 } },
     practiceOverrides: null,
     ...thermal,
     ...overrides,
   };
+  m.passengerCapacity = passengerCapacity;
+  m.passengers = Array.isArray(overrides.passengers)
+    ? overrides.passengers.slice(0, passengerCapacity)
+    : new Array(passengerCapacity).fill(null);
+  while (m.passengers.length < passengerCapacity) m.passengers.push(null);
   m.position = { x: m.x, y: m.y, z: m.z };
   return m;
 }
@@ -122,12 +134,19 @@ export function stepDragOon(room, m, dt, now, world = room.world) {
 
   m.poseTime = now;
   stepDragOonCrew(room, m, dt, now);
-  const { tiers } = computeDragOonInfusions(room, m);
+  const { tiers } = m.rite?.active && m.rite.frozenTiers
+    ? { tiers: m.rite.frozenTiers }
+    : computeDragOonInfusions(room, m);
+
+  const riteActive = stepDragOonRite(room, m, dt, now, world, {
+    onDetonate: (payload) => triggerAllAbortDestruction(room, m, now, payload),
+  });
+  if (m.allAbortResolved || m.health <= 0 || m.mode === 'DESTROYED') return;
 
   // Pilot aims dual low cannon assemblies independently within ±60° yaw and pitch arc
   const pilot = m.operatorId ? room?.players?.get?.(m.operatorId) : null;
   const input = pilot?.alive && (pilot.staggerUntil ?? 0) <= now ? pilot.input ?? {} : {};
-  if (pilot?.alive && !m.campFire?.active && !m.flightLikeHell?.active && m.raze?.phase !== 'holding') {
+  if (!riteActive && pilot?.alive && !m.campFire?.active && !m.flightLikeHell?.active && m.raze?.phase !== 'holding') {
     const yawDiff = Math.atan2(Math.sin((input.yaw ?? m.heading) - m.heading), Math.cos((input.yaw ?? m.heading) - m.heading));
     const targetCannonYaw = clamp(yawDiff, -DRAG_OON_TUNING.cannonYawMax, DRAG_OON_TUNING.cannonYawMax);
     const targetCannonPitch = clamp(input.pitch ?? 0, DRAG_OON_TUNING.cannonPitchMin, DRAG_OON_TUNING.cannonPitchMax);
@@ -140,8 +159,8 @@ export function stepDragOon(room, m, dt, now, world = room.world) {
     m.cannonYawVel = 0;
   }
 
-  // Advance airborne leap (self-exempt ballistic physics) or grounded 8-wheel pivot-in-place movement
-  const leaping = stepFiresTheLimit(room, m, dt, now, world);
+  // Advance active Rite trajectory OR airborne leap OR grounded 8-wheel pivot-in-place movement
+  const leaping = riteActive ? true : stepFiresTheLimit(room, m, dt, now, world);
 
   if (!leaping && m.grounded) {
     const wheelsFailed = DRAG_OON_GEOMETRY.wheels.filter(w => (m.components?.[w.id]?.health ?? 1) <= 0).length;
@@ -323,7 +342,14 @@ export function damageDragOon(room, m, amount, attackerId, source, now, {
   return true;
 }
 
-export function triggerAllAbortDestruction(room, m, now, { attackerId = null, source = 'destruction', point = null } = {}) {
+export function triggerAllAbortDestruction(room, m, now, {
+  attackerId = null,
+  source = 'destruction',
+  point = null,
+  isRiteOfAscension = false,
+  riteReason = null,
+  riteTiers = null,
+} = {}) {
   if (!m || m.allAbortResolved) return false;
   m.allAbortResolved = true;
   m.destroyedProcessed = true;
@@ -333,20 +359,38 @@ export function triggerAllAbortDestruction(room, m, now, { attackerId = null, so
   m.raze = null;
   m.flightLikeHell = null;
   m.campFire = null;
+  const wasRite = Boolean(isRiteOfAscension || m.rite?.active);
+  const frozenTiers = riteTiers ?? m.rite?.frozenTiers ?? m.infusions?.tiers ?? {};
+  if (m.rite) {
+    m.rite.active = false;
+    m.rite.detonated = true;
+  }
+  m.riteCommitments = {};
 
   endSiegeSteel(room, m, now, 'destroyed');
   beginSiegeWreck(room, m, 'drag-oon', now, { attackerId, source, point: point ?? { x: m.x, y: m.y, z: m.z } });
 
   const d = DRAG_OON_TUNING.destruction;
+  const rt = DRAG_OON_TUNING.riteOfAscension;
   const brimming = Boolean(m.brimming?.active) || (m.heat ?? 0) > DRAG_OON_TUNING.heatMax;
   const heat = Math.max(0, m.heat ?? 0);
   const fuel = Math.max(0, m.fuel ?? 0);
 
-  const radius = (d.baseRadius + heat * d.heatRadiusScale) * (brimming ? d.brimmingRadiusMult : 1);
-  const blastDamage = (d.baseDamage + heat * d.heatDamageScale + fuel * d.fuelDamageScale) * (brimming ? d.brimmingDamageMult : 1);
-  const crewDamage = (d.baseCrewDamage + Math.max(0, heat - 40) * d.overpressureCrewDamageScale) * (brimming ? d.brimmingCrewDamageMult : 1);
+  let radius = (d.baseRadius + heat * d.heatRadiusScale) * (brimming ? d.brimmingRadiusMult : 1);
+  let blastDamage = (d.baseDamage + heat * d.heatDamageScale + fuel * d.fuelDamageScale) * (brimming ? d.brimmingDamageMult : 1);
+  let crewDamage = (d.baseCrewDamage + Math.max(0, heat - 40) * d.overpressureCrewDamageScale) * (brimming ? d.brimmingCrewDamageMult : 1);
+  let pushSpeed = 12;
 
-  const origin = { x: m.x, y: m.y + 1.0, z: m.z };
+  if (wasRite) {
+    const fireBonus = (frozenTiers.fire ?? 0) >= 2 ? rt.fireRadiusMult : (frozenTiers.fire ?? 0) >= 1 ? 1.16 : 1;
+    const steelBonus = (frozenTiers.steel ?? 0) >= 2 ? rt.steelDamageMult : (frozenTiers.steel ?? 0) >= 1 ? 1.15 : 1;
+    radius = Math.max(radius, rt.blastRadiusBase) * fireBonus;
+    blastDamage = Math.max(blastDamage, rt.blastDamageBase) * steelBonus;
+    crewDamage = Math.max(crewDamage, 100 * rt.crewDamageScale);
+    pushSpeed = (frozenTiers.gale ?? 0) >= 2 ? rt.galePushSpeed : 16;
+  }
+
+  const origin = point ? { ...point } : { x: m.x, y: m.y + 1.0, z: m.z };
   const occupantIds = dragOonOccupantIds(m);
   const survivors = [];
 
@@ -364,8 +408,8 @@ export function triggerAllAbortDestruction(room, m, now, { attackerId = null, so
     const crewMember = room?.players?.get?.(oid);
     if (!crewMember || !crewMember.alive) continue;
     // Attribute explosion kill credit fairly without inflated multi-credit
-    applyDamage(room, attackerId, crewMember.id, crewDamage, 'dragoon-all-abort-crew', now, null, {
-      skipSteel: brimming,
+    applyDamage(room, attackerId, crewMember.id, crewDamage, wasRite ? 'dragoon-rite-crew' : 'dragoon-all-abort-crew', now, null, {
+      skipSteel: brimming || wasRite,
     });
     if (crewMember.alive) survivors.push(crewMember);
   }
@@ -378,11 +422,53 @@ export function triggerAllAbortDestruction(room, m, now, { attackerId = null, so
     if (dist3 > radius) continue;
     const falloff = clamp(1 - (dist3 / radius) * 0.55, 0.35, 1);
     const len = Math.hypot(target.position.x - origin.x, target.position.z - origin.z) || 1;
-    applyDamage(room, attackerId ?? m.operatorId, target.id, blastDamage * falloff, 'dragoon-all-abort', now, {
-      x: ((target.position.x - origin.x) / len) * 12 * falloff,
-      y: 4.5,
-      z: ((target.position.z - origin.z) / len) * 12 * falloff,
-    });
+    const hit = applyDamage(room, attackerId ?? m.operatorId, target.id, blastDamage * falloff, wasRite ? 'dragoon-rite-of-ascension' : 'dragoon-all-abort', now, {
+      x: ((target.position.x - origin.x) / len) * pushSpeed * falloff,
+      y: wasRite ? 7.5 : 4.5,
+      z: ((target.position.z - origin.z) / len) * pushSpeed * falloff,
+    }, { infusionTiers: frozenTiers });
+    if (wasRite && hit && target.alive && (frozenTiers.frost ?? 0) >= 1) {
+      applyDragOonFrostInterference(room, target, attackerId ?? m.operatorId, now, rt.frostInterferenceSec);
+    }
+  }
+
+  if (wasRite) {
+    for (const other of getFleetMachines(room)) {
+      if (!other || other.id === m.id || other.retired || other.health <= 0) continue;
+      if (m.team && other.team && m.team === other.team) continue;
+      const d = Math.hypot(other.x - origin.x, other.y - origin.y, other.z - origin.z);
+      if (d <= radius + 2.5) {
+        const falloff = clamp(1 - d / (radius + 2.5), 0.45, 1);
+        damageFleetMachine(room, other, blastDamage * 1.15 * falloff, attackerId ?? m.operatorId, 'fireball', now, { point: origin });
+      }
+    }
+    if ((frozenTiers.fire ?? 0) >= 1) {
+      createRazeField(room, m, { x: origin.x, y: m.y, z: origin.z }, Math.min(12.5, radius * 0.55), {
+        initialDamage: 0,
+        burnDuration: rt.fireLingeringSec,
+        burnDps: rt.fireLingeringDps,
+        at: now,
+      });
+    }
+    if ((frozenTiers.steel ?? 0) >= 2 && room?.world) {
+      const fwdDir = { x: -Math.sin(m.heading ?? 0), z: -Math.cos(m.heading ?? 0) };
+      const fissures = planRupture(room.world, { x: origin.x, y: m.y, z: origin.z }, fwdDir, RUPTURE);
+      if (fissures.length) {
+        room.ruptures ??= [];
+        const r = {
+          id: `dragoon-rite-rup-${m.id}-${++m.fieldSeq}`,
+          ownerId: attackerId ?? m.operatorId ?? null,
+          origin: { x: origin.x, y: m.y, z: origin.z },
+          fissures,
+          bornAt: now,
+          reached: 0,
+          caught: [],
+          oneHit: { steel: 2, radial: true, tiers: { ...frozenTiers } },
+        };
+        room.ruptures.push(r);
+        room.events?.push({ type: 'rupture', id: r.id, ownerId: r.ownerId, origin: r.origin, speed: RUPTURE.speed, fissures, radial: true, steel: 2, at: now });
+      }
+    }
   }
 
   // 3. Eject surviving occupants safely into valid nearby exits
@@ -398,6 +484,8 @@ export function triggerAllAbortDestruction(room, m, now, { attackerId = null, so
     machineId: m.id,
     attackerId,
     source,
+    isRiteOfAscension: wasRite,
+    riteReason,
     point: origin,
     radius,
     blastDamage: Math.round(blastDamage),

@@ -47,6 +47,26 @@ export function dragOonHudView(local, snapshot, now, { bindings = registry.defau
 
   const transitionTxt = local.dragOonTransition
     ? `EVACUATING (${Math.max(0, (local.dragOonTransition.endsAt ?? now) - now).toFixed(1)}s)` : null;
+  const rite = d.rite;
+  const rs = d.riteStatus;
+  const selfCommit = Boolean(d.riteCommitments?.[local.id]);
+  let riteTxt = null;
+  if (rite?.active) {
+    const left = Math.max(0, (rite.maxEndAt ?? now) - now).toFixed(1);
+    riteTxt = `RITE OF ASCENSION (${left}s) · ${local.operatingDragOonId ? `[${key('ultimate')}/${key('jump')}] DETONATE` : 'BRACING FOR IMPACT'}`;
+  } else if (rs && (d.skill?.id === 'flightLikeHell' || rs.committedCount > 0)) {
+    if (rs.eligible) {
+      riteTxt = local.operatingDragOonId
+        ? `RITE READY (${rs.committedCount}/${rs.participantCount}) · [${key('ultimate')}] ASCEND`
+        : `RITE READY (${rs.committedCount}/${rs.participantCount}) · OPERATOR MAY IGNITE`;
+    } else if (selfCommit) {
+      riteTxt = `RITE COMMITTED (${rs.committedCount}/${rs.participantCount}) · [${key('ultimate')}] WITHDRAW`;
+    } else if (local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100 && rs.skillOk && rs.galeOk) {
+      riteTxt = `RITE OF ASCENSION (${rs.committedCount}/${rs.participantCount}) · [${key('ultimate')}] COMMIT`;
+    } else if (rs.reason) {
+      riteTxt = `RITE: ${rs.reason.toUpperCase()}`;
+    }
+  }
 
   // Passenger HUD
   if (local.aboardDragOonId) {
@@ -56,6 +76,7 @@ export function dragOonHudView(local, snapshot, now, { bindings = registry.defau
       pressureLabel: 'HEAT',
       status: [
         transitionTxt,
+        riteTxt,
         `HULL ${Math.ceil(d.health)}/${d.maxHealth}`,
         `FUEL ${Math.round(d.fuel ?? 0)}/${fuelCap}`,
         heat > DRAG_OON_TUNING.crew.dangerHeatThreshold ? `HEAT DANGER (${heat})` : `HEAT ${heat}`,
@@ -63,8 +84,8 @@ export function dragOonHudView(local, snapshot, now, { bindings = registry.defau
         infList.length ? infList.join(' + ') : `CREW ${paxCount}/${cap}`,
       ].filter(Boolean).join(' · '),
       controls: touch
-        ? 'SPELL: Fire from aperture · LEAVE: Evacuate'
-        : `[${key('spell')}] Cast from Aperture · [${key('interact')}] Timed Evacuation`,
+        ? 'SPELL: Fire from aperture · LEAVE: Evacuate · ULT: Commit Rite'
+        : `[${key('spell')}] Cast from Aperture · [${key('ultimate')}] Rite Commit · [${key('siegeView')}] Camera · [${key('interact')}] Timed Evacuation`,
     };
   }
 
@@ -75,6 +96,7 @@ export function dragOonHudView(local, snapshot, now, { bindings = registry.defau
     pressureLabel: 'HEAT',
     status: [
       transitionTxt,
+      riteTxt,
       `FUEL ${Math.round(d.fuel ?? 0)}/${fuelCap}`,
       heat > DRAG_OON_TUNING.crew.dangerHeatThreshold ? `OVERPRESSURE DANGER (${heat})` : `HEAT ${heat}`,
       siegeSkillLabel(d, now),
@@ -83,7 +105,7 @@ export function dragOonHudView(local, snapshot, now, { bindings = registry.defau
       infList.length ? `INFUSED: ${infList.join(' · ')}` : `CREW ${paxCount}/${cap}`,
     ].filter(Boolean).join(' · '),
     controls: touch
-      ? 'Stick: Pivot & Drive · ATTACK: Spray · JUMP: Leap · GUARD: Steam · SKILL: Raze/Flight/Camp/Brim · LEAVE: Evacuate'
-      : `A/D Pivot · [${key('attack')}] Spray · [${key('jump')}] Fuel’s the Limit · RMB Steam · [${key('siegeSkill')}] Skill · [${key('siegeView')}] Camera · [${key('interact')}] Evacuate`,
+      ? 'Stick: Pivot & Drive · ATTACK: Spray · JUMP: Fuel’s the Limit · GUARD: Steam · SKILL: Skill · ULT: Rite · LEAVE: Evacuate'
+      : `A/D Pivot · [${key('attack')}] Spray · [${key('jump')}] Fuel’s the Limit · RMB Steam · [${key('siegeSkill')}] Skill · [${key('ultimate')}] Rite · [${key('siegeView')}] Camera · [${key('interact')}] Evacuate`,
   };
 }

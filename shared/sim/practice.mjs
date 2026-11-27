@@ -20,7 +20,8 @@ import { nearbyPracticeSpawn } from './nearbyPracticeSpawn.mjs';
 import { DRAG_OON_ELEMENTS, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
 import { SIEGE_SKILL_OPTIONS } from '../src/siegeLoadout.mjs';
 import { isSpell } from '../src/spells.mjs';
-import { removeDragOonOccupant, computeDragOonInfusions } from './dragOonCrew.mjs';
+import { removeDragOonOccupant, assignDragOonCrewInstant, computeDragOonInfusions } from './dragOonCrew.mjs';
+import { setDragOonRiteCommit } from './dragOonRite.mjs';
 import { clampDragOonFuel, effectiveFuelCapacity } from './dragOonThermal.mjs';
 import { triggerAllAbortDestruction } from './dragOon.mjs';
 
@@ -322,6 +323,80 @@ export function configurePracticeDragOon(room, player, message, nowSec = 0) {
     m.brimming = null;
     if (m.skill) m.skill.readyAt = nowSec;
     for (const c of Object.values(m.components ?? {})) c.health = c.maxHealth;
+    computeDragOonInfusions(room, m);
+  } else if (action === 'stageRiteReady') {
+    // Practice-only staging: spawns up to 2 allied bot crewmates inside L1/R1 with Gale + Chivalry 100% Prowess
+    // and opts them in cleanly for solo Practice testing of Rite of Ascension.
+    m.skill = { ...(m.skill ?? {}), id: 'flightLikeHell', phase: 'idle', readyAt: nowSec };
+    m.raze = null;
+    m.flightLikeHell = null;
+    m.campFire = null;
+    m.brimming = null;
+    player.ultimate = 'chivalry';
+    player.prowess = PROWESS.full;
+    if (player.operatingDragOonId !== m.id && !m.operatorId) {
+      assignDragOonCrewInstant(room, m, player, { role: 'operator', now: nowSec });
+    }
+    const existingPax = (m.passengers ?? []).filter(Boolean).length;
+    for (let slot = 0; slot < 2 && existingPax < 2; slot++) {
+      if (m.passengers?.[slot]) continue;
+      const botId = `practice-crew-${slot + 1}`;
+      let crew = room.players.get(botId);
+      if (!crew) {
+        crew = room.addServerActor({
+          id: botId,
+          name: `Practice Crew #${slot + 1}`,
+          actorKind: 'bot',
+          team: m.team ?? player.team ?? null,
+          spell: 'gale',
+          ultimate: 'chivalry',
+          prowess: PROWESS.full,
+        }, nowSec);
+      }
+      crew.alive = true;
+      crew.spell = 'gale';
+      crew.ultimate = 'chivalry';
+      crew.prowess = PROWESS.full;
+      assignDragOonCrewInstant(room, m, crew, { role: 'passenger', station: slot, now: nowSec });
+      setDragOonRiteCommit(room, m, crew, true, nowSec);
+    }
+    for (const pid of m.passengers ?? []) {
+      const p = pid ? room.players.get(pid) : null;
+      if (p) {
+        p.ultimate = 'chivalry';
+        p.prowess = PROWESS.full;
+        setDragOonRiteCommit(room, m, p, true, nowSec);
+      }
+    }
+    if (m.operatorId === player.id) {
+      setDragOonRiteCommit(room, m, player, true, nowSec);
+    }
+  } else if (action === 'presetScenario') {
+    const preset = String(message.preset || '');
+    m.practiceOverrides = null;
+    m.heat = 0;
+    m.overheatPenalty = 0;
+    m.retainedOverpressureHeat = false;
+    m.fuel = m.fuelMax;
+    m.campFire = null;
+    m.flightLikeHell = null;
+    m.raze = null;
+    m.brimming = null;
+    if (preset === 'steelGaleWall') {
+      m.skill = { ...(m.skill ?? {}), id: 'razeThePasture', phase: 'idle', readyAt: nowSec };
+      m.practiceOverrides = { simulatedPassengers: [], infusions: { steel: 2, gale: 2 } };
+    } else if (preset === 'campSteam') {
+      m.skill = { ...(m.skill ?? {}), id: 'campFire', phase: 'idle', readyAt: nowSec };
+      m.heat = 78;
+      m.health = Math.min(m.maxHealth, Math.max(400, m.health - 650));
+      m.practiceOverrides = { simulatedPassengers: [], infusions: { steel: 2, fire: 1 } };
+    } else if (preset === 'brimmingVent') {
+      m.skill = { ...(m.skill ?? {}), id: 'brimmingWithPotential', phase: 'idle', readyAt: nowSec };
+      m.heat = 135;
+      m.practiceOverrides = { simulatedPassengers: [], infusions: { fire: 2 } };
+    } else {
+      m.skill = { ...(m.skill ?? {}), id: 'razeThePasture', phase: 'idle', readyAt: nowSec };
+    }
     computeDragOonInfusions(room, m);
   } else if (action === 'triggerAbort') {
     triggerAllAbortDestruction(room, m, nowSec, { source: message.catastrophic ? 'overheat' : 'practice-abort' });

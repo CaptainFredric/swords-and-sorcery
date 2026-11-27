@@ -1494,8 +1494,14 @@ export class GameRuntime {
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
+    const dragState = (this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId)
+      ? (snapshot.machines?.find(m => m?.id === (this.localAuth.operatingDragOonId || this.localAuth.aboardDragOonId)) || snapshot.dragOon)
+      : null;
     this.input.mountedDragOon=Boolean(auth?.alive&&auth.operatingDragOonId);
     this.input.aboardDragOon=Boolean(auth?.alive&&auth.aboardDragOonId);
+    this.input.dragOonRiteActive=Boolean(dragState?.rite?.active);
+    this.input.dragOonRiteEligible=Boolean(dragState?.riteStatus?.eligible);
+    this.input.dragOonRiteCommitted=Boolean(dragState?.riteCommitments?.[auth?.id]);
     this.input.ballistaSkillPhase=this.input.mountedBallista?(snapshot.bibyeBallista?.skill?.phase??'idle'):'idle';
     if((auth?.operatingDragOonId||auth?.aboardDragOonId)&&!wasMounted){
       // DRAG-OON defaults strictly to third-person perspective
@@ -1504,8 +1510,9 @@ export class GameRuntime {
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
       const dm=snapshot.machines?.find(m=>m?.id===(auth.operatingDragOonId||auth.aboardDragOonId))||snapshot.dragOon;
       const heading=dm?.heading;
-      this.input.yaw=Number.isFinite(heading)?heading:(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
-      this.input.pitch=0;
+      const stOffset = auth.aboardDragOonId ? (([75, -75, 115, -115][auth.dragOonStation ?? 0] ?? 75) * Math.PI / 180) : 0;
+      this.input.yaw=Number.isFinite(heading)?(heading+stOffset):(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=auth.aboardDragOonId ? -0.18 : 0;
     }
     if(auth?.operatingFightFlightId&&!wasMounted){
       this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
@@ -1692,6 +1699,9 @@ export class GameRuntime {
         const dState=(event.machineId?this.latestSnapshot?.machines?.find(m=>m?.id===event.machineId):null)||this.latestSnapshot?.dragOon;
         this.dragOonSound.event(event,dState,this.socket.serverNow());
         this.dragOonEffects?.onEvent(event);
+        if (event.type === 'dragOonSteam' && event.machineId) {
+          this.fleetRenderer?.getRenderer(event.machineId)?.onSteam?.(event.at ?? this.socket.serverNow());
+        }
       }
       // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
       // events; one reaction per bolt)
@@ -4074,15 +4084,32 @@ export class GameRuntime {
     if (mounted) {
       const locator = (ram||drag)?null:bRenderer?.getMountedCameraPosition?.(this.siegeView, target);
       if(drag){
+        const isPax = Boolean(this.localAuth?.aboardDragOonId);
+        const role = isPax ? 'passenger' : 'operator';
+        const station = this.localAuth?.dragOonStation ?? 0;
+        const airborne = Boolean(!b.grounded || b.flightLikeHell?.active || b.rite?.active);
         if(this.siegeView==='sight'){
-          target.set(b.x??0,(b.y??0)+2.35,b.z??0);
+          const pose = bRenderer?.getMountedCameraPose?.('sight', { role, station, airborne });
+          if (pose?.position) target.copy(pose.position);
+          else target.set(b.x??0,(b.y??0)+2.15,b.z??0);
+        }else if (isPax) {
+          const paxPose = bRenderer?.getMountedCameraPose?.('third', { role: 'passenger', station, airborne });
+          const anchor = paxPose?.position ? paxPose.position.toArray() : [(b.x??0),(b.y??0)+3.25,(b.z??0)];
+          const dist = 1.65;
+          const cp = Math.cos(Math.max(-0.55, Math.min(0.65, this.input.pitch)));
+          const desired = [
+            anchor[0] + Math.sin(this.input.yaw) * cp * dist,
+            anchor[1] + Math.sin(Math.max(-0.45, Math.min(0.55, -this.input.pitch))) * dist + 0.35,
+            anchor[2] + Math.cos(this.input.yaw) * cp * dist,
+          ];
+          target.set(...clip(this.#reach, anchor, desired, .22));
         }else{
-          const pivot=[(b.x??0),(b.y??0)+2.45,(b.z??0)];
-          const dist=8.2;
+          const pivot=[(b.x??0),(b.y??0)+(airborne?2.85:2.45),(b.z??0)];
+          const dist=airborne?8.8:8.0;
           const cp=Math.cos(Math.max(-0.6,Math.min(0.85,this.input.pitch)));
           const desired=[
             pivot[0]+Math.sin(this.input.yaw)*cp*dist,
-            pivot[1]+Math.sin(Math.max(-0.45,Math.min(0.85,-this.input.pitch)))*dist+1.4,
+            pivot[1]+Math.sin(Math.max(-0.45,Math.min(0.85,-this.input.pitch)))*dist+(airborne?2.1:1.4),
             pivot[2]+Math.cos(this.input.yaw)*cp*dist,
           ];
           target.set(...clip(this.#reach,pivot,desired,.32));
@@ -4607,6 +4634,7 @@ export class GameRuntime {
       playingLocally: this.socket.playingLocally,
       frozen: this.socket.inspectionFrozen,
       localAim: localFlightAim,
+      cameraPosition: this.camera.position,
     });
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)
@@ -4780,13 +4808,32 @@ export class GameRuntime {
               driver.visualInstance?.animator?.applyFightFlight(entry.renderer.getOperatorGrips(), attacking || driverPlayer?.guarding, machineState, this.socket.serverNow(), dt, combat);
             } catch (_e) {}
           }
+        } else if (entry.type === 'dragoon') {
+          const seatOut = new THREE.Vector3();
+          if (entry.renderer.getNodeWorldPosition?.('seat_operator', seatOut)) {
+            driver.root.position.copy(seatOut);
+            driver.root.rotation.set(0, machineState.heading ?? 0, 0, 'YXZ');
+          }
+          const stIds = ['L1', 'R1', 'L2', 'R2'];
+          const stOffsets = [75, -75, 115, -115];
+          for (let i = 0; i < (machineState.passengers?.length ?? 0); i++) {
+            const pid = machineState.passengers[i];
+            if (!pid) continue;
+            const paxRig = pid === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(pid);
+            if (!paxRig?.root?.visible) continue;
+            if (entry.renderer.getNodeWorldPosition?.(`seat_passenger_${stIds[i] ?? 'L1'}`, seatOut)) {
+              paxRig.root.position.copy(seatOut);
+              paxRig.root.rotation.set(0, (machineState.heading ?? 0) + ((stOffsets[i] ?? 75) * Math.PI) / 180, 0, 'YXZ');
+            }
+          }
         }
       }
     }
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
-    this.dragOonEffects?.update(this.latestSnapshot, this.socket.serverNow(), dt);
+    this.dragOonEffects?.update(this.latestSnapshot, this.socket.serverNow(), dt, (machineId, nodeName) =>
+      this.fleetRenderer?.getRenderer(machineId)?.getNodeWorldPosition?.(nodeName) ?? null);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
     if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&

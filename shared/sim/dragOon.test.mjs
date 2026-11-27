@@ -475,3 +475,101 @@ test('9. Simultaneous DRAG-OON fleet instances remain isolated and Siege Blades 
     'Experimental DRAG-OON bot actively drives or engages in combat without errors',
   );
 });
+
+test('10. V4.1 geometry, 4-station limits, outward aperture aiming, staggered evac, Flight immunity & Rite of Ascension', () => {
+  // Part A: V4.1 max 4 passenger stations, outward aperture cone clamp, wall block, staggered evac
+  const room = makeRoom(GAME_MODES.PRACTICE, makeFlatWorld([
+    { center: [-2.75, 1.7, 0.2], size: [0.6, 3.0, 2.0] }, // Wall flush against L1 shutter port!
+  ]));
+  const op = addActor(room, 'op', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'steel' }, 1);
+  op.ultimate = 'chivalry'; op.prowess = 100;
+  const p1 = addActor(room, 'p1', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  const p2 = addActor(room, 'p2', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  const p3 = addActor(room, 'p3', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'fireball' }, 1);
+  const p4 = addActor(room, 'p4', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'frostfire' }, 1);
+  const p5 = addActor(room, 'p5', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'fireball' }, 1);
+  const m = createDragOon({ id: 'd-v41', x: 0, y: 0, z: 0, heading: 0, team: TEAMS.ATTACKERS, passengerCapacity: 6 });
+  assert.equal(m.passengerCapacity, 4, 'V4.1 physically enforces 4 passenger stations max');
+  room.addMachine(m);
+
+  assert.equal(assignDragOonCrewInstant(room, m, op, { role: 'operator', now: 1 }), true);
+  assert.equal(assignDragOonCrewInstant(room, m, p1, { role: 'passenger', station: 0, now: 1 }), true);
+  assert.equal(assignDragOonCrewInstant(room, m, p2, { role: 'passenger', station: 1, now: 1 }), true);
+  assert.equal(assignDragOonCrewInstant(room, m, p3, { role: 'passenger', station: 2, now: 1 }), true);
+  assert.equal(assignDragOonCrewInstant(room, m, p4, { role: 'passenger', station: 3, now: 1 }), true);
+  assert.equal(assignDragOonCrewInstant(room, m, p5, { role: 'passenger', now: 1 }), false, '5th passenger rejected cleanly');
+
+  // L1 aperture blocked by external solid wall immediately outside port; R1 casts outward with aim cone clamping
+  assert.equal(tryCastSpell(room, p1.id, { x: -1, y: 0, z: 0 }, 2.0), false, 'Blocked L1 port rejects external cast');
+  assert.equal(tryCastSpell(room, p2.id, { x: -1, y: 0, z: 0 }, 2.0), true, 'R1 port clears and clamps inward aim to outward cone');
+  assert.ok(p2.pendingSpell.direction.x > 0.7, 'R1 clamped aim strictly points outward (+X) through R1 aperture');
+
+  // Simultaneous disembarkation spreads crew cleanly across staggered rally points (never stacking)
+  p1.pendingSpell = null; p2.pendingSpell = null;
+  applyRoomCommand(room, p1, { type: 'siegeOperate' }, 2.2);
+  applyRoomCommand(room, p2, { type: 'siegeOperate' }, 2.2);
+  let t = advance(room, DRAG_OON_TUNING.crew.disembarkDurationSec + 0.15, 1 / 60, 2.2);
+  assert.equal(p1.aboardDragOonId, null);
+  assert.equal(p2.aboardDragOonId, null);
+  assert.ok(Math.hypot(p1.position.x - p2.position.x, p1.position.z - p2.position.z) >= 1.2, 'Simultaneous evacuees land staggered without stacking');
+
+  // Part B: Flight Like Hell maxHealth damage honors spawnProtection immunity (zero reduction!)
+  const enemy = addActor(room, 'eImm', { x: 0, z: -2.0, team: TEAMS.DEFENDERS }, t);
+  enemy.spawnProtectionUntil = t + 10;
+  applyRoomCommand(room, op, { type: 'practiceDragOon', action: 'setSkill', skill: 'flightLikeHell' }, t);
+  applyRoomCommand(room, op, { type: 'practiceDragOon', action: 'setFlightStage', stage: 'airborne' }, t);
+  applyRoomCommand(room, op, { type: 'siegeSkill', down: true }, t);
+  t = advance(room, 0.75, 1 / 60, t);
+  assert.equal(enemy.health, 100, 'Spawn-protected target takes zero HP damage');
+  assert.equal(enemy.maxHealth ?? 100, 100, 'Spawn-protected target suffers zero Flight Like Hell maxHealth reduction');
+  assert.equal(enemy.dragOonMaxHealthLoss ?? 0, 0);
+
+  // Part C: Rite of Ascension opt-in consent, empty seats allowed, prowess spend, non-teleported ascent & single detonation
+  const rRoom = makeRoom(GAME_MODES.FFA);
+  const rOp = addActor(rRoom, 'rOp', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'fireball' }, 1);
+  rOp.ultimate = 'chivalry'; rOp.prowess = 100;
+  const rP1 = addActor(rRoom, 'rP1', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  rP1.ultimate = 'chivalry'; rP1.prowess = 100;
+  const rP2 = addActor(rRoom, 'rP2', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  rP2.ultimate = 'chivalry'; rP2.prowess = 50; // Not ready yet!
+  const foe = addActor(rRoom, 'foe', { x: 0, z: -6, team: TEAMS.DEFENDERS }, 1);
+  const rm = createDragOon({ id: 'd-rite', x: 0, y: 0, z: 0, heading: 0, team: TEAMS.ATTACKERS, skill: { id: 'flightLikeHell', phase: 'idle', readyAt: 0 } });
+  rRoom.addMachine(rm);
+  assignDragOonCrewInstant(rRoom, rm, rOp, { role: 'operator', now: 1 });
+  assignDragOonCrewInstant(rRoom, rm, rP1, { role: 'passenger', station: 0, now: 1 });
+  assignDragOonCrewInstant(rRoom, rm, rP2, { role: 'passenger', station: 1, now: 1 });
+
+  // Cannot commit with < 100 prowess, cannot silently activate
+  assert.ok(applyRoomCommand(rRoom, rP2, { type: 'dragOonRiteCommit', committed: true }, 2).rejected);
+  assert.deepEqual(applyRoomCommand(rRoom, rOp, { type: 'dragOonRiteCommit', committed: true }, 2), {});
+  assert.deepEqual(applyRoomCommand(rRoom, rP1, { type: 'dragOonRiteCommit', committed: true }, 2), {});
+  assert.ok(applyRoomCommand(rRoom, rOp, { type: 'dragOonRiteActivate' }, 2.1).rejected, 'Blocked until all occupied crew ready & opted in');
+  assert.equal(rOp.prowess, 100, 'Rejected activation spends zero Prowess');
+
+  // Grant rP2 Chivalry readiness & opt in -> empty seats L2/R2 NOT required -> Ascend!
+  rP2.prowess = 100;
+  assert.deepEqual(applyRoomCommand(rRoom, rP2, { type: 'dragOonRiteCommit', committed: true }, 2.2), {});
+  // Withdraw & re-commit preserves Prowess cleanly
+  assert.deepEqual(applyRoomCommand(rRoom, rP2, { type: 'dragOonRiteCommit', committed: false }, 2.3), {});
+  assert.equal(rm.riteStatus.eligible, false);
+  assert.deepEqual(applyRoomCommand(rRoom, rP2, { type: 'dragOonRiteCommit', committed: true }, 2.4), {});
+  assert.equal(rm.riteStatus.eligible, true);
+
+  assert.deepEqual(applyRoomCommand(rRoom, rOp, { type: 'dragOonRiteActivate' }, 2.5), {});
+  assert.equal(rm.rite.active, true);
+  assert.equal(rOp.prowess, 0);
+  assert.equal(rP1.prowess, 0);
+  assert.equal(rP2.prowess, 0);
+  assert.ok(applyRoomCommand(rRoom, rP1, { type: 'siegeOperate' }, 2.6).rejected, 'Evacuation locked during Rite');
+
+  // Steer upward/forward through sky and deliberately detonate midair -> single atomic All Abort! event
+  rOp.input = { forward: 1, right: 0, yaw: 0, pitch: 0.25 };
+  let rt = advance(rRoom, 0.55, 1 / 60, 2.5);
+  assert.ok(rm.y > 2.5 && rm.z < -1.0, 'Rite ascends through world trajectory continuously');
+  rRoom.events.length = 0;
+  assert.deepEqual(applyRoomCommand(rRoom, rOp, { type: 'dragOonRiteDetonate' }, rt), {});
+  const riteBlasts = rRoom.events.filter(e => e.type === 'dragOonDestroyed');
+  assert.equal(riteBlasts.length, 1, 'Rite resolves through a single atomic All Abort! blast');
+  assert.equal(riteBlasts[0].isRiteOfAscension, true);
+  assert.ok(foe.health < 100 || !foe.alive, 'Catastrophic Rite explosion strikes nearby enemy');
+});

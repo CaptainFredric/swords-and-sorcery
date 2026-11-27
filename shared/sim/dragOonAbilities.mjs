@@ -168,24 +168,25 @@ export function stepDragOonRadiantHeat(room, m, now) {
 }
 
 /**
- * Innate: Fire's the Limit — ignite underside fuel for explosive leap + heavy slam.
+ * Innate: Fuel's the Limit — ignite underside fuel for explosive leap + heavy slam.
  * Uses explicit self-launch exception (never damages owning DRAG-OON).
  */
 export function requestFiresTheLimit(room, m, player, now) {
   if (!m || m.retired || m.health <= 0 || m.mode === 'DESTROYED' || m.operatorId !== player?.id) {
-    return { rejected: 'Operate DRAG-OON to use Fire’s the Limit.' };
+    return { rejected: 'Operate DRAG-OON to use Fuel’s the Limit.' };
   }
+  if (m.rite?.active) return { rejected: 'Cannot leap during Rite of Ascension.' };
   if (m.campFire?.active) return { rejected: 'Unseal Camp Fire before launching.' };
   if (m.raze?.phase === 'holding') return { rejected: 'Release Raze the Pasture before launching.' };
-  if (!m.grounded) return { rejected: 'Fire’s the Limit requires grounded ignition.' };
+  if (!m.grounded) return { rejected: 'Fuel’s the Limit requires grounded ignition.' };
   if (m.leap && ['prep', 'airborne', 'recovery'].includes(m.leap.phase)) {
-    return { rejected: 'Fire’s the Limit is already active.' };
+    return { rejected: 'Fuel’s the Limit is already active.' };
   }
   if (now + 1e-8 < (m.leapReadyAt ?? 0)) {
-    return { rejected: 'Fire’s the Limit is cooling down.' };
+    return { rejected: 'Fuel’s the Limit is cooling down.' };
   }
   if ((m.fuel ?? 0) + 1e-8 < DRAG_OON_TUNING.leap.fuelCost) {
-    return { rejected: 'Insufficient fuel for Fire’s the Limit.' };
+    return { rejected: 'Insufficient fuel for Fuel’s the Limit.' };
   }
 
   const f = clamp(player.input?.forward ?? 0, -1, 1);

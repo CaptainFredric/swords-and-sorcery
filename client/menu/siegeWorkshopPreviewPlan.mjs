@@ -59,6 +59,8 @@ export function workshopPreviewPose(skill, time) {
     // Only after exhausting flight charge does the machine descend.
     y=4.8*between(t,.2,1.35)*(1-between(t,7.75,9));
     z=-.6*between(t,.75,1.3)*(1-between(t,7.75,9));
+  } else if (skill==='flightLikeHell') {
+    y=3.2*between(t,.15,.9)*(1-between(t,4.2,5.35));
   }
   return {x,y,z,pitch,roll,yawOffset,fist,shudder};
 }

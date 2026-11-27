@@ -2,7 +2,8 @@ import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import { getFleetMachines, getFleetSolids, getFleetHitVolumes, getMachineHitVolumes, raycastFleet, blastFleet, getMachineKind, damageFleetMachine } from './fleetGeometry.mjs';
 import { stepDragOon, blastDragOon } from './dragOon.mjs';
 import { stepDragOonFields, isPointSuppressedByDragOon, dragOonProjectileAttenuation, applyDragOonBarricadeResistance } from './dragOonFields.mjs';
-import { dragOonOperatorPose, dragOonPassengerStationPose } from './dragOonGeometry.mjs';
+import { dragOonOperatorPose, dragOonPassengerStationPose, clampDragOonPassengerAim } from './dragOonGeometry.mjs';
+import { dragOonPassengerCanCast } from './dragOonCrew.mjs';
 import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {modeCall} from './modeRuntime.mjs';
 import {withRestlessLadders,damageRestlessLadder,constrainRestlessCarry} from './restlessDayMode.mjs';
@@ -606,7 +607,14 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   const seatedOp = Boolean(player.operatingFightFlightId || player.operatingBallistaId || player.operatingRamId || player.operatingDragOonId);
   if (seatedOp && (spell.id !== 'steel' || !operatedSiegeSteelMachine(room, player))) return false;
   const paxDrag = player.aboardDragOonId ? (room.machines?.get(player.aboardDragOonId) || room.dragOon) : null;
-  if (paxDrag?.campFire?.sealed && spell.id !== 'steel') return false;
+  let castDir = normalize3(direction);
+  if (paxDrag) {
+    const rawYaw = Math.atan2(-castDir.x, -castDir.z);
+    const rawPitch = Math.asin(Math.max(-0.99, Math.min(0.99, castDir.y)));
+    const portCheck = dragOonPassengerCanCast(room, paxDrag, player, spell.id, rawYaw, rawPitch);
+    if (!portCheck.allowed) return false;
+    if (portCheck.clamped?.direction) castDir = portCheck.clamped.direction;
+  }
   if (player.pendingSpell && nowSec >= player.castEndsAt && !ultimateStartup(player, nowSec)) spawnSpell(room, player, nowSec, room.world);
   if (player.pendingSpell || !spellReady(player, spell, nowSec, practice) || ultimateStartup(player, nowSec) || handsTaken(player, nowSec)) return false;
   if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
@@ -614,7 +622,7 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   player.castEndsAt = nowSec + spell.gatherSec;
   const policy = combatActionPolicy(player, nowSec);
   const apertureOrigin = dragOonCastOrigin(room, player);
-  player.pendingSpell = { spell: spell.id, direction: normalize3(direction),
+  player.pendingSpell = { spell: spell.id, direction: castDir,
     ...(spell.id === 'line_of_conduct' ? { origin: apertureOrigin ? { x: apertureOrigin.x, y: apertureOrigin.y, z: apertureOrigin.z } : {
       x: player.position.x, y: player.position.y + postureOf(player).eye - 0.1, z: player.position.z,
     } } : {}),
@@ -1954,6 +1962,13 @@ function galeAim(player, room = null) {
     ? { x: aperture.x, y: aperture.y, z: aperture.z }
     : { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
   const pitch = player.pitch ?? 0;
+  if (aperture && player?.aboardDragOonId) {
+    const m = room?.machines?.get?.(player.aboardDragOonId) || room?.dragOon;
+    if (m) {
+      const clamped = clampDragOonPassengerAim(m, player.dragOonStation ?? 0, player.yaw, pitch);
+      return { eye, direction: clamped.direction };
+    }
+  }
   const direction = normalize3({ x: -Math.sin(player.yaw) * Math.cos(pitch), y: Math.sin(pitch), z: -Math.cos(player.yaw) * Math.cos(pitch) });
   return { eye, direction };
 }
@@ -3436,6 +3451,7 @@ export function releaseOneHitCharge(room,playerId,nowSec,{cancel=false,yaw,pitch
 export function tryUltimate(room, playerId, nowSec, {held=false,released=false}={}) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
+  if (player.operatingDragOonId || player.aboardDragOonId) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
   if (flashFrozen(player, nowSec)) return false;
   if (player.ultimateState) return false;

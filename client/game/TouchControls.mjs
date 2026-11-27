@@ -816,7 +816,7 @@ export class TouchControls {
         // spells, not a separate READY panel. Active Skills have no shade.
         const recovery=fb.skill?.phase==='active'?0:Math.max(0,(fb.skill?.readyAt??0)-serverNow);
         setMountedRecovery(this.buttons.siegeSkill,recovery,24);
-      }else if(dragOp&&db){
+      }else if(drag&&db){
         setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(db.skill?.readyAt??0)-serverNow),26);
         setMountedRecovery(this.buttons.guard,Math.max(0,(db.steamReadyAt??0)-serverNow),25);
         setMountedRecovery(this.buttons.jump,Math.max(0,(db.leapReadyAt??0)-serverNow),12);
@@ -1777,6 +1777,16 @@ export class TouchControls {
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ramFlick') this.input.ramFlick?.();
     if (action === 'ultimate') {
+      if (this.input.mountedDragOon || this.input.aboardDragOon) {
+        if (this.input.dragOonRiteActive && this.input.mountedDragOon) {
+          this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+        } else if (this.input.mountedDragOon && this.input.dragOonRiteEligible && this.input.dragOonRiteCommitted) {
+          this.socket?.send?.({ type: 'dragOonRiteActivate' });
+        } else {
+          this.socket?.send?.({ type: 'dragOonRiteCommit', committed: !this.input.dragOonRiteCommitted });
+        }
+        return;
+      }
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
       } else this.input.ultimate(`touch:${event.pointerId}`);
@@ -1790,7 +1800,11 @@ export class TouchControls {
       this.ramTiltGestures.set(event.pointerId,{action,clientX:event.clientX,clientY:event.clientY,lift:false});
       return; // ram controls cannot also emit ordinary Jump/Crouch
     }
-    if(this.input.mountedDragOon&&action==='jump'){this.socket?.send?.({type:'dragOonLeap'});return;}
+    if(this.input.mountedDragOon&&action==='jump'){
+      if (this.input.dragOonRiteActive) this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+      else this.socket?.send?.({type:'dragOonLeap'});
+      return;
+    }
     if(this.input.mountedDragOon&&action==='guard'){this.socket?.send?.({type:'dragOonSteam'});return;}
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
@@ -1858,12 +1872,13 @@ export class TouchControls {
     if (action === 'siegeSkill' && (this.input.mountedDragOon || this.dragMounted)) this.input.siegeSkillRelease?.();
     if (action === 'dash' && (this.input.mountedFlight || this.flightMounted)) this.input.flightDash(false, `touch:${pointerId}`);
     if (action === 'ultimate') {
+      if (this.input.mountedDragOon || this.input.aboardDragOon) return;
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(false, `touch:${pointerId}`);
       } else this.input.ultimateRelease?.(`touch:${pointerId}`,cancelled);
     }
-    if(this.input.mountedDragOon&&action==='jump'){this.socket?.send?.({type:'dragOonLeap'});return;}
-    if(this.input.mountedDragOon&&action==='guard'){this.socket?.send?.({type:'dragOonSteam'});return;}
+    if(this.input.mountedDragOon&&action==='jump')return;
+    if(this.input.mountedDragOon&&action==='guard')return;
     if (action === 'jump') {
       // A long hold is Rise only. A fast tap is Hop only. Dragging the
       // same held finger looks around and suppresses accidental Hop on lift.

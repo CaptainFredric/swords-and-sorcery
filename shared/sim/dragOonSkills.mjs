@@ -320,16 +320,18 @@ export function stepDragOonSkills(room, m, dt, now, world = room.world) {
             target.guardStamina = Math.max(0, (target.guardStamina ?? 0) - t.guardDrainPerSec * tickInterval);
             target.lastGuardDrainAt = now;
           }
-          // Burns cleanly through Guards/pavises; deal full DoT + reversible max-HP loss!
+          // Burns cleanly through Guards/pavises; deal full DoT + reversible max-HP loss ONLY when damage actually lands!
           const actualDmg = rawDmg * (target.guarding && target.guardStamina > 0 ? 0.65 : 1);
           const beforeHp = target.health;
-          applyDamage(room, m.operatorId, target.id, actualDmg, 'dragoon-flight-like-hell', now, null, {
+          const hitAccepted = applyDamage(room, m.operatorId, target.id, actualDmg, 'dragoon-flight-like-hell', now, null, {
             ongoing: true,
             infusionTiers: tiers,
           });
-          if (target.alive) {
+          if (hitAccepted && target.alive) {
             const dealt = Math.max(0, beforeHp - target.health);
-            applyDragOonMaxHealthDamage(room, target, (dealt > 0 ? dealt : actualDmg) * t.maxHealthReductionShare, now);
+            if (dealt > 0) {
+              applyDragOonMaxHealthDamage(room, target, dealt * t.maxHealthReductionShare, now);
+            }
           }
         }
         for (const other of getFleetMachines(room)) {
