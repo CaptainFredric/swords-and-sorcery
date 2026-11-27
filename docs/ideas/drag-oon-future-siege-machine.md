@@ -13,7 +13,9 @@ Visual direction: Castleward's authored mechanical siege aesthetic: forged overl
 ### Desolation Spray — main attack
 Engulf nearby ground and enemies with sustained flames from the low-mounted cannons. The intentionally mundane, product-like word “Spray” contrasts with “Desolation.” Fuel, range, cannon arcs, damage and ordinary flame persistence remain to be tuned.
 
-### Fire's the Limit — explosive leap
+### Fuel's the Limit — explosive leap
+Renamed from Fire's the Limit on November 26, 2026. The dry inversion of “the sky's the limit” emphasizes the machine's finite fuel supply rather than its spectacular ascent.
+
 Release explosive fuel beneath the chassis and ignite it. Propel the heavy machine high into the air over a moderate distance in a chosen direction, then land with a slam. The hard shell protects the machine from its own launch; an explicit self-ignition damage exception will be required if direct blast damage otherwise applies. This is a built-in movement/attack ability, not an equipped Skill. Drag-oon is a ballistic leaper, not a second Fight-and-Flight. Launch and landing damage, steering, fuel cost, cooldown and terrain interaction remain open.
 
 ## Candidate equipped Siege Skills
@@ -36,4 +38,4 @@ Usable in midair. Blast the lower cannons downward in a powerful, moderately lar
 
 No numerical stats, fuel regeneration, cooldowns, third Skill, component breakdown, control bindings, hit volumes, animations, resource rules or model assets have been finalized. Existing playable machines must remain untouched until a dedicated design and implementation pass. The two candidate Skills are alternatives in the established Siege Skill loadout system, not simultaneous built-ins.
 
-Concept distinction: Raze the Pasture establishes persistent burning territory; Flight Like Hell attacks from above and destroys the territory's ability to sustain persistent effects. Desolation Spray and Fire's the Limit are the shared baseline.
+Concept distinction: Raze the Pasture establishes persistent burning territory; Flight Like Hell attacks from above and destroys the territory's ability to sustain persistent effects. Desolation Spray and Fuel's the Limit are the shared baseline.
