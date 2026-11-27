@@ -198,6 +198,16 @@ export class MenuController {
     return chosen;
   }
 
+  siegeExperimentalDragOon() {
+    return this.storage?.getItem?.('ss-siege-exp-dragoon') === 'true';
+  }
+
+  chooseSiegeExperimentalDragOon(enabled) {
+    const chosen = Boolean(enabled);
+    this.storage?.setItem?.('ss-siege-exp-dragoon', String(chosen));
+    return chosen;
+  }
+
   siegeBlades(rawName, options = null) {
     const format = options?.format ?? this.siegeFormat();
     const size = (options?.teamSize !== undefined ? Number(options.teamSize) : this.siegeSize());
@@ -209,6 +219,7 @@ export class MenuController {
     const matchRounds = options?.matchRounds ?? this.siegeRounds();
     const endlessRoundCap = options?.endlessRoundCap ?? this.siegeEndlessRounds();
     const clashStarts = options?.clashStarts ?? this.siegeClashStarts();
+    const experimentalDragOon = Boolean(options?.experimentalDragOon ?? this.siegeExperimentalDragOon());
 
     return this.#withName(rawName, (name) => {
       return this.socket.startSolo('SIEGE_BLADES', name, arena, skill, team, size, {
@@ -219,6 +230,7 @@ export class MenuController {
         matchRounds,
         endlessRoundCap,
         clashStarts,
+        ...(experimentalDragOon ? { experimentalDragOon: true } : {}),
       });
     });
   }

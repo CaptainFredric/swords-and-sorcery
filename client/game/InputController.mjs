@@ -22,6 +22,7 @@ const PRESS = {
 const RELEASE = {
   attack: (input) => input.setAttack(false),
   guard: (input) => input.setGuard(false),
+  siegeSkill: (input) => input.siegeSkillRelease?.(),
   scoreboard: (input) => { input.scoreboardHeld = false; },
   technique: (input) => input.technique(false,'binding'),
 };
@@ -152,16 +153,18 @@ export class InputController {
     const action = this.#actionFor(code);
     if (!action || repeat || MENU_ACTIONS.has(action)) return;
     if(this.mountedRam&&action==='jump'){this.ramSpaceDownAt=performance.now();this.ramLiftUsed=Boolean(this.held('dash')||this.held('crouch'));return;}
+    if(this.mountedDragOon&&action==='jump'){this.socket?.send?.({type:'dragOonLeap'});return;}
     if (HELD.has(action)) return;
     if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     // Mounted X is this ram's Finger Flick, not the ballista weapon-focus command.
     if(this.mountedRam&&action==='siegeWeapon'){this.ramFlick();return;}
-    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(true,'KeyX');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista&&!this.mountedDragOon&&!this.aboardDragOon){this.technique(true,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     // On SO-FIST-ICATION, E is hydraulic Raise, not the on-foot Dash press.
     if(this.mountedRam&&(action==='dash'||action==='crouch')){this.ramLiftUsed=true;if(action==='dash')return;}
     if(this.mountedRam&&action==='guard'){this.ramShunt();return;}
+    if(this.mountedDragOon&&action==='guard'){this.socket?.send?.({type:'dragOonSteam'});return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -185,9 +188,10 @@ export class InputController {
     if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
     if(this.mountedRam&&action==='siegeWeapon')return; // Flick is one press, never a held strike.
-    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista){this.technique(false,'KeyX');return;}
+    if(action==='siegeWeapon'&&!this.mountedFlight&&!this.mountedRam&&!this.mountedBallista&&!this.mountedDragOon&&!this.aboardDragOon){this.technique(false,'KeyX');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedRam&&action==='guard')return;
+    if(this.mountedDragOon&&action==='guard')return;
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
@@ -677,7 +681,12 @@ export class InputController {
   siegeSkill() {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)
       this.socket?.send?.({type:'siegeSkill',
+        ...(this.mountedDragOon?{down:true}:{}),
         ...(this.mountedFlight?{yaw:this.yaw,pitch:this.pitch}:{})});
+  }
+  siegeSkillRelease() {
+    if(this.mountedDragOon&&this.enabled)
+      this.socket?.send?.({type:'siegeSkill',down:false});
   }
 
   // One discrete mounted Hop packet. Touch Jump and Bolt-to-Jump swipe use
@@ -751,7 +760,7 @@ export class InputController {
     return {
       forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
       right: moveAllowed ? (moving('right') ? 1 : 0) - (moving('left') ? 1 : 0) + (touch?.right ?? 0) : 0,
-      jump: !this.mountedRam && (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
+      jump: !this.mountedRam && !this.mountedDragOon && !this.aboardDragOon && (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
       // Flight rail uses distinct held inputs: never recast Rise as Jump or Lower as Crouch.
       // Only forward live, mounted, authorized touch input to the authoritative host.
       flightRise: Boolean(this.enabled && this.mountedFlight && moveAllowed && touch?.flightRise),

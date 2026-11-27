@@ -238,6 +238,10 @@ registry
   .defineSetting({
     id: 'loadout.fightFlightSkill', section: 'loadout', label: 'Fight-and-Flight Skill', type: 'choice', default: SIEGE_LOADOUT_DEFAULT.fightFlight,
     options: siegeChoices('fightFlight')
+  })
+  .defineSetting({
+    id: 'loadout.dragOonSkill', section: 'loadout', label: 'Drag-oon Skill', type: 'choice', default: SIEGE_LOADOUT_DEFAULT.dragOon,
+    options: siegeChoices('dragOon')
   });
 
 registry

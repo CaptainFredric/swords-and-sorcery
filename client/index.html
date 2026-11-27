@@ -323,6 +323,7 @@
               <span class="siege-badge" id="siege-badge">SIEGE MACHINE</span>
               <h3 id="siege-title">SO-FIST-ICATION</h3>
               <p class="siege-subtitle" id="siege-subtitle">SUBTLETY COMES KNOCKING DOWN, KNOCKING DOWN, KNOCKING DOWN</p>
+              <button type="button" id="siege-experimental-dragoon-btn" class="siege-exp-btn" aria-pressed="false">DRAG-OON PROTOTYPE LOADOUT →</button>
           </header>
           <div class="siege-inspector-scroll armory-scroll" tabindex="0">
             <section class="siege-section" id="siege-skills-section">
@@ -624,6 +625,10 @@
             <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
           </div>
         </div>
+        <div id="siege-hub-exp-dragoon-wrap" class="vote-row solo-arena">
+          <span>EXPERIMENTAL PROTOTYPE</span>
+          <button type="button" class="vote-chip" id="siege-hub-exp-dragoon" role="switch" aria-checked="false">DRAG-OON (BOTS / PRIVATE)</button>
+        </div>
         <div id="siege-hub-clash-wrap" class="vote-row solo-arena" role="radiogroup" aria-label="Siege Clash Starts">
           <span>CLASH STARTS</span>
           <button type="button" class="vote-chip mine" role="radio" data-clash="on">ENABLED <small>(12% 1V1)</small></button>
@@ -872,6 +877,7 @@
           <label data-private-clash hidden>CLASH STARTS<select name="clashStarts" class="game-input"><option value="on" selected>ENABLED (12% IN 1V1)</option><option value="off">DISABLED</option></select></label>
           <label data-private-team hidden>YOUR SIDE<select name="team" class="game-input"><option value="AUTO" selected>AUTO</option><option value="ATTACKERS">ATTACKERS</option><option value="DEFENDERS">DEFENDERS</option></select></label>
           <label data-private-bot hidden>BOT DIFFICULTY<select name="botSkill" class="game-input"><option value="squire">SQUIRE</option><option value="knight" selected>KNIGHT</option><option value="champion">CHAMPION</option><option value="spellblade">THE SPELLBLADE</option></select></label>
+          <label data-private-exp-dragoon hidden class="private-exp-toggle"><input name="experimentalDragOon" type="checkbox" /> EXPERIMENTAL DRAG-OON (BOTS &amp; PRIVATE ONLY)</label>
         </form>
         <p class="panel-copy private-rule-foot">You can still invite friends by code. Team matches fill unused places with bots.</p>
         <button id="private-create-right" class="mode-choice primary-command" type="button"><span>CREATE ROOM</span></button>
@@ -1156,7 +1162,7 @@
 
           <details class="practice-siege" id="practice-siege-machinations">
             <summary>SIEGE MACHINATIONS</summary>
-            <label class="siege-machine-choice" for="practice-siege-type">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option><option value="fight-and-flight">FIGHT-AND-FLIGHT</option></select></label>
+            <label class="siege-machine-choice" for="practice-siege-type">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option><option value="fight-and-flight">FIGHT-AND-FLIGHT</option><option value="drag-oon">DRAG-OON [EXPERIMENTAL]</option></select></label>
             <article class="practice-siege-machine">
               <header class="practice-siege-identity">
                 <h4 data-siege-title>BI-BYE-LLISTA</h4>
@@ -1173,6 +1179,49 @@
                 <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
                 <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
                 <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
+              </div>
+              <div id="practice-dragoon-config" class="practice-dragoon-config" hidden>
+                <strong class="practice-dragoon-head">DRAG-OON PROTOTYPE CONTROLS</strong>
+                <div class="practice-dragoon-presets">
+                  <button type="button" data-dragoon-action="setFuel" data-dragoon-val="100">FUEL 100</button>
+                  <button type="button" data-dragoon-action="setFuel" data-dragoon-val="20">FUEL 20</button>
+                  <button type="button" data-dragoon-action="setFuel" data-dragoon-val="0">FUEL 0</button>
+                  <button type="button" data-dragoon-action="setHeat" data-dragoon-val="0">HEAT 0</button>
+                  <button type="button" data-dragoon-action="setHeat" data-dragoon-val="115">HEAT 115</button>
+                  <button type="button" data-dragoon-action="setHeat" data-dragoon-val="170">HEAT 170</button>
+                  <button type="button" data-dragoon-action="setOverheatPenalty" data-dragoon-val="0">PENALTY 0</button>
+                  <button type="button" data-dragoon-action="setOverheatPenalty" data-dragoon-val="35">PENALTY 35</button>
+                  <button type="button" data-dragoon-action="setOverheatPenalty" data-dragoon-val="60">PENALTY 60</button>
+                  <button type="button" data-dragoon-action="setHullHealth" data-dragoon-val="2200">HULL FULL</button>
+                  <button type="button" data-dragoon-action="setHullHealth" data-dragoon-val="400">HULL 400</button>
+                  <button type="button" data-dragoon-action="setHullHealth" data-dragoon-val="80">HULL CRIT</button>
+                </div>
+                <label>SKILL <select id="practice-dragoon-skill">
+                  <option value="razeThePasture">RAZE THE PASTURE</option>
+                  <option value="flightLikeHell">FLIGHT LIKE HELL</option>
+                  <option value="campFire">CAMP FIRE</option>
+                  <option value="brimmingWithPotential">BRIMMING WITH POTENTIAL</option>
+                </select></label>
+                <label>PASSENGER CAP <select id="practice-dragoon-cap">
+                  <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                  <option value="4" selected>4 (DEFAULT)</option><option value="5">5</option><option value="6">6 (MAX)</option>
+                </select></label>
+                <div class="one-hit-practice-levels" id="practice-dragoon-infusions">
+                  <label>FIRE <select data-dragoon-infusion="fire"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                  <label>FROST <select data-dragoon-infusion="frost"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                  <label>GALE <select data-dragoon-infusion="gale"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                  <label>LIGHTNING <select data-dragoon-infusion="lightning"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                  <label>STEEL <select data-dragoon-infusion="steel"><option value="0">NONE</option><option value="1">PARTIAL</option><option value="2">FULL</option></select></label>
+                </div>
+                <div class="practice-dragoon-presets">
+                  <button type="button" data-dragoon-action="setFlightStage" data-dragoon-stage="airborne">AIRBORNE</button>
+                  <button type="button" data-dragoon-action="setFlightStage" data-dragoon-stage="grounded">GROUNDED</button>
+                  <button type="button" data-dragoon-action="spawnTestFire">TEST FIRE</button>
+                  <button type="button" data-dragoon-action="clearOverrides">CLEAR INF</button>
+                  <button type="button" data-dragoon-action="resetMachine">RESET</button>
+                  <button type="button" data-dragoon-action="triggerAbort">ALL ABORT!</button>
+                </div>
+                <small id="practice-dragoon-status" role="status">Experimental Practice tools affect Practice Yard only.</small>
               </div>
             </article>
           </details>

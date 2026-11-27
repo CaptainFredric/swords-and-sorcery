@@ -10,12 +10,14 @@ const fraction = (health, maxHealth) => maxHealth > 0 ? Math.max(0, Math.min(100
 export function machineGaugeView(local, snapshot, now = 0) {
   if (!local?.alive || !snapshot) return null;
   let machine, kind, title;
-  const opId = local.operatingRamId || local.operatingBallistaId || local.operatingFightFlightId;
+  const opId = local.operatingRamId || local.operatingBallistaId || local.operatingFightFlightId || local.operatingDragOonId || local.aboardDragOonId;
   if (!opId) return null;
   if (Array.isArray(snapshot.machines)) {
     machine = snapshot.machines.find(m => m && m.id === opId);
     if (machine) {
-      if (machine.type === 'flight' || machine.kind === 'flight' || local.operatingFightFlightId === machine.id) {
+      if (machine.kind === 'dragoon' || machine.class === 'drag-oon' || local.operatingDragOonId === machine.id || local.aboardDragOonId === machine.id) {
+        kind = 'dragoon'; title = 'DRAG-OON';
+      } else if (machine.type === 'flight' || machine.kind === 'flight' || local.operatingFightFlightId === machine.id) {
         kind = 'flight'; title = 'FIGHT-AND-FLIGHT';
       } else if (machine.type === 'ballista' || machine.kind === 'ballista' || local.operatingBallistaId === machine.id) {
         kind = 'ballista'; title = 'BI-BYE-LLISTA';
@@ -25,7 +27,9 @@ export function machineGaugeView(local, snapshot, now = 0) {
     }
   }
   if (!machine) {
-    if (local.operatingRamId && snapshot.soFistication?.id === local.operatingRamId) {
+    if ((local.operatingDragOonId || local.aboardDragOonId) && snapshot.dragOon?.id === opId) {
+      machine = snapshot.dragOon; kind = 'dragoon'; title = 'DRAG-OON';
+    } else if (local.operatingRamId && snapshot.soFistication?.id === local.operatingRamId) {
       machine = snapshot.soFistication; kind = 'ram'; title = 'SO-FIST-ICATION';
     } else if (local.operatingBallistaId && snapshot.bibyeBallista?.id === local.operatingBallistaId) {
       machine = snapshot.bibyeBallista; kind = 'ballista'; title = 'BI-BYE-LLISTA';
@@ -110,6 +114,31 @@ export function machineGaugeView(local, snapshot, now = 0) {
     };
     view.braces={left:brace('braceLHP','braceL','LEFT BRACE'),
       right:brace('braceRHP','braceR','RIGHT BRACE')};
+  } else if (kind === 'dragoon') {
+    const fuelMax = positive(machine.fuelMax) ? machine.fuelMax : 100;
+    const effectiveCap = positive(machine.effectiveFuelMax) ? machine.effectiveFuelMax : fuelMax;
+    const fuel = amount(machine.fuel);
+    const heat = amount(machine.heat);
+    const overheated = heat > 100 || amount(machine.overheatPenalty) > 0.5;
+    const paxCount = Array.isArray(machine.passengers) ? machine.passengers.filter(Boolean).length : 0;
+    const tiers = machine.infusions?.tiers ?? {};
+    const infParts = Object.entries(tiers).filter(([, t]) => t > 0).map(([k, t]) => `${k.toUpperCase()} ${t === 2 ? 'II' : 'I'}`);
+    view.component = {
+      label: `FUEL (CAP ${Math.round(effectiveCap)})`,
+      health: fuel,
+      maxHealth: fuelMax,
+      percent: fraction(fuel, fuelMax),
+      state: overheated ? 'overheated' : 'attached',
+    };
+    view.pressure = {
+      value: heat,
+      max: 220,
+      percent: fraction(heat, 220),
+      label: 'FURNACE HEAT',
+      overheated,
+    };
+    view.piston = `${machine.campFire?.sealed ? 'SEALED CAMP FIRE' : machine.flightLikeHell?.active ? 'FLIGHT LIKE HELL' : machine.raze?.phase === 'holding' ? 'RAZING RING' : machine.brimming?.active ? 'OVERPRESSURE' : 'HEAT ' + Math.round(heat)} · CREW ${paxCount}/${machine.passengerCapacity ?? 4}`;
+    view.context = infParts.length ? `INFUSIONS: ${infParts.join(' · ')}` : local.aboardDragOonId ? `APERTURE #${(local.dragOonStation ?? 0) + 1} · [Q] CAST · [T] EVACUATE` : '[LMB] SPRAY · [SPACE] LEAP · [RMB] STEAM · [U] SKILL';
   }
   return view;
 }

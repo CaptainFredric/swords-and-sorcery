@@ -3,6 +3,7 @@ import {highGroundsHudView} from './highGroundsHudView.mjs';
 import { renownTrialsView } from './renownTrialsView.mjs';
 import {restlessDayHudView} from './restlessDayHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
+import {dragOonHudView} from './dragOonHudView.mjs';
 import {mountedSiegeSkillTile} from './mountedSiegeSkillTile.mjs';
 import {hellpingContextPrompt} from './hellpingContextPrompt.mjs';
 import {biByeSweepCooldownView} from './biByeControlView.mjs';
@@ -498,8 +499,12 @@ export class HUD {
     globalThis.document?.body?.classList.toggle('siege-drafting', choosing);
     this.afflictionPanel.update(local, serverNow);
     const hp = Math.max(0, Math.min(100, local.health));
-    this.healthValue.textContent = String(Math.ceil(hp));
+    const drag = (local.operatingDragOonId || local.aboardDragOonId) ? ' · DRAG-OON THERMAL' : '';
+    const maxCap = Number.isFinite(local.maxHealth) && local.maxHealth < 100 ? ` [MAX ${Math.ceil(local.maxHealth)}]` : '';
+    this.healthValue.textContent = `${Math.ceil(hp)}${maxCap}`;
     this.healthFill.style.width = `${hp}%`;
+    this.armour?.classList.toggle('max-hp-reduced', Number.isFinite(local.maxHealth) && local.maxHealth < 99.5);
+    this.armour?.setAttribute('data-max-hp-title', drag);
     // The invulnerable 1-HP segment is a real part of the health bar, not
     // an on-screen warning. Its state is the same pure rule as the host's.
     this.armour?.classList.toggle('steel-floor',oneHitSteelFloorActive(local,serverNow));
@@ -581,11 +586,13 @@ export class HUD {
         .sort((a,b)=>a.distance-b.distance)[0];
       if(nearby && nearby.distance<22) this.matchInfo.textContent += ' · '+nearby.spell.toUpperCase()+' '+Math.round(nearby.distance)+'m';
     }
-    const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
-    this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
+    const siege = dragOonHudView(local,snapshot,serverNow,this.ballistaControls)??fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
+    const inDragOon=Boolean(local?.alive&&(local.operatingDragOonId||local.aboardDragOonId));
+    this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId||inDragOon)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
+    this.root.classList.toggle('dragoon-mounted', inDragOon);
     const gauge = machineGaugeView(local, snapshot, serverNow);
-    this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram');
+    this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram' || gauge?.kind === 'dragoon');
     const gaugeVisibilityChanged = this.machineGauge.hidden !== !gauge;
     this.machineGauge.hidden = !gauge;
     if (gaugeVisibilityChanged) this.#syncMachineCaptionClearance();
@@ -665,6 +672,9 @@ export class HUD {
         el.style.setProperty('--ram-pitch', Math.max(-10, Math.min(50, gauge.pitch)).toFixed(2) + 'deg');
       }
       if (gauge.pressure) {
+        this.driveHousing.dataset.kind = gauge.kind;
+        this.driveHousing.classList.toggle('overheated', Boolean(gauge.pressure.overheated));
+        this.driveHousing.querySelector('.drive-housing-head b').textContent = gauge.pressure.label ?? 'DRIVE PRESSURE';
         this.driveHousing.querySelector('[data-drive-value]').textContent =
           machineGaugeNumber(gauge.pressure.value) + '/' + machineGaugeNumber(gauge.pressure.max);
         this.driveHousing.querySelector('[data-drive-fill]').style.width = gauge.pressure.percent.toFixed(2) + '%';

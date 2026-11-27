@@ -84,6 +84,10 @@
 .drive-housing-track { height: 9px; margin-top: 4px; border: 1px solid #64553c; background: #10110e; position: relative; overflow: hidden; }
 .drive-housing-track::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 23%, #18181490 23% 25%); }
 .drive-housing-fill { width: var(--drive-pressure, 0%); height: 100%; background: linear-gradient(#f4d58b, #a98037); transition: width .12s linear; }
+.drive-housing[data-kind="dragoon"] .drive-housing-fill { background: linear-gradient(#ffb057, #d6551f); }
+.drive-housing[data-kind="dragoon"].overheated { border-color: #ef633c; box-shadow: inset 0 1px #ffb499, 0 0 10px rgba(239, 99, 60, .45); }
+.drive-housing[data-kind="dragoon"].overheated .drive-housing-fill { background: linear-gradient(#ffe08a, #e2381c); }
+.health-block.max-hp-reduced .health-value { color: #ffd4a6; }
 .hud.ram-mounted .bottom-hud { position: absolute; inset: 16px auto auto 22px; width: 250px; display: block; }
 .hud.ram-mounted .bottom-hud .health-block { width: 100%; }
 .hud.ram-mounted .guard-block { display: block !important; position: static; margin-top: 7px; width: 100%; transform: none; opacity: 1 !important; }

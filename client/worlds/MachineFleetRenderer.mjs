@@ -1,6 +1,7 @@
 import { SoFisticationRenderer } from './SoFisticationRenderer.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { FightFlightRenderer } from './FightFlightRenderer.mjs';
+import { DragOonRenderer } from './DragOonRenderer.mjs';
 import { BiByeMotion } from './biByeMotion.mjs';
 import { fleetRenderKind } from './fleetRenderKind.mjs';
 
@@ -56,7 +57,9 @@ export class MachineFleetRenderer {
         }
         let renderer = null;
         let motion = null;
-        if (type === 'flight') {
+        if (type === 'dragoon') {
+          renderer = new DragOonRenderer(this.scene);
+        } else if (type === 'flight') {
           renderer = new FightFlightRenderer(this.scene);
         } else if (type === 'ballista') {
           renderer = new BiByeLlistaRenderer(this.scene);
@@ -69,7 +72,9 @@ export class MachineFleetRenderer {
         this.fleet.set(machine.id, entry);
       }
 
-      if (type === 'flight') {
+      if (type === 'dragoon') {
+        entry.renderer.update(serverNow, machine, dt);
+      } else if (type === 'flight') {
         const proj = (snapshot.fightFlightProjectiles || []).filter(p => p.flightId === machine.id || !p.flightId);
         const burns = (snapshot.flightBurnZones || []).filter(b => b.flightId === machine.id || !b.flightId);
         entry.renderer.update(

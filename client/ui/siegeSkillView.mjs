@@ -38,6 +38,20 @@ export function siegeSkillControlLabel(b,now){
    return 'II PREPARING';
   return 'FIRE II';
  }
+ if(s.id==='razeThePasture'){
+  if(b.raze?.phase==='holding')return 'RELEASE TO IGNITE';
+  if(b.raze?.phase==='delay')return 'IGNITING…';
+  return remaining>0?`${Math.ceil(remaining)}s`:'HOLD RAZE';
+ }
+ if(s.id==='flightLikeHell'){
+  return b.flightLikeHell?.active?'END FLIGHT':remaining>0?`${Math.ceil(remaining)}s`:'AIRBURN';
+ }
+ if(s.id==='campFire'){
+  return b.campFire?.active?(b.campFire.reopeningAt?'UNSEALING…':'UNSEAL HATCHES'):remaining>0?`${Math.ceil(remaining)}s`:'CAMP & SEAL';
+ }
+ if(s.id==='brimmingWithPotential'){
+  return b.brimming?.active?'END OVERPRESSURE':remaining>0?`${Math.ceil(remaining)}s`:'OVERPRESSURE';
+ }
  return remaining>0?`${Math.ceil(remaining)}s`:'PRIME II';
 }
 export function siegeSkillLabel(b,now){
@@ -46,7 +60,11 @@ export function siegeSkillLabel(b,now){
   s.id==='longArmToTheJaw'?'Long Arm to the Jaw':
   s.id==='beatToThePunch'?'Beat to the Punch':
   s.id==='coldHowTouching'?'Cold, How Touching':
-  s.id==='lookAroundAndFindOut'?'Look Around and Find Out':'Bolt to the Occasion';
+  s.id==='lookAroundAndFindOut'?'Look Around and Find Out':
+  s.id==='razeThePasture'?'Raze the Pasture':
+  s.id==='flightLikeHell'?'Flight Like Hell':
+  s.id==='campFire'?'Camp Fire':
+  s.id==='brimmingWithPotential'?'Brimming with Potential':'Bolt to the Occasion';
  if(s.id==='coldHowTouching'&&s.phase==='active')return `${name}: ACTIVE · Bolt I proximity frost until Bolt II`;
  if(s.id==='beatToThePunch'&&s.phase==='primed'){
   const t=Math.max(0,now-(s.primedAt??now));

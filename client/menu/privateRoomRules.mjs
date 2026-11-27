@@ -27,8 +27,9 @@ export function privateRoomPreview(mode,form={}){
  // (Siege Blades plays rounds on its own clock: a format and a number of rounds, never a match time)
  const format=form.format??defs.format;
  const clash=(siege&&format==='ENDLESS'&&teamSize===1&&typeof form.clashStarts==='boolean')?{clashStarts:form.clashStarts}:{};
+ const exp=(siege&&form.experimentalDragOon)?{experimentalDragOon:true}:{};
  const siegeRules=siege?{format,
-   matchRounds:Number(form.matchRounds??defs.matchRounds),endlessRoundCap:Number(form.endlessRoundCap??defs.endlessRoundCap),...clash}:{};
+   matchRounds:Number(form.matchRounds??defs.matchRounds),endlessRoundCap:Number(form.endlessRoundCap??defs.endlessRoundCap),...clash,...exp}:{};
  const settings=roomSettings(baseline,{mode:chosen,worldId,...(siege?siegeRules:{matchSeconds:seconds}),
    ...(chosen==='FFA'?{scoreToWin:score}:{teamSize,botSkill})});
  if(settings.error)return {ok:false,error:settings.error};
@@ -36,11 +37,12 @@ export function privateRoomPreview(mode,form={}){
    ['ATTACKERS','DEFENDERS'].includes(form.team)?form.team:null;
  const siegeClashSuffix=(chosen==='SIEGE_BLADES'&&settings.teamSize===1&&settings.siegeBladesSettings?.format==='ENDLESS'&&typeof settings.siegeBladesSettings?.clashStarts==='boolean')
    ?(settings.siegeBladesSettings.clashStarts?' · CLASH ON':' · CLASH OFF'):'';
+ const siegeExpSuffix=(chosen==='SIEGE_BLADES'&&settings.siegeBladesSettings?.experimentalDragOon)?' · DRAG-OON EXP':'';
  const summary=chosen==='EDGE_OF_VICTORY' ? 'EDGE OF VICTORY · FOUR KNIGHTS · LAST STANDING'
     : chosen==='FFA'
    ?`FREE-FOR-ALL · FIRST TO ${settings.scoreToWin} · ${minutes} MIN`
    : chosen==='SIEGE_BLADES'
-   ?`SIEGE BLADES · ${settings.teamSize}V${settings.teamSize} · ${siegeRoundsLabel(settings.siegeBladesSettings)}${siegeClashSuffix}`
+   ?`SIEGE BLADES · ${settings.teamSize}V${settings.teamSize} · ${siegeRoundsLabel(settings.siegeBladesSettings)}${siegeClashSuffix}${siegeExpSuffix}`
    :`${chosen==='BREAKTHROUGH'?'BREAKTHROUGH':chosen==='RESTLESS_DAY'?'RESTLESS DAY':'HIGH GROUNDS'} · ${settings.teamSize}V${settings.teamSize} · ${minutes} MIN`;
  return {ok:true,settings,team:requestedTeam,summary};
 }

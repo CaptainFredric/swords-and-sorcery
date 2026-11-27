@@ -7,6 +7,7 @@ import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
 import {createFlickThumbRestraint,restrainFlickThumb,createHellpingThumbRestraint,restrainHellpingThumb} from '../worlds/soFistThumbRestraint.mjs';
 import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
 import { FLIGHT_CLIPS } from '../worlds/flightAnimationState.mjs';
+import { DragOonRenderer } from '../worlds/DragOonRenderer.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -45,7 +46,7 @@ function graftWorkshopArgonHand(base,donor){
 }
 
 const AUTHORED_SCALE = { soFist: SO_FIST_SCALE, biBye: 1, fightFlight: 1 };
-const REST_YAW = { soFist: Math.PI - .28, biBye: Math.PI - .32, fightFlight: Math.PI - .35 };
+const REST_YAW = { soFist: Math.PI - .28, biBye: Math.PI - .32, fightFlight: Math.PI - .35, dragOon: Math.PI - .34 };
 const IDLE_CLIP = { biBye: '01_BiBye_LoadedIdle', fightFlight: 'Posture_01_Grounded_Idle' };
 const BOUNDS_CLIPS = {
   soFist: ['01_Ram_Strike_Full_Cycle'],
@@ -483,8 +484,37 @@ export class SiegeWorkshopScene {
     this.fallbacks.set('fightFlight', flightFallback);
   }
 
+  #ensureDragOonPrototype() {
+    if (this.cache.has('dragOon')) return this.cache.get('dragOon');
+    const holder = new THREE.Group();
+    const renderer = new DragOonRenderer(holder);
+    renderer.update(0, {
+      x: 0, y: 0, z: 0, heading: 0, health: 2200, maxHealth: 2200,
+      fuel: 100, fuelMax: 100, heat: 32, infusions: { tiers: { fire: 1 } },
+    }, 0);
+    const model = renderer.root;
+    model.name = 'Prototype_dragOon';
+    model.visible = true;
+    model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    model.userData = {
+      isAuthored: true,
+      experimentalPrototype: true,
+      machineId: 'dragOon',
+      restingBounds: box,
+      motionBounds: box,
+      bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
+      prototypeRenderer: renderer,
+    };
+    this.cache.set('dragOon', model);
+    return model;
+  }
+
   selectMachine(id) {
-    if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
+    if (!['soFist', 'biBye', 'fightFlight', 'dragOon'].includes(id)) return;
+    if (id === 'dragOon') this.#ensureDragOonPrototype();
     const cached = this.cache.get(id);
     const alreadyReady = cached?.userData?.isAuthored && cached.userData.machineId === id;
     if (this.activeMachineId === id && this.machinePivot.children.length === 1 && this.machinePivot.children[0]?.userData?.machineId === id && (alreadyReady || this.inFlight.has(id) || this.loadStates.get(id) === 'error')) {
@@ -501,11 +531,12 @@ export class SiegeWorkshopScene {
       this.machinePivot.remove(this.machinePivot.children[0]);
     }
 
-    // Attach cached authored GLTF if ready; otherwise keep hidden fallback bounds for camera framing
+    // Attach cached authored GLTF or prototype if ready; otherwise keep hidden fallback bounds for camera framing
     // while static transparent preview holds the viewport until first authored frame renders.
     if (alreadyReady) {
       this.machinePivot.add(cached);
-      this.loadStates.set(id, 'ready');
+      this.loadStates.set(id, id === 'dragOon' ? 'prototype' : 'ready');
+      if (id === 'dragOon') this.firstFrameRendered.add(id);
       this.machinePivot.visible = true;
     } else {
       const fallback = this.fallbacks.get(id);
@@ -739,10 +770,12 @@ export class SiegeWorkshopScene {
     const child = this.machinePivot.children[0];
     const id = this.activeMachineId;
     const isAuthored = this.isDisplayingAuthored(id);
-    const loadState = isAuthored ? 'ready' : (this.loadStates.get(id) ?? (this.inFlight.has(id) ? 'loading' : 'idle'));
+    const experimentalPrototype = Boolean(child?.userData?.experimentalPrototype);
+    const loadState = experimentalPrototype ? 'prototype' : isAuthored ? 'ready' : (this.loadStates.get(id) ?? (this.inFlight.has(id) ? 'loading' : 'idle'));
     return {
       id,
       isAuthored,
+      experimentalPrototype,
       loadState,
       firstFrameReady: isAuthored && this.firstFrameRendered.has(id),
       childName: child?.name ?? null,

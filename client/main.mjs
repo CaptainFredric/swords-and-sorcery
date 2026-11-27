@@ -1215,6 +1215,7 @@ function currentSiegeDraft() {
     matchRounds: menuController.siegeRounds(),
     endlessRoundCap: menuController.siegeEndlessRounds(),
     clashStarts: menuController.siegeClashStarts(),
+    experimentalDragOon: menuController.siegeExperimentalDragOon(),
   };
 }
 function openSiegeBladesMenu() {
@@ -1482,6 +1483,14 @@ function renderSiegeHub() {
     clashEl.hidden = !(format === 'ENDLESS' && size === 1);
     markChips(clashEl, 'data-clash', (c) => (c.dataset.clash === 'on') === clash);
   }
+  const expDrag = menuController.siegeExperimentalDragOon();
+  const expBtn = $('#siege-hub-exp-dragoon');
+  if (expBtn) {
+    expBtn.classList.toggle('mine', expDrag);
+    expBtn.setAttribute('aria-pressed', String(expDrag));
+    expBtn.setAttribute('aria-checked', String(expDrag));
+    expBtn.textContent = expDrag ? 'DRAG-OON PROTOTYPE ON (BOTS / PRIVATE)' : 'DRAG-OON (BOTS / PRIVATE)';
+  }
   markChips($('#siege-hub-rival'), 'data-skill', (c) => c.dataset.skill === skill);
   const noteEl = $('#siege-hub-rival-note');
   if (noteEl) noteEl.textContent = RIVAL_NOTES[skill] ?? '';
@@ -1490,8 +1499,9 @@ function renderSiegeHub() {
     const arenaName = arena === 'outerworks' ? 'THE OUTERWORKS' : arena === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'THE HIGH GROUNDS';
     const formatText = format === 'MATCH' ? `MATCH (${rounds} ROUNDS)` : (endlessCap ? `ENDLESS (${endlessCap} CAP)` : 'ENDLESS (NO CAP)');
     const clashText = format === 'ENDLESS' && size === 1 ? ` · ${clash ? 'CLASH ON' : 'CLASH OFF'}` : '';
+    const expText = expDrag ? ' · DRAG-OON EXP' : '';
     const skillText = skill === 'spellblade' ? 'THE SPELLBLADE' : skill.toUpperCase();
-    summaryEl.textContent = `${size}V${size} · ${arenaName} · ${formatText}${clashText} · ${skillText}`;
+    summaryEl.textContent = `${size}V${size} · ${arenaName} · ${formatText}${clashText}${expText} · ${skillText}`;
   }
 }
 $('#siege-hub-size')?.addEventListener('click', (e) => {
@@ -1531,6 +1541,10 @@ $('#siege-hub-clash-wrap')?.addEventListener('click', (e) => {
   menuController.chooseSiegeClashStarts(chip.dataset.clash === 'on');
   renderSiegeHub();
 });
+$('#siege-hub-exp-dragoon')?.addEventListener('click', () => {
+  menuController.chooseSiegeExperimentalDragOon(!menuController.siegeExperimentalDragOon());
+  renderSiegeHub();
+});
 $('#siege-hub-rival')?.addEventListener('click', (e) => {
   const chip = e.target.closest?.('[data-skill]');
   if (!chip) return;
@@ -1561,6 +1575,7 @@ $('#siege-play-bots')?.addEventListener('click', () => {
     matchRounds: draft.matchRounds,
     endlessRoundCap: draft.endlessRoundCap,
     clashStarts: draft.clashStarts,
+    experimentalDragOon: draft.experimentalDragOon,
   }), SCREEN_IDS.SIEGE_BLADES_MENU);
 });
 $('#siege-browse-matches')?.addEventListener('click', () => {
@@ -1770,7 +1785,8 @@ function privateFields(){
   return {worldId:f.worldId.value,minutes:f.minutes.value,scoreToWin:f.scoreToWin.value,
     teamSize:f.teamSize.value,team:f.team.value,botSkill:f.botSkill.value,
     format:f.format.value,matchRounds:f.matchRounds.value,endlessRoundCap:f.endlessRoundCap.value,
-    clashStarts:endlessOne&&f.clashStarts?f.clashStarts.value==='on':null};
+    clashStarts:endlessOne&&f.clashStarts?f.clashStarts.value==='on':null,
+    experimentalDragOon:Boolean(privateModeSelected==='SIEGE_BLADES'&&f.experimentalDragOon?.checked)};
 }
 function renderPrivateMode({reset=true}={}){
   const mode=privateModeSelected,siege=mode==='SIEGE_BLADES',teamMode=mode==='BREAKTHROUGH'||mode==='HIGH_GROUNDS'||siege;
@@ -1796,6 +1812,7 @@ function renderPrivateMode({reset=true}={}){
       f.endlessRoundCap.value=defaults.endlessRoundCap;
       if(f.clashStarts)f.clashStarts.value='on';
     }
+    if(f.experimentalDragOon)f.experimentalDragOon.checked=false;
     if(teamMode||mode==='EDGE_OF_VICTORY'){
       if(teamMode)f.teamSize.value=defaults.teamSize;
       if(teamMode)f.team.value=defaults.team;
@@ -1815,6 +1832,8 @@ function renderPrivateMode({reset=true}={}){
   privateForm.querySelector('[data-private-cap]').hidden=!endless;
   const clashRow=privateForm.querySelector('[data-private-clash]');
   if(clashRow)clashRow.hidden=!clashShown;
+  const expRow=privateForm.querySelector('[data-private-exp-dragoon]');
+  if(expRow)expRow.hidden=!siege;
   const note=mode==='EDGE_OF_VICTORY'?'The battlefield shrinks; your knight refuses to abandon the fight. Last survivor wins.':
     mode==='RESTLESS_DAY'?'Scale two castle walls and destroy the Rightful Renowner before sundown.':
     mode==='FFA'?'Every Spellblade for themselves. First to ten.':
@@ -2282,7 +2301,7 @@ function applySettings() {
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
 }
-const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill')});
+const siegeSelections=()=>({biBye:settings.get('loadout.bibyeSkill'),soFist:settings.get('loadout.soFistSkill'),fightFlight:settings.get('loadout.fightFlightSkill'),dragOon:settings.get('loadout.dragOonSkill')});
 const transmitLoadout=()=>socket.loadout(settings.get('loadout.spell'),settings.get('loadout.ultimate'),
   settings.get('loadout.preparedSpells'),siegeSelections(),settings.get('loadout.technique'));
 // Seed the solo host from the same validated settings the Armory displays, including after reload.
@@ -2322,7 +2341,7 @@ settings.onChange((change) => {
     transmitLoadout();
     renderArmory();
   }
-  if (change.id === 'loadout.bibyeSkill' || change.id === 'loadout.soFistSkill' || change.id === 'loadout.fightFlightSkill') { transmitLoadout(); renderArmory(); }
+  if (change.id === 'loadout.bibyeSkill' || change.id === 'loadout.soFistSkill' || change.id === 'loadout.fightFlightSkill' || change.id === 'loadout.dragOonSkill') { transmitLoadout(); renderArmory(); }
   if (change.id === 'audio.soundtrack') {
     syncSoundscape();
   }
@@ -2810,8 +2829,12 @@ function updateSiegePreviewUI(skillId, unavailableSkill=null) {
       narrowToOne:'NARROW TO ONE',
       doNotStopMyAscension:'DO NOT STOP MY ASCENSION',
     };
-    hint.textContent=skillId ? `DEMONSTRATING ${names[skillId]??'SKILL'} · TAP AGAIN TO REPLAY`
-      :'SELECT A SKILL TO WATCH ITS WORKSHOP DEMONSTRATION.';
+    if (armoryLocation.siegeMachine === 'dragOon') {
+      hint.textContent = 'EXPERIMENTAL PROTOTYPE · SELECT A SKILL TO EQUIP FOR BOTS / PRIVATE PLAY & PRACTICE.';
+    } else {
+      hint.textContent=skillId ? `DEMONSTRATING ${names[skillId]??'SKILL'} · TAP AGAIN TO REPLAY`
+        :'SELECT A SKILL TO WATCH ITS WORKSHOP DEMONSTRATION.';
+    }
   }
 }
 
@@ -2888,7 +2911,7 @@ function setSiegeAbilityDetail(abilityId, machineId = armoryLocation.siegeMachin
     return;
   }
   if (siegeSkillDetailId) setSiegeSkillDetail(null);
-  const machine = siegeArmoryView(siegeSelections()).find((item) => item.id === machineId);
+  const machine = siegeArmoryView(siegeSelections(), { experimental: machineId === 'dragOon' }).find((item) => item.id === machineId);
   const ability = machine?.attacks?.find((atk) => atk.id === abilityId);
   if (!ability) {
     setSiegeAbilityDetail(null);
@@ -2924,7 +2947,7 @@ function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
     return;
   }
   if (siegeAbilityDetailId) setSiegeAbilityDetail(null);
-  const machine = siegeArmoryView(siegeSelections()).find((item) => item.id === machineId);
+  const machine = siegeArmoryView(siegeSelections(), { experimental: machineId === 'dragOon' }).find((item) => item.id === machineId);
   const skill = machine?.skills?.find((s) => s.id === skillId);
   if (!skill) {
     setSiegeSkillDetail(null);
@@ -2945,6 +2968,7 @@ function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
   }
   const demoBtn = $('#siege-skill-detail-demo');
   if (demoBtn) {
+    demoBtn.hidden = machineId === 'dragOon';
     demoBtn.dataset.siegeMachine = machineId;
     demoBtn.dataset.siegeSkill = skill.id;
   }
@@ -2961,6 +2985,18 @@ function updateSiegeWorkshopStageUI(status) {
   const statusText = $('#siege-model-status-text');
   const retryBtn = $('#siege-model-retry');
   if (!stage || !status?.id) return;
+  if (status.id === 'dragOon') {
+    if (img) img.hidden = true;
+    stage.classList.remove('is-static-preview');
+    stage.classList.add('is-experimental-prototype');
+    if (statusBox) {
+      statusBox.hidden = false;
+      if (statusText) statusText.textContent = 'Experimental prototype geometry · Production 3D model in development';
+      if (retryBtn) retryBtn.hidden = true;
+    }
+    return;
+  }
+  stage.classList.remove('is-experimental-prototype');
   const previewPath = appUrl(`/client/assets/props/siege-portraits/workshop-${status.id}.webp`);
   if (img) {
     if (img.dataset.machine !== status.id) {
@@ -2999,6 +3035,14 @@ function renderSiegeWorkshop(machineId = 'soFist') {
     tab.classList.toggle('selected', isCurrent);
     tab.setAttribute('aria-pressed', String(isCurrent));
   }
+  const expBtn = $('#siege-experimental-dragoon-btn');
+  if (expBtn) {
+    const viewingExp = machineId === 'dragOon';
+    expBtn.setAttribute('aria-pressed', String(viewingExp));
+    expBtn.textContent = viewingExp ? '← RETURN TO CANONICAL MACHINES' : 'DRAG-OON PROTOTYPE LOADOUT →';
+  }
+  const badgeEl = $('#siege-badge');
+  if (badgeEl) badgeEl.textContent = machineId === 'dragOon' ? 'EXPERIMENTAL PROTOTYPE' : 'SIEGE MACHINE';
 
   menuScene?.siegeWorkshop?.selectMachine(machineId);
   if (menuScene?.siegeWorkshop) updateSiegeWorkshopStageUI(menuScene.siegeWorkshop.getActiveModelStatus());
@@ -3009,7 +3053,7 @@ function renderSiegeWorkshop(machineId = 'soFist') {
   }
 
   const selections = siegeSelections();
-  const machines = siegeArmoryView(selections);
+  const machines = siegeArmoryView(selections, { experimental: machineId === 'dragOon' });
   const m = machines.find((item) => item.id === machineId) || machines[0];
 
   $('#siege-title').textContent = m.name;
@@ -3230,15 +3274,16 @@ $('#armory-siege-machines').addEventListener('click', (event) => {
   if (!button || button.disabled) return;
   const setting = button.dataset.siegeMachine === 'biBye' ? 'loadout.bibyeSkill' :
     button.dataset.siegeMachine === 'soFist' ? 'loadout.soFistSkill' :
-    button.dataset.siegeMachine === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
+    button.dataset.siegeMachine === 'fightFlight' ? 'loadout.fightFlightSkill' :
+    button.dataset.siegeMachine === 'dragOon' ? 'loadout.dragOonSkill' : null;
   if (setting) {
     const motion=prepareSiegeSkillReorder(button.dataset.siegeSkill);
     settings.set(setting, button.dataset.siegeSkill);
     renderSiegeWorkshop(armoryLocation.siegeMachine);
     motion();
-    const started=menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill)===true;
+    const started=button.dataset.siegeMachine!=='dragOon'&&menuScene?.siegeWorkshop?.playPreview(button.dataset.siegeSkill)===true;
     updateSiegePreviewUI(started?button.dataset.siegeSkill:null,
-      started?null:button.dataset.siegeSkill);
+      started?null:(button.dataset.siegeMachine==='dragOon'?null:button.dataset.siegeSkill));
   }
 });
 
@@ -3252,7 +3297,7 @@ $('#siege-skill-detail-back')?.addEventListener('click', () => {
 $('#siege-skill-detail-demo')?.addEventListener('click', (event) => {
   const btn = event.currentTarget;
   const skillId = btn.dataset.siegeSkill;
-  if (!skillId) return;
+  if (!skillId || armoryLocation.siegeMachine === 'dragOon') return;
   const started = menuScene?.siegeWorkshop?.playPreview(skillId) === true;
   updateSiegePreviewUI(started ? skillId : null, started ? null : skillId);
 });
@@ -3263,12 +3308,18 @@ $('#siege-skill-detail-equip')?.addEventListener('click', (event) => {
   const skillId = btn.dataset.siegeSkill;
   const setting = machineId === 'biBye' ? 'loadout.bibyeSkill' :
     machineId === 'soFist' ? 'loadout.soFistSkill' :
-    machineId === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
+    machineId === 'fightFlight' ? 'loadout.fightFlightSkill' :
+    machineId === 'dragOon' ? 'loadout.dragOonSkill' : null;
   if (setting && skillId) {
     settings.set(setting, skillId);
     renderSiegeWorkshop(armoryLocation.siegeMachine);
     setSiegeSkillDetail(skillId, machineId);
   }
+});
+
+$('#siege-experimental-dragoon-btn')?.addEventListener('click', () => {
+  const next = armoryLocation.siegeMachine === 'dragOon' ? 'soFist' : 'dragOon';
+  renderSiegeWorkshop(next);
 });
 
 $('#siege-model-retry')?.addEventListener('click', () => {
@@ -3571,6 +3622,45 @@ function updateHostileSkillChoices(machine,active=null){
   select.disabled=machine==='valkyrie';
   select.dataset.machine=machine;
 }
+const pendingDragOonControls=new Map();
+function markPendingDragOon(key,val){pendingDragOonControls.set(key,{val:String(val),until:performance.now()+3500});}
+function syncPracticeDragOonPanel(drag){
+  const panel=$('#practice-dragoon-config');
+  const machineType=$('#practice-siege-type')?.value;
+  if(!panel)return;
+  const liveDrag=drag&&!drag.retired?drag:null;
+  panel.hidden=!(machineType==='drag-oon'||liveDrag);
+  if(panel.hidden)return;
+  const now=performance.now();
+  const applySelect=(id,val)=>{
+    const el=$(id);if(!el||val===undefined||val===null)return;
+    const p=pendingDragOonControls.get(id);
+    if(p&&now<p.until)return;
+    pendingDragOonControls.delete(id);
+    if(el.value!==String(val))el.value=String(val);
+  };
+  if(liveDrag){
+    applySelect('#practice-dragoon-skill',liveDrag.skill?.id);
+    applySelect('#practice-dragoon-cap',liveDrag.passengerCapacity??4);
+    for(const sel of panel.querySelectorAll('[data-dragoon-infusion]')){
+      const elName=sel.dataset.dragoonInfusion;
+      const tier=liveDrag.infusions?.tiers?.[elName]??0;
+      const key='inf:'+elName;
+      const p=pendingDragOonControls.get(key);
+      if(p&&now<p.until)continue;
+      pendingDragOonControls.delete(key);
+      if(sel.value!==String(tier))sel.value=String(tier);
+    }
+    const status=$('#practice-dragoon-status');
+    if(status){
+      const tiers=Object.entries(liveDrag.infusions?.tiers??{}).filter(([,t])=>t>0).map(([k,t])=>`${k.toUpperCase()} ${t===2?'II':'I'}`);
+      status.textContent=`HULL ${Math.ceil(liveDrag.health)}/${liveDrag.maxHealth} · FUEL ${Math.round(liveDrag.fuel??0)}/${Math.round(liveDrag.effectiveFuelMax??100)} · HEAT ${Math.round(liveDrag.heat??0)} · SKILL ${(SIEGE_SKILL_NAMES[liveDrag.skill?.id]??liveDrag.skill?.id??'NONE').toUpperCase()}${tiers.length?' · '+tiers.join(' + '):''}`;
+    }
+  }else{
+    const status=$('#practice-dragoon-status');
+    if(status)status.textContent='Build DRAG-OON above to test fuel, heat, overheat penalties, infusions, and skills.';
+  }
+}
 function updateInspectionControls() {
   const destinationWorld = latestSnapshot?.mode === 'PRACTICE' && !latestSnapshot.tutorial ? latestSnapshot.worldId : null;
   const reposition = $('#practice-reposition');
@@ -3596,7 +3686,10 @@ function updateInspectionControls() {
   const machineType=$('#practice-siege-type').value;
   const ram=machineType==='so-fist-ication';
   const flight=machineType==='fight-and-flight';
-  const machine=Boolean(flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
+  const dragOon=machineType==='drag-oon';
+  const liveDrag=latestSnapshot?.dragOon&&!latestSnapshot.dragOon.retired?latestSnapshot.dragOon:null;
+  const machine=Boolean(dragOon?liveDrag:flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
+  syncPracticeDragOonPanel(liveDrag);
   const name=practiceSiegeCopy(machineType)?.name??'BI-BYE-LLISTA';
   renderPracticeSiegeStory(machineType);
   for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').textContent=preparingSiege&&action!=='dismantle'?'PREPARING CARRIAGE…':action.toUpperCase()+(action==='build'?' A ':' ')+name;
@@ -3778,6 +3871,33 @@ for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-biby
     if(!loaded){$('#practice-siege-status').textContent='The carriage could not load. Try Build again.';return;}
   }
   socket.send({type:'practiceSiege',action,machine});
+});
+const practiceDragOonPanel=$('#practice-dragoon-config');
+practiceDragOonPanel?.addEventListener('click',event=>{
+  const btn=event.target.closest?.('[data-dragoon-action]');
+  if(!btn||latestSnapshot?.mode!=='PRACTICE')return;
+  const action=btn.dataset.dragoonAction;
+  const val=Number(btn.dataset.dragoonVal);
+  if(action==='setFuel')socket.send({type:'practiceDragOon',action,fuel:val});
+  else if(action==='setHeat')socket.send({type:'practiceDragOon',action,heat:val});
+  else if(action==='setOverheatPenalty')socket.send({type:'practiceDragOon',action,penalty:val});
+  else if(action==='setHullHealth')socket.send({type:'practiceDragOon',action,health:val});
+  else if(action==='setFlightStage')socket.send({type:'practiceDragOon',action,stage:btn.dataset.dragoonStage});
+  else socket.send({type:'practiceDragOon',action});
+});
+practiceDragOonPanel?.addEventListener('change',event=>{
+  if(latestSnapshot?.mode!=='PRACTICE')return;
+  const el=event.target;
+  if(el?.id==='practice-dragoon-skill'){
+    markPendingDragOon('#practice-dragoon-skill',el.value);
+    socket.send({type:'practiceDragOon',action:'setSkill',skill:el.value});
+  }else if(el?.id==='practice-dragoon-cap'){
+    markPendingDragOon('#practice-dragoon-cap',el.value);
+    socket.send({type:'practiceDragOon',action:'setPassengerCapacity',capacity:Number(el.value)});
+  }else if(el?.dataset?.dragoonInfusion){
+    markPendingDragOon('inf:'+el.dataset.dragoonInfusion,el.value);
+    socket.send({type:'practiceDragOon',action:'setInfusionTier',element:el.dataset.dragoonInfusion,tier:Number(el.value)});
+  }
 });
 $('#shared-practice-copy')?.addEventListener('click',async()=>{
   const code=latestSnapshot?.sharedPractice?latestSnapshot?.roomCode:null;
