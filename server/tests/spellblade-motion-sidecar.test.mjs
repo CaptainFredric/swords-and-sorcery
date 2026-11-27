@@ -5,8 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { loadGlb, localPose, overlayMotion, worldMatrices, apply } from '../../scripts/lib/glbPose.mjs';
-import { skinnedHeights, skinnedMeshes } from '../../scripts/lib/glbSkin.mjs';
+import { loadGlb, localPose, overlayMotion, composeMotion, worldMatrices, apply } from '../../scripts/lib/glbPose.mjs';
+import { skinnedHeights, skinnedMeshes, swordPoint } from '../../scripts/lib/glbSkin.mjs';
 import { SWORD_TECHNIQUE_CONTRACTS } from '../../shared/src/swordTechniqueContracts.mjs';
 import { riposteBraceClipTime, swordTechniqueAnimationPlan } from '../../client/game/spellbladeAnimationPlan.mjs';
 import { STRIKE_CLIPS } from '../../client/game/swordChainPresentation.mjs';
@@ -129,31 +129,39 @@ test('the techniques stand on the canonical floor and their clips meet end to en
   for (const clip of TECHNIQUE_CLIPS.filter((c) => c.startsWith('Technique_Whirl_'))) assert.ok(!model.clips.get(clip).channels.some((c) => c.node === root), clip);
 });
 
-test('the corrected first cut uses the newer grounded legs and PR #457 sword contact and raised follow-through', () => {
-  const latest = canonical(), source = withMotion();
-  const modelPose = (model,t) => worldMatrices(model,localPose(model,[{clip:'Slash_1',time:t,weight:1}]));
-  const point = (model,t,bone,p=[0,0,0]) => apply(modelPose(model,t)[model.byName.get(bone)],p);
-  const tip = (model,t) => point(model,t,'hand.R',TIP);
-  const clip = STRIKE_CLIPS.Slash_1;
-  // The authored first cut travels from the knight's right to his left,
-  // contacts ahead of the hitbox and leaves the blade raised in recovery.
-  const starting=tip(source,0),hit=tip(source,clip.contact),end=tip(source,clip.far);
-  assert.ok(starting[0]>0.6,'starts on the right');
-  assert.ok(hit[0]<0.35 && hit[2]<-1.5,'physical blade crosses the enemy at the contact');
-  assert.ok(end[0]<-0.7,'follows through on the left');
-  // The sidecar never animates the feet. Those belong exclusively to the
-  // canonical new model under production composition (the 89-clip gait).
-  const motion=loadGlb(new URL('spellblade-motion.glb',dir).pathname);
-  const feet=['thigh.L','shin.L','foot.L','thigh.R','shin.R','foot.R'];
-  for(const channel of motion.clips.get('Slash_1').channels){
-    const name=motion.gltf.nodes[channel.node].name;
-    assert.ok(!feet.includes(name),`Slash_1 sidecar took over the new footwork: ${name}`);
+test('de8c8655 plays its own corrected first cut (not PR #457\'s), on the server\'s contact, with the technique phases beside it', () => {
+  // (PR #457's sidecar Slash_1 was laid over the 89-clip model's flop; under Argon's de8c8655 it would bring the flop
+  // back: the forehand 123 degrees round with the wrist folded 26, where the model's own reaches 51 with 5)
+  const overrides = manifest.thirdPerson.motionOverrides ?? ['Slash_1'];
+  assert.deepEqual(overrides, [], 'the manifest asks for no Slash_1 override');
+  const own = canonical();
+  const shown = composeMotion(canonical(), new URL('spellblade-motion.glb', dir).pathname, { overrides });
+  // the clip the client plays is the model's own, frame for frame
+  for (let t = 0; t <= own.clips.get('Slash_1').duration + 1e-9; t += 1 / 30) {
+    const a = localPose(own, [{ clip: 'Slash_1', time: t, weight: 1 }]), b = localPose(shown, [{ clip: 'Slash_1', time: t, weight: 1 }]);
+    for (let i = 0; i < a.length; i += 1) for (let c = 0; c < 4; c += 1) assert.ok(Math.abs(a[i].r[c] - b[i].r[c]) < 1e-6, `node ${i} differs at ${t.toFixed(3)}s`);
   }
-  // The new model itself retains its complete grounded pose and finished
-  // follow-through; measuring its actual contact prevents a blind override.
-  const newHit=tip(latest,clip.contact);
-  assert.ok(newHit[0]<0.35&&newHit[2]<-1.5,'new canonical cut also crosses forward');
-  assert.ok(tip(latest,clip.far)[0]<-1,'new grounded follow-through remains on left');
+  // the sidecar's technique phases are still there
+  for (const name of meta.clips.map((c) => c.name).filter((n) => n !== 'Slash_1')) assert.ok(shown.clips.has(name), name);
+  // the forehand, measured as shown (heading: 0 the aim, + the knight's left; the model faces -z)
+  const { joint, tip } = swordPoint(shown);
+  const pose = (t) => worldMatrices(shown, localPose(shown, [{ clip: 'Slash_1', time: t, weight: 1 }]));
+  const blade = (w) => { const g = apply(w[joint], [0, 0, 0]), p = apply(w[joint], tip); return p.map((v, i) => v - g[i]); };
+  const heading = (v) => Math.atan2(-v[0], -v[2]) * 180 / Math.PI;
+  const angle = (a, b) => Math.acos(Math.max(-1, Math.min(1, a.reduce((s, v, i) => s + v * b[i], 0) / (Math.hypot(...a) * Math.hypot(...b))))) * 180 / Math.PI;
+  const { contact, far } = STRIKE_CLIPS.Slash_1;
+  // it crosses the aim on the presentation's contact frame (which the server's contact is shown on), within a frame
+  let crossing = null, prev = null;
+  for (let t = .3; t <= .45; t += 1 / 480) { const h = heading(blade(pose(t))); if (prev !== null && prev < 0 && h >= 0) { crossing = t; break; } prev = h; }
+  assert.ok(crossing !== null && Math.abs(crossing - contact) <= 1 / 30, `crosses the aim at ${crossing?.toFixed(3)}s, the plan says ${contact}s`);
+  // its follow-through stays in front of him on his left, the wrist held: never round behind the shoulder, never folded
+  const forearm = (w) => { const h = apply(w[shown.byName.get('hand.R')], [0, 0, 0]), f = apply(w[shown.byName.get('forearm.R')], [0, 0, 0]); return h.map((v, i) => v - f[i]); };
+  for (let t = contact + .11; t <= far + 1e-9; t += 1 / 60) {
+    const w = pose(t);
+    assert.ok(heading(blade(w)) <= 60, `the blade ${heading(blade(w)).toFixed(0)} degrees round at ${t.toFixed(3)}s (the 89's went to 123)`);
+    assert.ok(angle(forearm(w), blade(w)) <= 10, `the wrist folds ${angle(forearm(w), blade(w)).toFixed(0)} degrees at ${t.toFixed(3)}s (the 89's to 26)`);
+  }
+  assert.ok(heading(blade(pose(far))) > 30, 'and it is carried through to his left, not checked at the middle');
 });
 
 // --- the first-person sidecar (tools/assets/build-spellblade-fp-motion.mjs)

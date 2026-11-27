@@ -232,6 +232,8 @@ try {
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'practice entry');
   await evaluate("document.querySelector('#practice-mode').click()");
+  // Practice Yard is select-then-launch now: the first click only chooses it.
+  await evaluate("document.querySelector('#solo-launch').click()");
   await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing)"), 'practice yard loaded');
 
   // Enable mobile touch presentation and log errors
@@ -537,6 +539,8 @@ try {
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'practice entry Test 4');
   await evaluate("document.querySelector('#practice-mode').click()");
+  // Practice Yard is select-then-launch now: the first click only chooses it.
+  await evaluate("document.querySelector('#solo-launch').click()");
   await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && window.__ssRuntime?.playing && window.__ssRuntime?.localAuth?.spell === 'fireball' && window.__ssRuntime?.localAuth?.ultimate === 'chivalry')"), 'practice loaded with Fireball & Chivalry');
 
   await evaluate(`(() => {
