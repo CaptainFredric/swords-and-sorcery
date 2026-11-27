@@ -28,6 +28,8 @@
 //     (the breastplate's waist blended pelvis -> spine -> chest over 27 cm instead of changing hands in 10)
 //   node scripts/transplant-spellblade-clips.mjs --blend-collar [--apply]
 //     (the collar's column, the helmet's chin, blended chest -> neck -> head so it goes with the helmet)
+//   node scripts/transplant-spellblade-clips.mjs --clean-rims [--apply]
+//     (the pauldrons' sawtooth open edge trimmed of its spikes and eased into a clean line)
 //   node scripts/transplant-spellblade-clips.mjs --mirror-back [--apply]
 //     (the breastplate's front reflected to make his back: replaces the Backplate's geometry)
 //   node scripts/transplant-spellblade-clips.mjs --add-backplate [--apply]
@@ -1046,6 +1048,70 @@ function mirrorBack(baseFile, spec = MIRROR_BACK) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.name, triangles, mirrorZ: +cz.toFixed(3) }] };
 }
 
+// Clean rims (playtest: the pauldrons' "ragged, jagged lower edge"): the supplied pauldrons end in a sawtooth of thin
+// spike triangles along their open edge (about 40 a side, each with two open edges), which showed as a dark fringe
+// under the bronze rim. The spikes are trimmed (`passes` deep: a spike's base becomes the edge), and the open edge's
+// vertices are eased toward the middle of their two neighbours along it (`smooth`, `iterations`), so the rim runs
+// clean. Positions shared by several vertices (UV seams) move together. Rigid meshes only (one bone each).
+const CLEAN_RIMS = Object.freeze({ meshes: Object.freeze(['Pauldron.L', 'Pauldron.R']), passes: 2, smooth: 0.5, iterations: 3 });
+function cleanRims(baseFile, spec = CLEAN_RIMS) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = Buffer.from(base.bin);
+  const view = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
+    const size = { 5123: 2, 5125: 4, 5126: 4 }[a.componentType], n = { SCALAR: 1, VEC3: 3 }[a.type];
+    return { a, o: (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride: v.byteStride ?? size * n, size }; };
+  let bin = Buffer.from(bin0.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => { bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, target }); bin = Buffer.concat([bin, data]); return doc.bufferViews.length - 1; };
+  const report = [];
+  for (const name of spec.meshes) {
+    const mesh = doc.meshes.find((m) => m.name === name);
+    if (!mesh) throw Error('No mesh ' + name);
+    for (const prim of mesh.primitives) {
+      const P = view(prim.attributes.POSITION), I = view(prim.indices);
+      const count = P.a.count;
+      const pos = Array.from({ length: count }, (_, i) => [0, 1, 2].map((c) => bin.readFloatLE(P.o + i * P.stride + c * 4)));
+      let index = Array.from({ length: I.a.count }, (_, i) => (I.size === 4 ? bin.readUInt32LE(I.o + i * 4) : bin.readUInt16LE(I.o + i * 2)));
+      const key = (p) => p.map((x) => x.toFixed(5)).join(',');
+      const weld = new Map(), id = pos.map((p) => { const k = key(p); if (!weld.has(k)) weld.set(k, weld.size); return weld.get(k); });
+      const ekey = (a, b) => (a < b ? `${a}_${b}` : `${b}_${a}`);
+      const openEdges = (idx) => { const m = new Map();
+        for (let t = 0; t < idx.length; t += 3) for (const [a, b] of [[idx[t], idx[t + 1]], [idx[t + 1], idx[t + 2]], [idx[t + 2], idx[t]]]) { const k = ekey(id[a], id[b]); m.set(k, (m.get(k) ?? 0) + 1); }
+        return new Set([...m].filter(([, c]) => c === 1).map(([k]) => k)); };
+      const before = index.length / 3;
+      // the spikes, `passes` deep
+      for (let pass = 0; pass < spec.passes; pass += 1) {
+        const open = openEdges(index), keep = [];
+        for (let t = 0; t < index.length; t += 3) {
+          const tri = [index[t], index[t + 1], index[t + 2]];
+          const n = [[0, 1], [1, 2], [2, 0]].filter(([x, y]) => open.has(ekey(id[tri[x]], id[tri[y]]))).length;
+          if (n < 2) keep.push(...tri);
+        }
+        index = keep;
+      }
+      // the open edge eased along itself
+      for (let it = 0; it < spec.iterations; it += 1) {
+        const open = openEdges(index), nb = new Map();
+        for (const k of open) { const [a, b] = k.split('_').map(Number); (nb.get(a) ?? nb.set(a, []).get(a)).push(b); (nb.get(b) ?? nb.set(b, []).get(b)).push(a); }
+        const at = new Map(); pos.forEach((p, i) => { if (!at.has(id[i])) at.set(id[i], p); });
+        const moved = new Map();
+        for (const [w, list] of nb) { if (list.length !== 2) continue;
+          const p = at.get(w), q = at.get(list[0]), r = at.get(list[1]);
+          moved.set(w, p.map((x, c) => x + ((q[c] + r[c]) / 2 - x) * spec.smooth)); }
+        pos.forEach((p, i) => { const m = moved.get(id[i]); if (m) pos[i] = m; });
+      }
+      const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      pos.forEach((p, i) => p.forEach((x, c) => { bin.writeFloatLE(x, P.o + i * P.stride + c * 4); lo[c] = Math.min(lo[c], x); hi[c] = Math.max(hi[c], x); }));
+      P.a.min = lo; P.a.max = hi;
+      const data = count > 65535 ? Buffer.from(new Uint32Array(index).buffer) : Buffer.from(new Uint16Array(index).buffer);
+      prim.indices = doc.accessors.push({ bufferView: append(data, 34963), componentType: count > 65535 ? 5125 : 5123, count: index.length, type: 'SCALAR' }) - 1;
+      report.push({ mesh: name, trianglesBefore: before, trianglesAfter: index.length / 3 });
+    }
+  }
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, compact(doc, bin));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -1191,6 +1257,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--blend-collar')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = blendWaist(join(dir, file), COLLAR);
+} else if (process.argv.includes('--clean-rims')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = cleanRims(join(dir, file));
 } else if (process.argv.includes('--mirror-back')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = mirrorBack(join(dir, file));
