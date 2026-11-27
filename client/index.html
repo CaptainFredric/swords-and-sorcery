@@ -1379,6 +1379,44 @@
     </div>
   </main>
 
-  <script type="module" src="client/main.mjs"></script>
+  <!-- A failed module download must not leave the player staring indefinitely
+       at the loading veil. Keep the regular module entry and report the failure. -->
+  <script>
+    (() => {
+      const veil = document.getElementById('loading-veil');
+      const copy = document.getElementById('loading-copy');
+      let reported = false;
+      function failed(detail) {
+        if (reported || !veil || !copy || veil.classList.contains('done')) return;
+        reported = true;
+        copy.textContent = 'Game startup failed. Tap Reload to retry.';
+        const note = document.createElement('small');
+        note.textContent = String(detail || 'A required game file could not load.').slice(0, 200);
+        note.style.display = 'block';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'back-button';
+        retry.textContent = 'RELOAD';
+        retry.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const url = new URL(location.href);
+          url.searchParams.set('reload', Date.now().toString(36));
+          location.replace(url.href);
+        });
+        copy.parentElement.append(note, retry);
+      }
+      window.addEventListener('error', (event) => {
+        if (event.target?.id === 'game-entry') failed('The game module could not load.');
+        else if (event.target === window && event.message) failed(event.message);
+      }, true);
+      window.addEventListener('unhandledrejection', (event) => {
+        if (!veil?.classList.contains('done')) console.warn('Startup promise rejected:', event.reason);
+      });
+      setTimeout(() => {
+        if (!veil?.classList.contains('done')) failed('Startup did not complete. Check the connection and retry.');
+      }, 20000);
+    })();
+  </script>
+  <script id="game-entry" type="module" src="client/main.mjs"></script>
 </body>
 </html>

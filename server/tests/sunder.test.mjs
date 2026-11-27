@@ -247,7 +247,7 @@ test('the ultimate is committed only after its brace: interrupted before it, the
   assert.equal(a.prowess, 0, 'spent at the commit');
 });
 
-test('prowess: earned by fighting, kept through a death, never for an ultimate\'s own damage, and none in the Practice Yard', () => {
+test('prowess: earned by fighting, kept through a death, never for an ultimate\'s own damage, and measured in the Practice Yard', () => {
   const { room, a, b } = duel();
   applyDamage(room, 'a', 'b', 20, 'sword', 10);
   assert.ok(Math.abs(a.prowess - 20 * PROWESS.dealt) < 1e-9, 'dealing');
@@ -270,7 +270,7 @@ test('prowess: earned by fighting, kept through a death, never for an ultimate\'
   assert.equal(a.prowess, PROWESS.full);
   const practice = duel({ mode: 'PRACTICE' });
   applyDamage(practice.room, 'a', 'b', 30, 'sword', 10);
-  assert.equal(practice.a.prowess, PROWESS.full, 'Practice starts charged but earns no Prowess from damage');
+  assert.ok(Math.abs(practice.a.prowess-30*PROWESS.dealt)<1e-9, 'Practice starts empty and tracks actual damage earnings');
 });
 
 test('Sundering, every strike is a slam into the ground, aimed level; an ordinary chop never ruptures it', () => {
