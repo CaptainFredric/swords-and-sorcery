@@ -967,7 +967,12 @@ function addBackplate(baseFile, spec = BACKPLATE) {
 // widen: [top, bottom, factor]: below `top` the plate is let out sideways toward `factor` at `bottom` (a back is
 // protected whole; only the front tapers to the waist)
 const MIRROR_BACK = Object.freeze({ source: 'Breastplate', name: 'Backplate', from: 1.12, to: 1.63, facing: 0.25, maxX: 0.24, push: 0.012,
-  widen: Object.freeze([1.42, 1.14, 1.3]) });
+  // Below `repaint.below`, the front's dark side panels (either side of its lighter plastron, which narrows in a V to
+  // the belt) are painted in the plastron's steel: on the back the dark panels read as a taper. The plate's shape,
+  // its gold trim and the plastron stay as they are. The scarf's pointed tail, which hung down the back like a bib,
+  // is painted the same below `repaint.scarf`. Faces by colour: tools/blender/characters/spellblade/backplate/faces.json.
+  repaint: Object.freeze({ below: 1.44, scarf: 1.46, plate: Object.freeze([0.1397, 0.5742]),
+    faces: 'tools/blender/characters/spellblade/backplate/faces.json' }) });
 function mirrorBack(baseFile, spec = MIRROR_BACK) {
   const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin, skin = doc.skins[0];
   const SIZE = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }, COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
@@ -988,7 +993,8 @@ function mirrorBack(baseFile, spec = MIRROR_BACK) {
     doc.accessors.push({ bufferView: append(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength), extra.target ?? 34962), componentType, count, type, ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
   const primitives = [];
   let triangles = 0;
-  for (const prim of src.primitives) {
+  const classes = spec.repaint ? (() => { const f = JSON.parse(readFileSync(resolve(spec.repaint.faces), 'utf8')); return { dark: new Set(f.dark), red: new Set(f.red) }; })() : null;
+  for (const [primIndex, prim] of src.primitives.entries()) {
     const P = read(prim.attributes.POSITION), N = read(prim.attributes.NORMAL), T = read(prim.attributes.TEXCOORD_0), J = read(prim.attributes.JOINTS_0), Wt = read(prim.attributes.WEIGHTS_0), I = read(prim.indices).map((x) => x[0]);
     const pos = [], nrm = [], uv = [], joints = [], weights = [], index = [], remap = new Map();
     for (let t = 0; t < I.length; t += 3) {
@@ -996,14 +1002,19 @@ function mirrorBack(baseFile, spec = MIRROR_BACK) {
       const c = [0, 1, 2].map((k) => tri.reduce((acc, v) => acc + P[v][k], 0) / 3);
       const n = [0, 1, 2].map((k) => tri.reduce((acc, v) => acc + N[v][k], 0) / 3);
       if (c[1] < spec.from || c[1] > spec.to || Math.abs(c[0]) > spec.maxX || -n[2] < spec.facing || c[2] > cz) continue;
+      const face = t / 3, re = spec.repaint;
+      const paint = re && primIndex === 0 && ((c[1] < re.below && classes.dark.has(face)) || (c[1] < re.scarf && classes.red.has(face)));
+      if (paint) {
+        const first = pos.length / 3;
+        for (const v of [tri[0], tri[2], tri[1]]) { pos.push(P[v][0], P[v][1], 2 * cz - P[v][2] + spec.push); nrm.push(N[v][0], N[v][1], -N[v][2]); uv.push(...re.plate); joints.push(...J[v]); weights.push(...Wt[v]); }
+        index.push(first, first + 1, first + 2);
+        continue;
+      }
       const out = [];
       for (const v of tri) {
         if (!remap.has(v)) {
           remap.set(v, pos.length / 3);
-          const [top, bottom, factor] = process.env.MIRROR_WIDEN ? JSON.parse(process.env.MIRROR_WIDEN) : spec.widen ?? [0, 0, 1];
-          const t = Math.max(0, Math.min(1, (top - P[v][1]) / Math.max(1e-6, top - bottom)));
-          const k = 1 + (factor - 1) * t * t * (3 - 2 * t);
-          pos.push(P[v][0] * k, P[v][1], 2 * cz - P[v][2] + spec.push);
+          pos.push(P[v][0], P[v][1], 2 * cz - P[v][2] + spec.push);
           nrm.push(N[v][0], N[v][1], -N[v][2]); uv.push(...T[v]); joints.push(...J[v]); weights.push(...Wt[v]);
         }
         out.push(remap.get(v));
