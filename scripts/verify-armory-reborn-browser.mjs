@@ -454,7 +454,7 @@ try {
   await until(() => evaluate('Math.abs(window.__ssMenu.siegeWorkshop.targetYaw-window.__ssMenu.siegeWorkshop.currentYaw)<.02'), 'machine reset settles');
 
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.siege-inspector-scroll > section > h4, #siege-story-details summary span:first-child')].map(el=>el.textContent)`),
-    ['SIEGE SKILLS · U', 'ABILITIES & ATTACKS', 'CONTROLS', 'OVERVIEW', 'STORY OF SIEGE']);
+    ['SIEGE SKILLS · U', 'BUILT-IN ABILITIES & ATTACKS', 'CONTROLS', 'OVERVIEW', 'STORY OF SIEGE']);
   assert.equal(await evaluate('document.querySelector("#siege-story-details").open'), false);
   const framing = await evaluate(`({
     bounds:window.__ssMenu.siegeWorkshop.presentationBounds(),
@@ -565,7 +565,7 @@ try {
   await sleep(1300);
   await screenshot('06b-flight-narrow-to-one.png');
   await evaluate('document.querySelector("[data-siege-skill=fireAwayRightHere]").click()');
-  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),27);
+  assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.projectiles.length'),36);
   assert.equal(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.length'),3);
   await sleep(2900);
   assert.ok(await evaluate('window.__ssMenu.siegeWorkshop.performance.actors.some(a=>a.lastHp<100)'),
@@ -883,7 +883,8 @@ try {
     }
     await tap('#breakthrough-button',touch);
     await tap(`[data-mettle-mode="${mode}"]`,touch);
-    if(mode!=='RESTLESS_DAY')assert.equal(await evaluate("document.querySelector('#breakthrough-create-private').hidden && document.querySelector('.mettle-companion').hidden"),true);
+    if(mode==='RENOWN_TRIALS')assert.equal(await evaluate("document.querySelector('#breakthrough-create-private').hidden && document.querySelector('.mettle-companion').hidden"),true);
+    if(mode==='EDGE_OF_VICTORY')assert.equal(await evaluate("!document.querySelector('#breakthrough-create-private').hidden && !document.querySelector('.mettle-companion').hidden && document.querySelector('#breakthrough-size').hidden && document.querySelector('#breakthrough-team').hidden && !document.querySelector('#breakthrough-rival').hidden"),true);
     if(mode==='RENOWN_TRIALS')await screenshot('12-mettle-rampage-menu.png');
     await tap(action,touch);
     await until(()=>evaluate(`window.__ssLink.roomCode && window.__ssSnapshot?.mode==='${mode}' && window.__ssSnapshot.roomState==='PLAYING'`),

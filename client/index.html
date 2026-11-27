@@ -306,7 +306,7 @@
         </nav>
 
         <div class="armory-preview" data-armory-preview="siege" aria-label="Siege machine model preview">
-          <img id="siege-static-preview" class="siege-static-preview" alt="" decoding="async" hidden />
+          <img id="siege-static-preview" class="siege-static-preview" alt="" decoding="sync" hidden />
           <div id="siege-model-status" class="siege-model-status" hidden>
             <span id="siege-model-status-text">Loading interactive 3D…</span>
             <button type="button" id="siege-model-retry" class="armory-reset-btn" hidden>RETRY 3D</button>
@@ -336,8 +336,9 @@
                     <span class="inspector-card-status" id="siege-skill-detail-status">EQUIPPED</span>
                   </div>
                 </div>
-                <p class="inspector-card-desc" id="siege-skill-detail-desc"></p>
+                <div class="inspector-card-body" id="siege-skill-detail-desc"></div>
                 <div class="siege-skill-detail-actions">
+                  <button type="button" id="siege-skill-detail-equip" class="wide-button">EQUIP SKILL</button>
                   <button type="button" id="siege-skill-detail-demo" class="wide-button primary-command">WATCH DEMONSTRATION</button>
                 </div>
               </section>
@@ -347,9 +348,24 @@
               </div>
             </section>
 
-            <section class="siege-section">
-              <h4 class="armory-slot">ABILITIES &amp; ATTACKS</h4>
+            <section class="siege-section" id="siege-abilities-section">
+              <h4 class="armory-slot">BUILT-IN ABILITIES &amp; ATTACKS</h4>
               <div id="siege-attacks-list" class="siege-attacks-list"></div>
+              <section id="siege-ability-detail-card" class="siege-skill-detail-card" hidden>
+                <button type="button" id="siege-ability-detail-back" class="back-button">← ALL BUILT-IN ABILITIES</button>
+                <div class="inspector-card-heading">
+                  <span class="inspector-card-mark siege-ability-detail-icon" id="siege-ability-detail-icon" aria-hidden="true"></span>
+                  <div>
+                    <h4 id="siege-ability-detail-name">RECIPROCATING PISTON</h4>
+                    <span class="inspector-card-status">BUILT-IN ABILITY</span>
+                  </div>
+                </div>
+                <p class="inspector-card-facts" id="siege-ability-detail-facts"></p>
+                <div class="inspector-card-body" id="siege-ability-detail-desc"></div>
+                <div class="siege-skill-detail-actions">
+                  <button type="button" id="siege-ability-detail-demo" class="wide-button primary-command" hidden>WATCH DEMONSTRATION</button>
+                </div>
+              </section>
             </section>
 
             <section class="siege-section">
@@ -547,7 +563,7 @@
         <p class="scenario-subtitle" id="siege-orders-summary">1V1 · THE HIGH GROUNDS · ENDLESS (25) · CLASH ON · KNIGHT</p>
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <button id="siege-seek" class="mode-choice primary-command" type="button">
-          <span>SEEK A SIEGE</span><small id="siege-seek-copy">Online · 1v1 · 3 rounds · Random battlefield</small>
+          <span>SEEK A SIEGE</span><small id="siege-seek-copy">Online · 1v1 · 3 rounds · Rotating battlefield</small>
         </button>
         <button id="siege-play-bots" class="mode-choice siege-bots-command" type="button">
           <span>PLAY WITH BOTS</span><small>Use your Battle Orders</small>
@@ -569,7 +585,7 @@
           </button>
         </div>
       </div></div>
-      <div class="banner-panel companion-banner mettle-companion"><div class="banner-scroll">
+      <div class="banner-panel companion-banner siege-companion"><div class="banner-scroll">
         <button id="siege-list-return" class="back-button companion-return" type="button">← SIEGE BLADES</button>
         <p class="eyebrow">PREPARE FOR SIEGE</p>
         <h2>BATTLE ORDERS</h2>
@@ -1229,7 +1245,10 @@
       <div id="pointer-hint" class="pointer-hint">CLICK TO ENTER THE ARENA</div>
       <div id="seek-banner" class="seek-banner hidden" role="status" aria-live="polite">
         <div class="seek-copy"><strong id="seek-title">SEEKING A WORTHY CHALLENGER · 0:00</strong><small id="seek-detail">No one else is seeking yet</small></div>
-        <button id="seek-bot" class="seek-action hidden">FIGHT A BOT WHILE YOU WAIT</button>
+        <div class="seek-bot-wrap">
+          <button id="seek-bot" class="seek-action hidden" title="Cancels matchmaking search and starts a bot match immediately">FIGHT A BOT INSTEAD</button>
+          <small id="seek-bot-note" class="seek-bot-note hidden">Ends human matchmaking search</small>
+        </div>
         <button id="seek-cancel" class="seek-action quiet">CANCEL</button>
         <small class="seek-hint">ESC FOR OPTIONS</small>
       </div>

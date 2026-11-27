@@ -337,6 +337,9 @@ body.siege-drafting .arena-gate { display: none; }
 .seek-copy { display: grid; gap: 3px; }
 .seek-copy strong { font: 16px/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .seek-copy small { font: 700 10px/1 var(--font-script); letter-spacing: .14em; color: rgba(234, 220, 182, .75); text-transform: uppercase; }
+.seek-bot-wrap { display: grid; gap: 2px; justify-items: center; }
+.seek-bot-note { font: 700 9px/1 var(--font-script); letter-spacing: .1em; color: rgba(234, 220, 182, .82); text-transform: uppercase; }
+.seek-bot-wrap:has(#seek-bot.hidden) { display: none; }
 .seek-action {
   padding: 7px 10px; border: 1px solid rgba(201, 156, 82, .6); border-radius: 2px; cursor: pointer; white-space: nowrap;
   background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; font: 13px/1 var(--font-inscription); letter-spacing: .06em;
@@ -520,13 +523,13 @@ html[data-turn] .turn-only { display: block !important; }
   min-height: 0; overflow-y: auto; pointer-events: auto; padding: 1px;
 }
 .armory-preview {
-  position: relative; grid-area: preview; min-width: 0; min-height: 0; pointer-events: auto;
+  position: relative; grid-area: preview; min-width: 0; min-height: 0; pointer-events: auto; overflow: hidden;
   touch-action: none; cursor: grab; border: 1px solid #d5b57155;
   box-shadow: inset 0 0 22px #17110d66; border-radius: 3px;
 }
 .siege-static-preview {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none;
-  transition: opacity .18s ease;
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none;
+  background: #1a1511; transform: none; transition: opacity .18s ease;
 }
 .siege-static-preview[hidden] { display: none; }
 .siege-model-status {
@@ -792,20 +795,12 @@ html[data-turn] .turn-only { display: block !important; }
   color: rgba(236, 201, 127, .9); font: 700 10.5px/1 var(--font-script); letter-spacing: .04em;
 }
 .siege-attacks-list {
-  display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;
 }
-.siege-attack-card {
-  padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .35); border-radius: 2px;
-  background: rgba(28, 22, 18, .7); display: flex; flex-direction: column; gap: 2px;
-}
-.siege-attack-card strong {
-  color: #f1e4c2; font: 400 14px/1.2 var(--font-inscription); letter-spacing: .04em;
-}
-.siege-attack-card small {
-  color: rgba(234, 220, 182, .75); font: 500 11px/1.3 var(--font-script);
-}
-.siege-attack-card em {
-  color: rgba(236, 201, 127, .85); font: 700 10.5px/1 var(--font-script); font-style: normal;
+.siege-attack-preview {
+  margin-top: 6px; padding: 6px 10px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
+  background: rgba(44, 34, 24, .9); color: #f5dfb1; font: 700 10px/1.1 var(--font-script);
+  letter-spacing: .12em; cursor: pointer; align-self: flex-start;
 }
 .siege-controls-box {
   display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
@@ -1652,22 +1647,22 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #private-menu .companion-banner :is(.game-input,.lobby-config,.mode-choice) {
   min-width:0;max-width:100%;
 }
-#siege-blades-menu .mettle-companion .vote-row,
+#siege-blades-menu .siege-companion .vote-row,
 #breakthrough-menu .mettle-companion .vote-row {
   display:flex;align-items:center;flex-wrap:wrap;gap:7px;
   padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid #e9d7ac29;
 }
-#siege-blades-menu .mettle-companion .vote-row > span,
+#siege-blades-menu .siege-companion .vote-row > span,
 #breakthrough-menu .mettle-companion .vote-row > span {
   display:block;min-width:0;flex:0 0 100%;color:#e9c984;
   font:800 10px/1.3 var(--font-script);letter-spacing:.16em;
 }
-#siege-blades-menu .mettle-companion .vote-row > button,
+#siege-blades-menu .siege-companion .vote-row > button,
 #breakthrough-menu .mettle-companion .vote-row > button {
   justify-self:start;min-width:0;max-width:100%;font-size:clamp(12px,1.18cqw,17px);
   line-height:1.12;overflow-wrap:normal;text-wrap:balance;white-space:normal;
 }
-#siege-blades-menu .mettle-companion .vote-chip small,
+#siege-blades-menu .siege-companion .vote-chip small,
 #breakthrough-menu .mettle-companion .vote-chip small { font:600 10px/1.1 var(--font-script); }
 #siege-blades-menu .mettle-order-note,
 #breakthrough-menu .mettle-order-note {border-top:1px solid #e9d7ac38;padding-top:9px;}
@@ -1686,7 +1681,7 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #private-menu .private-settings-form input[type=number] {font-variant-numeric:tabular-nums;}
 #private-menu #private-create-right {display:none;}
 @container app (min-width:641px){
-  #siege-blades-menu .mettle-companion label[for="siege-right-name"],
+  #siege-blades-menu .siege-companion label[for="siege-right-name"],
   #siege-blades-menu #siege-right-name,
   #breakthrough-menu .mettle-companion label[for="breakthrough-right-name"],
   #breakthrough-menu #breakthrough-right-name,
@@ -1753,9 +1748,9 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #siege-blades-menu > .banner-panel .banner-scroll,
   #breakthrough-menu > .banner-panel .banner-scroll,
   #private-menu > .banner-panel .banner-scroll {padding-top:26px;}
-  #siege-blades-menu .mettle-companion .vote-row,
+  #siege-blades-menu .siege-companion .vote-row,
   #breakthrough-menu .mettle-companion .vote-row {gap:4px;margin-bottom:4px;padding-bottom:6px;}
-  #siege-blades-menu .mettle-companion .vote-row > button,
+  #siege-blades-menu .siege-companion .vote-row > button,
   #breakthrough-menu .mettle-companion .vote-row > button {padding:5px 8px;min-height:32px;font-size:12px;}
   #private-menu .private-settings-form {gap:6px;}
 }
@@ -1795,7 +1790,7 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #breakthrough-menu .mettle-options,
   #private-menu .private-options {display:block;}
   #private-menu #private-create-right {display:block;}
-  #siege-blades-menu .mettle-companion .vote-row > button,
+  #siege-blades-menu .siege-companion .vote-row > button,
   #breakthrough-menu .mettle-companion .vote-row > button {font-size:12.5px;}
 }
 
@@ -1892,15 +1887,15 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #siege-blades-menu .siege-orders-outcome-row .vote-row {
   border-bottom:0;padding-bottom:0;margin-bottom:0;align-content:start;
 }
-#siege-blades-menu .mettle-companion .eyebrow { margin-bottom:2px; }
-#siege-blades-menu .mettle-companion h2 { margin-bottom:6px;font-size:24px; }
-#siege-blades-menu .mettle-companion .vote-row { gap:4px;padding-bottom:6px;margin-bottom:5px; }
-#siege-blades-menu .mettle-companion .vote-row > span { font-size:9.5px;letter-spacing:.15em;margin-bottom:1px; }
-#siege-blades-menu .mettle-companion .vote-row > button {
+#siege-blades-menu .siege-companion .eyebrow { margin-bottom:2px; }
+#siege-blades-menu .siege-companion h2 { margin-bottom:6px;font-size:24px; }
+#siege-blades-menu .siege-companion .vote-row { gap:4px;padding-bottom:6px;margin-bottom:5px; }
+#siege-blades-menu .siege-companion .vote-row > span { font-size:9.5px;letter-spacing:.15em;margin-bottom:1px; }
+#siege-blades-menu .siege-companion .vote-row > button {
   padding:5px 8px;min-height:29px;font-size:clamp(11px,1cqw,13px);letter-spacing:.04em;
 }
-#siege-blades-menu .mettle-companion .mettle-rival-note { margin:0 0 5px;font-size:11.5px;line-height:1.3; }
-#siege-blades-menu .mettle-companion .mettle-order-note { padding-top:5px;margin-bottom:0;font-size:11.5px;line-height:1.32; }
+#siege-blades-menu .siege-companion .mettle-rival-note { margin:0 0 5px;font-size:11.5px;line-height:1.3; }
+#siege-blades-menu .siege-companion .mettle-order-note { padding-top:5px;margin-bottom:0;font-size:11.5px;line-height:1.32; }
 
 @container app (max-height:500px) {
   #siege-blades-menu .siege-hub-inner .eyebrow,
@@ -1916,12 +1911,12 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #siege-blades-menu .siege-hub-inner .siege-sub-command { min-height:34px;padding:4px 8px 4px 16px; }
   #siege-blades-menu .siege-hub-inner .siege-sub-command span { font-size:12px; }
   .siege-secondary-links { gap:5px;margin-bottom:0; }
-  #siege-blades-menu .mettle-companion .eyebrow { display:none; }
-  #siege-blades-menu .mettle-companion h2 { font-size:20px;margin-bottom:5px; }
+  #siege-blades-menu .siege-companion .eyebrow { display:none; }
+  #siege-blades-menu .siege-companion h2 { font-size:20px;margin-bottom:5px; }
   #siege-blades-menu .siege-orders-pair,
   #siege-blades-menu .siege-orders-outcome-row { gap:6px;padding-bottom:5px;margin-bottom:5px; }
-  #siege-blades-menu .mettle-companion .mettle-rival-note,
-  #siege-blades-menu .mettle-companion .mettle-order-note { font-size:11px;margin-bottom:4px; }
+  #siege-blades-menu .siege-companion .mettle-rival-note,
+  #siege-blades-menu .siege-companion .mettle-order-note { font-size:11px;margin-bottom:4px; }
 }
 @container app (max-width:480px) {
   #siege-blades-menu .siege-orders-pair,
@@ -2011,21 +2006,44 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 #armory-siege .siege-equipment-row { display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:stretch; gap:4px; }
 #armory-inspector .equipment-row .spell-card { grid-template-columns:23px minmax(0,1fr) auto; padding:6px 7px; column-gap:6px; row-gap:2px; min-height:48px; }
 #armory-siege .siege-equipment-row .spell-card { grid-template-columns:minmax(0,1fr) auto; padding:6px 9px; column-gap:6px; row-gap:3px; min-height:54px; text-align:left; }
+#armory-siege .siege-ability-row .spell-card { grid-template-columns:26px minmax(0,1fr) auto; padding:6px 8px; column-gap:8px; row-gap:2px; min-height:48px; }
+#armory-siege .siege-ability-row .spell-mark { grid-row:1 / span 2; display:flex; align-items:center; justify-content:center; color:#ecc97f; }
+#armory-siege .siege-ability-row .spell-mark svg { width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+#armory-siege .siege-ability-row .siege-ability-demo-pill { padding:2px 5px; border:1px solid rgba(201,156,82,.45); border-radius:2px; background:rgba(48,37,28,.75); color:#f2cf83; font:800 8px/1 var(--font-script); letter-spacing:.08em; }
+#armory-siege .siege-ability-row small { grid-column:2 / 4; font-size:12px; line-height:1.28; white-space:normal; }
 #armory-inspector .equipment-row .spell-name,
 #armory-siege .siege-equipment-row .spell-name {font-size:clamp(13px,1.25cqw,16px);letter-spacing:.025em;}
 #armory-inspector .equipment-row .spell-mark {font-size:19px;grid-row:1 / span 2;}
 #armory-inspector .equipment-row small {grid-column:2 / 4;font-size:12px;line-height:1.2;}
-#armory-siege .siege-equipment-row small {grid-column:1 / 3;font-size:12px;line-height:1.28;white-space:normal;}
+#armory-siege .siege-equipment-row:not(.siege-ability-row) small {grid-column:1 / 3;font-size:12px;line-height:1.28;white-space:normal;}
 #armory-inspector .equipment-row i,
 #armory-siege .siege-equipment-row i {font-size:8px;letter-spacing:.06em;}
 .siege-skill-detail-card {
-  margin:4px 0 8px;padding:10px 12px;border:1px solid rgba(201,156,82,.45);border-radius:3px;
+  margin:2px 0 6px;padding:8px 10px;border:1px solid rgba(201,156,82,.45);border-radius:3px;
   background:linear-gradient(180deg,rgba(36,28,22,.92),rgba(20,16,13,.96));
+  display:flex;flex-direction:column;gap:6px;
 }
 .siege-skill-detail-card[hidden] { display:none; }
-.siege-skill-detail-card .back-button { margin:0 0 8px; }
-.siege-skill-detail-actions { margin-top:10px; }
+.siege-skill-detail-card .back-button { margin:0; padding:4px 9px; font-size:10px; align-self:flex-start; }
+.siege-skill-detail-card .inspector-card-status.available { color:#e5be79; }
+.siege-ability-detail-icon { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex:none; color:#ecc97f; }
+.siege-ability-detail-icon svg { width:24px; height:24px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.siege-skill-detail-card .inspector-card-body { display:flex; flex-direction:column; gap:6px; }
+.siege-detail-section { padding-top:5px; border-top:1px solid rgba(201,156,82,.18); }
+.siege-detail-section:first-child { padding-top:0; border-top:0; }
+.siege-detail-section h5 {
+  margin:0 0 2px; font:800 10px/1.15 var(--font-script); letter-spacing:.11em; text-transform:uppercase; color:var(--heraldry-brass-light);
+}
+.siege-detail-section p {
+  margin:0; font:500 11.5px/1.34 var(--font-script); color:rgba(238,225,190,.9);
+}
+.siege-skill-detail-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+.siege-skill-detail-actions button { flex:1 1 130px; min-height:38px; }
+.siege-skill-detail-actions [hidden] { display:none; }
 #armory-siege #siege-skills-section.showing-skill-detail #armory-siege-machines { display:none; }
+#armory-siege #siege-abilities-section.showing-ability-detail #siege-attacks-list { display:none; }
+#armory-siege .siege-inspector.showing-detail .siege-section:not(.is-inspecting),
+#armory-siege .siege-inspector.showing-detail .siege-story-details { display:none; }
 .equipment-info {border:1px solid #c99c5280;background:linear-gradient(#3a322b,#221d19);color:#ecc97f;border-radius:2px;cursor:pointer;font:bold italic 20px Georgia,serif;min-height:44px;}
 .equipment-info:hover,.equipment-info:focus-visible {outline:2px solid #ecc97f;outline-offset:-2px;background:#51402e;}
 #armory-inspector:not(.show-equipment-detail) .inspector-item-card {display:none;}

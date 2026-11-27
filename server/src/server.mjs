@@ -242,6 +242,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   }
 
   function joinNew(session, room, name, team = null) {
+    cancelAllSeeking(session.id);
     const player = createNetworkPlayer(session, room, name, team);
     if (room.policy.teamMode) room.provisionModeActors(now());
     attachPlayer(session, room, player);
@@ -467,9 +468,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'seekBotDuel') {
-      // fight a bot while still in the queue (supports both Duel and Siege seekers)
+      // Accepting the bot alternative ends human matchmaking so an active bot match is never interrupted later.
       const active = seekingEntry(session.id);
       if (!active) return;
+      cancelAllSeeking(session.id);
       leaveRoom(session, time);
       if (active.queue === 'siege') {
         const arenas = arenasForMode(GAME_MODES.SIEGE_BLADES);
@@ -499,6 +501,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (message.type === 'seekBotSiege') {
       const entry = siegeMatchmaker.entry(session.id);
       if (!entry) return;
+      cancelAllSeeking(session.id);
       leaveRoom(session, time);
       const arenas = arenasForMode(GAME_MODES.SIEGE_BLADES);
       const worldId = arenas[(nextSiegeArenaIndex++) % arenas.length];

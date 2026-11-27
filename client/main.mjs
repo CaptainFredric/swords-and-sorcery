@@ -327,8 +327,10 @@ function liftVeil() {
   stopWatchingLoad();
   loadingFill.style.transform = 'scaleX(1)';
   loadingVeil.classList.add('done');
-  // the establishing shot settles on the Spellblade as the veil lifts
-  menuScene?.setShot(router.current ?? SCREEN_IDS.MAIN_MENU, 2.8);
+  // the establishing shot settles on the Spellblade as the veil lifts (do not clobber active Armory sub-stage shots)
+  if (router.current !== SCREEN_IDS.ARMORY) {
+    menuScene?.setShot(router.current ?? SCREEN_IDS.MAIN_MENU, 2.8);
+  }
   offerTutorial();
 }
 // never keep the menu hostage: allow click-to-dismiss and lift promptly on slower connections
@@ -825,9 +827,14 @@ function renderSeek() {
   $('#seek-title').textContent = view.title;
   $('#seek-detail').textContent = view.detail;
   const botBtn = $('#seek-bot');
+  const botNote = $('#seek-bot-note');
   if (botBtn) {
-    botBtn.textContent = view.botLabel ?? 'FIGHT A BOT WHILE WAITING';
+    botBtn.textContent = view.botLabel ?? 'FIGHT A BOT INSTEAD';
     botBtn.classList.toggle('hidden', !view.offerBot);
+  }
+  if (botNote) {
+    botNote.textContent = view.botNote ?? 'Ends human matchmaking search';
+    botNote.classList.toggle('hidden', !view.offerBot);
   }
 }
 setInterval(renderSeek, 500);
@@ -1099,7 +1106,7 @@ function updateEnd(snapshot) {
   rematchButton.classList.toggle('hidden', alone);
   if (snapshot.mode === 'BOT_DUEL') {
     rematchButton.textContent = 'FIGHT AGAIN';
-    rematchCopy.textContent = seekStatus?.active ? 'Still seeking a challenger: fight on, or head back to the yard.' : 'Start another bot duel.';
+    rematchCopy.textContent = 'Start another bot duel.';
   } else if (duel) {
     rematchButton.textContent = 'REMATCH';
     rematchCopy.textContent = alone
@@ -2837,8 +2844,70 @@ function prepareSiegeSkillReorder(skillId) {
   };
 }
 
+function renderSiegeDetailBody(container, item) {
+  if (!container) return;
+  if (Array.isArray(item?.sections) && item.sections.length > 0) {
+    container.innerHTML = item.sections.map((part) => `<div class="siege-detail-section">
+      <h5>${escapeHtml(part.title)}</h5>
+      <p>${escapeHtml(part.text)}</p>
+    </div>`).join('');
+  } else {
+    container.innerHTML = `<p class="inspector-card-desc">${escapeHtml(item?.line || item?.summary || '')}</p>`;
+  }
+}
+
 let siegeSkillDetailId = null;
 let siegeSkillDetailReturnFocus = null;
+let siegeAbilityDetailId = null;
+let siegeAbilityDetailReturnFocus = null;
+
+function syncSiegeInspectorFocus() {
+  const inspector = $('#armory-siege .siege-inspector');
+  const skillsSec = $('#siege-skills-section');
+  const abilitiesSec = $('#siege-abilities-section');
+  const inspectingSkill = Boolean(siegeSkillDetailId);
+  const inspectingAbility = Boolean(siegeAbilityDetailId);
+  skillsSec?.classList.toggle('is-inspecting', inspectingSkill);
+  abilitiesSec?.classList.toggle('is-inspecting', inspectingAbility);
+  inspector?.classList.toggle('showing-detail', inspectingSkill || inspectingAbility);
+}
+
+function setSiegeAbilityDetail(abilityId, machineId = armoryLocation.siegeMachine) {
+  siegeAbilityDetailId = abilityId;
+  const section = $('#siege-abilities-section');
+  const listEl = $('#siege-attacks-list');
+  const card = $('#siege-ability-detail-card');
+  if (!section || !listEl || !card) return;
+  if (!abilityId) {
+    card.hidden = true;
+    listEl.hidden = false;
+    section.classList.remove('showing-ability-detail');
+    syncSiegeInspectorFocus();
+    return;
+  }
+  if (siegeSkillDetailId) setSiegeSkillDetail(null);
+  const machine = siegeArmoryView(siegeSelections()).find((item) => item.id === machineId);
+  const ability = machine?.attacks?.find((atk) => atk.id === abilityId);
+  if (!ability) {
+    setSiegeAbilityDetail(null);
+    return;
+  }
+  const iconEl = $('#siege-ability-detail-icon');
+  if (iconEl) iconEl.innerHTML = iconSvg(ability.icon);
+  $('#siege-ability-detail-name').textContent = ability.name;
+  $('#siege-ability-detail-facts').textContent = ability.facts || '';
+  renderSiegeDetailBody($('#siege-ability-detail-desc'), ability);
+  const demoBtn = $('#siege-ability-detail-demo');
+  if (demoBtn) {
+    demoBtn.hidden = !ability.previewSkill;
+    demoBtn.dataset.siegeAttackPreview = ability.previewSkill || '';
+  }
+  listEl.hidden = true;
+  card.hidden = false;
+  section.classList.add('showing-ability-detail');
+  syncSiegeInspectorFocus();
+}
+
 function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
   siegeSkillDetailId = skillId;
   const section = $('#siege-skills-section');
@@ -2849,8 +2918,10 @@ function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
     card.hidden = true;
     listEl.hidden = false;
     section.classList.remove('showing-skill-detail');
+    syncSiegeInspectorFocus();
     return;
   }
+  if (siegeAbilityDetailId) setSiegeAbilityDetail(null);
   const machine = siegeArmoryView(siegeSelections()).find((item) => item.id === machineId);
   const skill = machine?.skills?.find((s) => s.id === skillId);
   if (!skill) {
@@ -2859,8 +2930,17 @@ function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
   }
   $('#siege-skill-detail-name').textContent = skill.name;
   const statusEl = $('#siege-skill-detail-status');
-  if (statusEl) statusEl.textContent = skill.equipped ? 'EQUIPPED' : 'AVAILABLE SKILL';
-  $('#siege-skill-detail-desc').textContent = skill.line;
+  if (statusEl) {
+    statusEl.textContent = skill.equipped ? 'EQUIPPED' : 'AVAILABLE SKILL';
+    statusEl.classList.toggle('available', !skill.equipped);
+  }
+  renderSiegeDetailBody($('#siege-skill-detail-desc'), skill);
+  const equipBtn = $('#siege-skill-detail-equip');
+  if (equipBtn) {
+    equipBtn.hidden = Boolean(skill.equipped);
+    equipBtn.dataset.siegeMachine = machineId;
+    equipBtn.dataset.siegeSkill = skill.id;
+  }
   const demoBtn = $('#siege-skill-detail-demo');
   if (demoBtn) {
     demoBtn.dataset.siegeMachine = machineId;
@@ -2869,6 +2949,7 @@ function setSiegeSkillDetail(skillId, machineId = armoryLocation.siegeMachine) {
   listEl.hidden = true;
   card.hidden = false;
   section.classList.add('showing-skill-detail');
+  syncSiegeInspectorFocus();
 }
 
 function updateSiegeWorkshopStageUI(status) {
@@ -2906,7 +2987,10 @@ function renderSiegeWorkshop(machineId = 'soFist') {
   const switched = armoryLocation.siegeMachine !== machineId;
   armoryLocation.siegeMachine = machineId;
   saveArmoryLocation(armoryLocation);
-  if (switched) setSiegeSkillDetail(null);
+  if (switched) {
+    setSiegeSkillDetail(null);
+    setSiegeAbilityDetail(null);
+  }
 
   for (const tab of document.querySelectorAll('[data-siege-tab]')) {
     const isCurrent = tab.dataset.siegeTab === machineId;
@@ -2933,15 +3017,17 @@ function renderSiegeWorkshop(machineId = 'soFist') {
 
   const attacksList = $('#siege-attacks-list');
   if (attacksList) {
-    attacksList.innerHTML = (m.attacks || []).map((atk) => `<div class="siege-attack-card">
-      <div class="siege-attack-head">
-        <strong>${escapeHtml(atk.name)}</strong>
-        <small>${escapeHtml(atk.facts)}</small>
-      </div>
-      <p>${escapeHtml(atk.line)}</p>
-      ${atk.previewSkill ? `<button type="button" class="siege-attack-preview" data-siege-attack-preview="${escapeHtml(atk.previewSkill)}">WATCH ARGON ANIMATION</button>` : ''}
+    attacksList.innerHTML = (m.attacks || []).map((atk) => `<div class="equipment-row siege-equipment-row siege-ability-row">
+      <button type="button" class="spell-card siege-ability-card" data-siege-ability-inspect="${escapeHtml(atk.id)}" data-siege-machine="${m.id}">
+        <span class="spell-mark" aria-hidden="true">${iconSvg(atk.icon)}</span>
+        <span class="spell-name">${escapeHtml(atk.name)}</span>
+        ${atk.previewSkill ? '<span class="siege-ability-demo-pill">DEMO</span>' : ''}
+        <small>${escapeHtml(atk.summary || atk.line)}</small>
+      </button>
+      <button type="button" class="equipment-info" data-siege-ability-info="${escapeHtml(atk.id)}" data-siege-machine="${m.id}" aria-label="Details: ${escapeHtml(atk.name)}" title="Full ability mechanics &amp; specs">i</button>
     </div>`).join('');
   }
+  if (siegeAbilityDetailId) setSiegeAbilityDetail(siegeAbilityDetailId, m.id);
 
   const sortedSkills=[...m.skills.filter(skill=>!skill.equipped),
     ...m.skills.filter(skill=>skill.equipped)];
@@ -3108,11 +3194,26 @@ $('#armory-prepared').addEventListener('click', (event) => {
 });
 
 $('#siege-attacks-list')?.addEventListener('click', (event) => {
-  const button=event.target.closest('[data-siege-attack-preview]');
-  if(!button)return;
-  const skill=button.dataset.siegeAttackPreview;
-  const started=menuScene?.siegeWorkshop?.playPreview(skill)===true;
-  updateSiegePreviewUI(started?skill:null,started?null:skill);
+  const infoBtn = event.target.closest('[data-siege-ability-info], [data-siege-ability-inspect]');
+  if (!infoBtn) return;
+  const abilityId = infoBtn.dataset.siegeAbilityInfo || infoBtn.dataset.siegeAbilityInspect;
+  siegeAbilityDetailReturnFocus = abilityId;
+  setSiegeAbilityDetail(abilityId, infoBtn.dataset.siegeMachine);
+  $('#siege-ability-detail-back')?.focus({ preventScroll: true });
+});
+
+$('#siege-ability-detail-back')?.addEventListener('click', () => {
+  const targetId = siegeAbilityDetailReturnFocus;
+  siegeAbilityDetailReturnFocus = null;
+  setSiegeAbilityDetail(null);
+  if (targetId) document.querySelector(`[data-siege-ability-info="${targetId}"]`)?.focus({ preventScroll: true });
+});
+
+$('#siege-ability-detail-demo')?.addEventListener('click', (event) => {
+  const skill = event.currentTarget.dataset.siegeAttackPreview;
+  if (!skill) return;
+  const started = menuScene?.siegeWorkshop?.playPreview(skill) === true;
+  updateSiegePreviewUI(started ? skill : null, started ? null : skill);
 });
 
 $('#armory-siege-machines').addEventListener('click', (event) => {
@@ -3152,6 +3253,20 @@ $('#siege-skill-detail-demo')?.addEventListener('click', (event) => {
   if (!skillId) return;
   const started = menuScene?.siegeWorkshop?.playPreview(skillId) === true;
   updateSiegePreviewUI(started ? skillId : null, started ? null : skillId);
+});
+
+$('#siege-skill-detail-equip')?.addEventListener('click', (event) => {
+  const btn = event.currentTarget;
+  const machineId = btn.dataset.siegeMachine;
+  const skillId = btn.dataset.siegeSkill;
+  const setting = machineId === 'biBye' ? 'loadout.bibyeSkill' :
+    machineId === 'soFist' ? 'loadout.soFistSkill' :
+    machineId === 'fightFlight' ? 'loadout.fightFlightSkill' : null;
+  if (setting && skillId) {
+    settings.set(setting, skillId);
+    renderSiegeWorkshop(armoryLocation.siegeMachine);
+    setSiegeSkillDetail(skillId, machineId);
+  }
 });
 
 $('#siege-model-retry')?.addEventListener('click', () => {
@@ -4152,7 +4267,7 @@ const seekDuelCopy = $('#seek-duel small');
 const SEEK_COPY = seekDuelCopy?.textContent ?? '';
 const siegeSeekBtn = $('#siege-seek');
 const siegeSeekCopy = $('#siege-seek-copy');
-const SIEGE_SEEK_COPY = siegeSeekCopy?.textContent ?? 'Online · 1v1 · 3 rounds · Random battlefield';
+const SIEGE_SEEK_COPY = siegeSeekCopy?.textContent ?? 'Online · 1v1 · 3 rounds · Rotating battlefield';
 const siegePlayBotsBtn = $('#siege-play-bots');
 function renderLinkStatus(status) {
   const view = linkStatusView(status);
