@@ -4,6 +4,7 @@
 import { getBiByeSolids } from './biByeLlista.mjs';
 import { soFistSolids } from './soFistGeometry.mjs';
 import { fightFlightSolids } from './fightFlight.mjs';
+import { dragOonSolids } from './dragOonGeometry.mjs';
 import { getMachineKind } from './fleetGeometry.mjs';
 
 // A detached gauntlet is an actual block of steel for knights AND fired
@@ -16,7 +17,7 @@ export function detachedRamFistSolid(ram){
     center:[fist.position.x,fist.position.y,fist.position.z],
     size:[1.65,1.22,1.65]};
 }
-export function playerMovementWorld(world, { ballista = null, ram = null, flight = null, machines = null } = {}) {
+export function playerMovementWorld(world, { ballista = null, ram = null, flight = null, dragOon = null, machines = null } = {}) {
   // World-space steel gauntlet: one shared host/client collision primitive.
   const occupied = [];
   const detachedSolids = [];
@@ -32,6 +33,8 @@ export function playerMovementWorld(world, { ballista = null, ram = null, flight
         occupied.push(...getBiByeSolids(m));
       } else if (kind === 'flight') {
         occupied.push(...fightFlightSolids(m));
+      } else if (kind === 'dragoon') {
+        occupied.push(...dragOonSolids(m));
       }
     }
   } else {
@@ -45,6 +48,9 @@ export function playerMovementWorld(world, { ballista = null, ram = null, flight
     }
     if (flight && !(flight.health <= 0) && !flight.retired) {
       occupied.push(...fightFlightSolids(flight));
+    }
+    if (dragOon && !(dragOon.health <= 0) && !dragOon.retired) {
+      occupied.push(...dragOonSolids(dragOon));
     }
   }
   occupied.push(...detachedSolids);

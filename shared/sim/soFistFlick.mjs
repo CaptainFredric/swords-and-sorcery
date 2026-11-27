@@ -13,7 +13,8 @@ import {biByeHitVolumes} from './biByeComponents.mjs';
 import {damageBiByeLlista} from './biByeLlista.mjs';
 import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
 import {damageSoFistication} from './soFistication.mjs';
-import {getFleetMachines,getMachineKind} from './fleetGeometry.mjs';
+import {getFleetMachines,getMachineKind,damageFleetMachine} from './fleetGeometry.mjs';
+import {dragOonHitVolumes} from './dragOonGeometry.mjs';
 import {applyBallistaImpact,applyMachineImpact,recoilRamOnPistonHit} from './siegeImpact.mjs';
 import {structureForSolid,damageStructure} from './structures.mjs';
 
@@ -81,6 +82,7 @@ function firstContact(room,b,from,to,now){
     const kind=getMachineKind(machine);
     const boxes=kind==='ballista'?biByeHitVolumes(machine,now)
       :kind==='flight'?fightFlightHitVolumes(machine)
+      :kind==='dragoon'?dragOonHitVolumes(machine)
       :soFistVolumes(machine,now);
     for(const box of boxes)consider(orientedBoxHit(from,to,box,FLICK.tipRadius),kind,machine,box);
   }
@@ -160,6 +162,11 @@ function impact(room,b,contact,now){
       };
     }
     room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'flight',point:{x:point[0],y:point[1],z:point[2]},at:now});
+  }else if(contact.kind==='dragoon'){
+    damageFleetMachine(room,contact.target,FLICK.damage,by,'so-fist-flick',now,{
+      componentId:contact.box.componentId,point:{x:point[0],y:point[1],z:point[2]},
+    });
+    room.events.push({type:'soFistFlickMachineImpact',machineId:b.id,targetId:contact.target.id,kind:'dragoon',point:{x:point[0],y:point[1],z:point[2]},at:now});
   }
 }
 export function stepFlick(room,b,dt,now){

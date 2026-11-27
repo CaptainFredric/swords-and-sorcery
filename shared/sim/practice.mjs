@@ -17,6 +17,12 @@ import {stepPracticeSiegeOperators,seekSpellbladeSiegeMachine} from './practiceS
 import { worldSpawnPoints } from './spawns.mjs';
 import { playerMovementWorld } from './playerMovementWorld.mjs';
 import { nearbyPracticeSpawn } from './nearbyPracticeSpawn.mjs';
+import { DRAG_OON_ELEMENTS, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
+import { SIEGE_SKILL_OPTIONS } from '../src/siegeLoadout.mjs';
+import { isSpell } from '../src/spells.mjs';
+import { removeDragOonOccupant, computeDragOonInfusions } from './dragOonCrew.mjs';
+import { clampDragOonFuel, effectiveFuelCapacity } from './dragOonThermal.mjs';
+import { triggerAllAbortDestruction } from './dragOon.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -74,7 +80,14 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.yaw = spawn.yaw ?? 0;
   player.pitch = 0;
   player.input = { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: 0 };
-  player.health = 100;
+  player.maxHealth = player.baseMaxHealth ?? 100;
+  player.dragOonMaxHealthLoss = 0;
+  player.dragOonFrostInterference = null;
+  player.operatingDragOonId = null;
+  player.aboardDragOonId = null;
+  player.dragOonStation = null;
+  player.dragOonTransition = null;
+  player.health = player.maxHealth;
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.guardHeld = false;
@@ -166,6 +179,7 @@ export function resetPracticePlayer(room, playerId, nowSec, destination = null) 
   }
   if(player.operatingRamId&&room.soFistication)dismountSoFistication(room,room.soFistication,player,{force:true});
   if(player.operatingFightFlightId&&room.fightFlight)dismountFightFlight(room,room.fightFlight,player,{force:true,at:nowSec});
+  if((player.operatingDragOonId||player.aboardDragOonId)&&room.dragOon)removeDragOonOccupant(room,room.dragOon,player,{at:nowSec,reason:'reset'});
   if (room.stPerryState?.byPlayer && !room.stPerryState.unlocked) {
     const prog = room.stPerryState.byPlayer.get(playerId);
     if (prog && !prog.unlocked) {
@@ -187,6 +201,134 @@ export function readyPracticeUltimate(room, playerId) {
   if (player.actorKind !== 'human' && !room.inspectionEnabled) return false;
   player.prowess = PROWESS.full;
   return true;
+}
+
+export function configurePracticeDragOon(room, player, message, nowSec = 0) {
+  if (!isPractice(room) || room.state !== 'PLAYING' || !player?.alive ||
+      (player.actorKind !== 'human' && !(room.inspectionEnabled && player.id === room.inspectionControlId))) {
+    return { rejected: PRACTICE_REJECTED };
+  }
+  const m = (player.operatingDragOonId || player.aboardDragOonId
+    ? room.machines?.get(player.operatingDragOonId || player.aboardDragOonId) : null) || room.dragOon;
+  const action = message?.action;
+
+  if (action === 'spawnTestFire') {
+    const yaw = m?.heading ?? player.yaw ?? 0;
+    const base = m ? { x: m.x, y: m.y, z: m.z } : player.position;
+    const pt = { x: base.x - Math.sin(yaw) * 6, y: base.y, z: base.z - Math.cos(yaw) * 6 };
+    room.dragOonRazeFields ??= [];
+    room.dragOonRazeFields.push({
+      id: `practice-fire-${nowSec}`,
+      machineId: m?.id ?? 'practice',
+      ownerId: 'practice-env',
+      team: '__ENV_HOSTILE__',
+      center: pt,
+      radius: 4.0,
+      bornAt: nowSec,
+      expiresAt: nowSec + 12,
+      burning: true,
+      damagePerTick: 4,
+      nextTickAt: nowSec + 0.5,
+    });
+    return {};
+  }
+
+  if (!m || m.retired || m.health <= 0 || m.mode === 'DESTROYED') {
+    return { rejected: 'Build DRAG-OON in Practice before adjusting its test parameters.' };
+  }
+
+  if (action === 'setFuel') {
+    m.fuel = Math.max(0, Math.min(effectiveFuelCapacity(m), Number(message.fuel ?? DRAG_OON_TUNING.fuelMax)));
+    clampDragOonFuel(m);
+  } else if (action === 'setHeat') {
+    m.heat = Math.max(0, Math.min(DRAG_OON_TUNING.overpressureHeatMax, Number(message.heat ?? 0)));
+    if (m.heat > 100 && (m.infusions?.tiers?.fire ?? 0) >= 2) m.retainedOverpressureHeat = true;
+    else if (m.heat <= 100) m.retainedOverpressureHeat = false;
+  } else if (action === 'setOverheatPenalty') {
+    m.overheatPenalty = Math.max(0, Math.min(DRAG_OON_TUNING.overheatPenaltyMax, Number(message.penalty ?? 0)));
+    clampDragOonFuel(m);
+  } else if (action === 'setHullHealth') {
+    m.health = Math.max(1, Math.min(m.maxHealth, Math.round(Number(message.health ?? m.maxHealth))));
+  } else if (action === 'setPassengerCapacity') {
+    m.passengerCapacity = Math.max(1, Math.min(DRAG_OON_TUNING.crew.maxPassengerCapacity, Math.trunc(Number(message.capacity) || 4)));
+    computeDragOonInfusions(room, m);
+  } else if (action === 'setInfusionTier') {
+    const el = String(message.element || '');
+    if (!DRAG_OON_ELEMENTS.includes(el)) return { rejected: 'Unknown DRAG-OON element.' };
+    m.practiceOverrides ??= { simulatedPassengers: [], infusions: {} };
+    m.practiceOverrides.infusions ??= {};
+    const tier = Math.max(0, Math.min(2, Math.trunc(Number(message.tier) || 0)));
+    if (tier === 0) delete m.practiceOverrides.infusions[el];
+    else m.practiceOverrides.infusions[el] = tier;
+    computeDragOonInfusions(room, m);
+  } else if (action === 'setSimulatedPassengers') {
+    const spells = Array.isArray(message.spells) ? message.spells.filter(isSpell).slice(0, DRAG_OON_TUNING.crew.maxPassengerCapacity) : [];
+    m.practiceOverrides ??= { simulatedPassengers: [], infusions: {} };
+    m.practiceOverrides.simulatedPassengers = spells;
+    computeDragOonInfusions(room, m);
+  } else if (action === 'clearOverrides') {
+    m.practiceOverrides = null;
+    computeDragOonInfusions(room, m);
+  } else if (action === 'setSkill') {
+    const id = String(message.skill || '');
+    if (!SIEGE_SKILL_OPTIONS.dragOon.includes(id)) return { rejected: 'Unknown DRAG-OON Skill.' };
+    m.skill = { ...(m.skill ?? {}), id, phase: 'idle', readyAt: nowSec, heldUntil: null, endedAt: null };
+    m.raze = null;
+    m.flightLikeHell = null;
+    if (m.campFire) m.campFire = null;
+    if (m.brimming) m.brimming = null;
+  } else if (action === 'setFlightStage') {
+    if (message.stage === 'airborne') {
+      const ground = surfaceHeightAt(m.x, m.z, m.y + 1, room.world) ?? m.y;
+      m.y = Math.max(m.y, ground + 6.5);
+      m.position = { x: m.x, y: m.y, z: m.z };
+      m.grounded = false;
+      m.velocity = { x: 0, y: 5.2, z: 0 };
+      m.leap = {
+        phase: 'airborne',
+        startedAt: nowSec - 0.15,
+        igniteAt: nowSec - 0.05,
+        dir: { x: -Math.sin(m.heading ?? 0), z: -Math.cos(m.heading ?? 0) },
+        selfBlastExempt: true,
+        launchAnimState: 'airborne',
+        flightCushioned: false,
+      };
+    } else if (message.stage === 'grounded') {
+      const ground = surfaceHeightAt(m.x, m.z, m.y + 12, room.world);
+      if (ground !== null) {
+        m.y = ground;
+        m.position = { x: m.x, y: m.y, z: m.z };
+        m.grounded = true;
+        m.velocity = { x: 0, y: 0, z: 0 };
+        m.leap = null;
+        if (m.flightLikeHell) { m.flightLikeHell.active = false; }
+        m.cannonPitch = 0;
+      }
+    } else {
+      return { rejected: 'Unknown Flight Like Hell test stage.' };
+    }
+  } else if (action === 'resetMachine') {
+    m.health = m.maxHealth;
+    m.heat = 0;
+    m.overheatPenalty = 0;
+    m.retainedOverpressureHeat = false;
+    m.fuel = m.fuelMax;
+    m.leapReadyAt = nowSec;
+    m.steamReadyAt = nowSec;
+    m.brimmingBonusMult = 1;
+    m.raze = null;
+    m.flightLikeHell = null;
+    m.campFire = null;
+    m.brimming = null;
+    if (m.skill) m.skill.readyAt = nowSec;
+    for (const c of Object.values(m.components ?? {})) c.health = c.maxHealth;
+    computeDragOonInfusions(room, m);
+  } else if (action === 'triggerAbort') {
+    triggerAllAbortDestruction(room, m, nowSec, { source: message.catastrophic ? 'overheat' : 'practice-abort' });
+  } else {
+    return { rejected: 'Unknown DRAG-OON Practice control action.' };
+  }
+  return {};
 }
 
 // Practice configurator is a normal server/local-host command. Never trusted in PvP.
@@ -289,6 +431,7 @@ export function removePracticeDummy(room) {
     dismountSoFistication(room, room.soFistication, dummy, { administrative: false, force: true });
   }
   if (dummy.operatingFightFlightId && room.fightFlight) dismountFightFlight(room,room.fightFlight,dummy,{force:true});
+  if ((dummy.operatingDragOonId || dummy.aboardDragOonId) && room.dragOon) removeDragOonOccupant(room, room.dragOon, dummy, { at: 0, reason: 'removed' });
   room.players.delete(dummy.id);
   room.events.push({ type: 'practiceDummyRemoved', playerId: dummy.id });
   return true;
@@ -313,6 +456,8 @@ export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
       dismountSoFistication(room,room.soFistication,dummy,{force:true});
     if(dummy.operatingFightFlightId&&room.fightFlight)
       dismountFightFlight(room,room.fightFlight,dummy,{force:true,at:nowSec});
+    if((dummy.operatingDragOonId||dummy.aboardDragOonId)&&room.dragOon)
+      removeDragOonOccupant(room,room.dragOon,dummy,{at:nowSec,reason:'modeChange'});
     dummy.practiceSiegeOperator=null;dummy.siegeAi=null;
   }
   if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);

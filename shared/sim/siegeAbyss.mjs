@@ -1,4 +1,5 @@
 import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
+import { triggerAllAbortDestruction } from './dragOon.mjs';
 
 // Authoritative cleanup of siege machines that have genuinely fallen past
 // the arena's kill plane. On death a machine is GONE, not an unreachable
@@ -16,11 +17,30 @@ export function lostSiegeMachines(room,now,killPlayer){
     let isFlight = room.fightFlight === m;
     let isRam = room.soFistication === m;
     let isBallista = room.biByeLlista === m;
-    if (!isFlight && !isRam && !isBallista) {
+    let isDragOon = room.dragOon === m;
+    if (!isFlight && !isRam && !isBallista && !isDragOon) {
       const kind = getMachineKind(m);
       isFlight = kind === 'flight';
       isRam = kind === 'ram';
       isBallista = kind === 'ballista';
+      isDragOon = kind === 'dragoon';
+    }
+    if (isDragOon) {
+      triggerAllAbortDestruction(room, m, now, { attackerId: null, source: 'abyss', point: { x: m.x, y: m.y, z: m.z } });
+      m.retired = true;
+      for (const p of room.players?.values?.() ?? []) {
+        if ((p.operatingDragOonId === m.id || p.aboardDragOonId === m.id) && p.alive) {
+          killPlayer(room, p.id, null, 'abyss', now);
+        }
+        if (p.operatingDragOonId === m.id) p.operatingDragOonId = null;
+        if (p.aboardDragOonId === m.id) p.aboardDragOonId = null;
+      }
+      if (room.machines?.has(m.id)) room.machines.delete(m.id);
+      if (room.dragOon === m) room.dragOon = null;
+      room.dragOonRevision = (room.dragOonRevision ?? 0) + 1;
+      room.events?.push({ type: 'siegeMachineAbyss', machine: 'drag-oon', machineId: m.id, operatorId: m.operatorId ?? null, source: 'abyss', point: { x: m.x, y: m.y, z: m.z }, at: now });
+      lost.push({ machineId: m.id, machine: 'drag-oon', operatorId: m.operatorId ?? null });
+      continue;
     }
     const cfgName = isFlight ? 'fight-and-flight' : isRam ? 'so-fist-ication' : 'bi-bye-llista';
     const eventName = isFlight ? 'fightFlightDestroyed' : isRam ? 'soFistDestroyed' : 'bibyeDestroyed';

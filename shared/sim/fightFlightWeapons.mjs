@@ -1,7 +1,7 @@
 // Authoritative repeating crossbow fitted to the v2.6 left-side muzzle.
 // Actual finite bolts: never a damage aura or a client-authored damage command.
 import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
-import { raycastFleet } from './fleetGeometry.mjs';
+import { raycastFleet, getMachineKind, damageFleetMachine } from './fleetGeometry.mjs';
 import {postureOf} from '../src/body.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
@@ -9,7 +9,6 @@ import {sweptSegmentCylinderHit,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeFirstHit} from './biByeComponents.mjs';
 import {soFistFirstHit} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
-import { getMachineKind } from './fleetGeometry.mjs';
 import {damageFightFlight} from './fightFlightComponents.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
@@ -173,9 +172,7 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
         if(first.targetMachine){
           const tm=first.targetMachine;
           const k=getMachineKind(tm);
-          if(k==='ballista')damageBiByeLlista(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
-          else if(k==='ram')damageSoFistication(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
-          else if(k==='flight')damageFightFlight(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point,steelMinimum:2});
+          damageFleetMachine(room,tm,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point,...(k==='flight'?{steelMinimum:2}:{})});
         } else {
           if(first.kind==='ballista'&&room.biByeLlista)damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});
           if(first.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box?.componentId,point});

@@ -1,5 +1,6 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
-import { getFleetMachines, getFleetSolids, blastFleet, getMachineKind } from './fleetGeometry.mjs';
+import { getFleetMachines, getFleetSolids, blastFleet, getMachineKind, damageFleetMachine } from './fleetGeometry.mjs';
+import { dragOonFirstHit } from './dragOonGeometry.mjs';
 import {ballistaMountReach} from '../src/siegeMountReach.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
@@ -935,6 +936,9 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
       } else if (mKind === 'fight-and-flight' || mKind === 'flight') {
         kind = 'flight';
         hit = fightFlightFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], projectile.radius ?? 0);
+      } else if (mKind === 'dragoon') {
+        kind = 'machine';
+        hit = dragOonFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], projectile.radius ?? 0);
       } else {
         kind = 'machine';
         hit = biByeFirstHit(m, [before.x, before.y, before.z], [after.x, after.y, after.z], nowSec, 0, assembly);
@@ -1044,9 +1048,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
         if(first.targetMachine){
           const tm=first.targetMachine;
           const k=getMachineKind(tm);
-          if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
-          else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
-          else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
+          damageFleetMachine(room,tm,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,...(k==='flight'?{steelMinimum:2}:{})});
         }else{
           if(first.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
           if(first.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
@@ -1074,9 +1076,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           if(hit.targetMachine){
             const tm=hit.targetMachine;
             const k=getMachineKind(tm);
-            if(k==='ram'||k==='so-fist-ication')damageSoFistication(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
-            else if(k==='flight'||k==='fight-and-flight')damageFightFlight(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
-            else damageBiByeLlista(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
+            damageFleetMachine(room,tm,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,...(k==='flight'?{steelMinimum:8}:{})});
           }else{
             if(hit.kind==='ram'&&room.soFistication)damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
             if(hit.kind==='flight'&&room.fightFlight)damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point,steelMinimum:8});
