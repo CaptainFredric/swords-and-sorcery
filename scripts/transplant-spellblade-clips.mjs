@@ -969,9 +969,9 @@ function addBackplate(baseFile, spec = BACKPLATE) {
 const MIRROR_BACK = Object.freeze({ source: 'Breastplate', name: 'Backplate', from: 1.12, to: 1.63, facing: 0.25, maxX: 0.24, push: 0.012,
   // Below `repaint.below`, the front's dark side panels (either side of its lighter plastron, which narrows in a V to
   // the belt) are painted in the plastron's steel: on the back the dark panels read as a taper. The plate's shape,
-  // its gold trim and the plastron stay as they are. The scarf's pointed tail, which hung down the back like a bib,
-  // is painted the same below `repaint.scarf`. Faces by colour: tools/blender/characters/spellblade/backplate/faces.json.
-  repaint: Object.freeze({ below: 1.44, scarf: 1.46, plate: Object.freeze([0.1397, 0.5742]),
+  // its gold trim and the plastron stay as they are, and so does the scarf, red (painting its tail grey left grey
+  // folds down his back). Faces by colour: tools/blender/characters/spellblade/backplate/faces.json.
+  repaint: Object.freeze({ below: 1.44, plate: Object.freeze([0.1397, 0.5742]),
     faces: 'tools/blender/characters/spellblade/backplate/faces.json' }) });
 function mirrorBack(baseFile, spec = MIRROR_BACK) {
   const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin, skin = doc.skins[0];
@@ -1003,7 +1003,7 @@ function mirrorBack(baseFile, spec = MIRROR_BACK) {
       const n = [0, 1, 2].map((k) => tri.reduce((acc, v) => acc + N[v][k], 0) / 3);
       if (c[1] < spec.from || c[1] > spec.to || Math.abs(c[0]) > spec.maxX || -n[2] < spec.facing || c[2] > cz) continue;
       const face = t / 3, re = spec.repaint;
-      const paint = re && primIndex === 0 && ((c[1] < re.below && classes.dark.has(face)) || (c[1] < re.scarf && classes.red.has(face)));
+      const paint = re && primIndex === 0 && c[1] < re.below && classes.dark.has(face);
       if (paint) {
         const first = pos.length / 3;
         for (const v of [tri[0], tri[2], tri[1]]) { pos.push(P[v][0], P[v][1], 2 * cz - P[v][2] + spec.push); nrm.push(N[v][0], N[v][1], -N[v][2]); uv.push(...re.plate); joints.push(...J[v]); weights.push(...Wt[v]); }
