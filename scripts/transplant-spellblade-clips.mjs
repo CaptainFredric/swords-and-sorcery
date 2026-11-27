@@ -28,6 +28,8 @@
 //     (the breastplate's waist blended pelvis -> spine -> chest over 27 cm instead of changing hands in 10)
 //   node scripts/transplant-spellblade-clips.mjs --blend-collar [--apply]
 //     (the collar's column, the helmet's chin, blended chest -> neck -> head so it goes with the helmet)
+//   node scripts/transplant-spellblade-clips.mjs --mirror-back [--apply]
+//     (the breastplate's front reflected to make his back: replaces the Backplate's geometry)
 //   node scripts/transplant-spellblade-clips.mjs --add-backplate [--apply]
 //     (a steel backplate made from the core's own back, on its bones: the cuirass had no back)
 //   node scripts/transplant-spellblade-clips.mjs --fill-core [--apply]
@@ -957,6 +959,76 @@ function addBackplate(baseFile, spec = BACKPLATE) {
   return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.name, triangles: parts.reduce((t, p) => t + p.index.length / 3, 0) }] };
 }
 
+// The back made from the front (playtest: "why didn't you nearly mirror from the front?"): the breastplate's
+// front-facing faces over the chest (y between `from` and `to`, facing forward by at least `facing`) reflected through
+// the torso's middle (z = the chest joint's), winding reversed, each vertex keeping its bones and weights and texture,
+// so the back is the same shaped, trimmed and ridged plate. It replaces the Backplate mesh's geometry (#575's plate
+// from the core) in place, or is added as Backplate.
+const MIRROR_BACK = Object.freeze({ source: 'Breastplate', name: 'Backplate', from: 1.12, to: 1.63, facing: 0.25, maxX: 0.24, push: 0.012 });
+function mirrorBack(baseFile, spec = MIRROR_BACK) {
+  const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin, skin = doc.skins[0];
+  const SIZE = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }, COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+  const read = (index) => { const a = doc.accessors[index], v = doc.bufferViews[a.bufferView], n = COUNT[a.type], size = SIZE[a.componentType];
+    const o = (v.byteOffset ?? 0) + (a.byteOffset ?? 0), stride = v.byteStride ?? n * size;
+    return Array.from({ length: a.count }, (_, i) => Array.from({ length: n }, (_, c) => { const at = o + i * stride + c * size;
+      const x = a.componentType === 5126 ? bin0.readFloatLE(at) : size === 4 ? bin0.readUInt32LE(at) : size === 2 ? bin0.readUInt16LE(at) : bin0.readUInt8(at);
+      return a.normalized ? x / (size === 1 ? 255 : 65535) : x; })); };
+  const ibm = read(skin.inverseBindMatrices);
+  const chest = skin.joints.findIndex((j) => doc.nodes[j].name === 'chest'), m = ibm[chest];
+  const cz = -(m[2] * m[12] + m[6] * m[13] + m[10] * m[14]);
+  const src = doc.meshes.find((x) => x.name === spec.source);
+  if (!src) throw Error('No mesh ' + spec.source);
+  let bin = Buffer.from(bin0.subarray(0, doc.buffers[0].byteLength));
+  const append = (data, target) => { bin = Buffer.concat([bin, Buffer.alloc(align(bin.length) - bin.length)]);
+    doc.bufferViews.push({ buffer: 0, byteOffset: bin.length, byteLength: data.length, target }); bin = Buffer.concat([bin, data]); return doc.bufferViews.length - 1; };
+  const accessor = (arr, componentType, type, count, extra = {}) =>
+    doc.accessors.push({ bufferView: append(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength), extra.target ?? 34962), componentType, count, type, ...(extra.min ? { min: extra.min, max: extra.max } : {}) }) - 1;
+  const primitives = [];
+  let triangles = 0;
+  for (const prim of src.primitives) {
+    const P = read(prim.attributes.POSITION), N = read(prim.attributes.NORMAL), T = read(prim.attributes.TEXCOORD_0), J = read(prim.attributes.JOINTS_0), Wt = read(prim.attributes.WEIGHTS_0), I = read(prim.indices).map((x) => x[0]);
+    const pos = [], nrm = [], uv = [], joints = [], weights = [], index = [], remap = new Map();
+    for (let t = 0; t < I.length; t += 3) {
+      const tri = [I[t], I[t + 1], I[t + 2]];
+      const c = [0, 1, 2].map((k) => tri.reduce((acc, v) => acc + P[v][k], 0) / 3);
+      const n = [0, 1, 2].map((k) => tri.reduce((acc, v) => acc + N[v][k], 0) / 3);
+      if (c[1] < spec.from || c[1] > spec.to || Math.abs(c[0]) > spec.maxX || -n[2] < spec.facing || c[2] > cz) continue;
+      const out = [];
+      for (const v of tri) {
+        if (!remap.has(v)) {
+          remap.set(v, pos.length / 3);
+          pos.push(P[v][0], P[v][1], 2 * cz - P[v][2] + spec.push);
+          nrm.push(N[v][0], N[v][1], -N[v][2]); uv.push(...T[v]); joints.push(...J[v]); weights.push(...Wt[v]);
+        }
+        out.push(remap.get(v));
+      }
+      index.push(out[0], out[2], out[1]);
+    }
+    if (!index.length) continue;
+    triangles += index.length / 3;
+    const count = pos.length / 3;
+    const min = [0, 1, 2].map((k) => Math.min(...pos.filter((_, i) => i % 3 === k))), max = [0, 1, 2].map((k) => Math.max(...pos.filter((_, i) => i % 3 === k)));
+    primitives.push({ attributes: {
+      POSITION: accessor(new Float32Array(pos), 5126, 'VEC3', count, { min, max }),
+      NORMAL: accessor(new Float32Array(nrm), 5126, 'VEC3', count),
+      TEXCOORD_0: accessor(new Float32Array(uv), 5126, 'VEC2', count),
+      JOINTS_0: accessor(new Uint8Array(joints), 5121, 'VEC4', count),
+      WEIGHTS_0: accessor(new Float32Array(weights), 5126, 'VEC4', count),
+    }, indices: accessor(count > 65535 ? new Uint32Array(index) : new Uint16Array(index), count > 65535 ? 5125 : 5123, 'SCALAR', index.length, { target: 34963 }), material: prim.material });
+  }
+  if (!primitives.length) throw Error('No front faces found on ' + spec.source);
+  const existing = doc.meshes.find((x) => x.name === spec.name);
+  if (existing) existing.primitives = primitives;
+  else {
+    doc.meshes.push({ name: spec.name, primitives });
+    doc.nodes.push({ name: spec.name, mesh: doc.meshes.length - 1, skin: 0 });
+    doc.nodes[doc.nodes.findIndex((n) => n.name === 'SpellbladeRig')].children.push(doc.nodes.length - 1);
+  }
+  doc.buffers[0].byteLength = bin.length;
+  const data = encode(doc, compact(doc, bin));
+  return { data, before: sha(base.raw), after: sha(data), bytes: data.length, clips: doc.animations.map((a) => a.name), report: [{ mesh: spec.name, triangles, mirrorZ: +cz.toFixed(3) }] };
+}
+
 // A couter for each elbow: a faceted cop centred on the joint, rigid on the elbow bone (which the animator turns half
 // as far as the forearm). The supplied gauntlets leave the joint open: the upper-arm plate ends in a wide bell to one
 // side of the bone and the vambrace starts a hand's breadth down the forearm, with only a 5 cm neck between them, so
@@ -1102,6 +1174,9 @@ if (arg('--seat-prop')) {
 } else if (process.argv.includes('--blend-collar')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = blendWaist(join(dir, file), COLLAR);
+} else if (process.argv.includes('--mirror-back')) {
+  key = 'thirdPerson'; file = 'spellblade.glb';
+  result = mirrorBack(join(dir, file));
 } else if (process.argv.includes('--add-backplate')) {
   key = 'thirdPerson'; file = 'spellblade.glb';
   result = addBackplate(join(dir, file));
