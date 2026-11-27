@@ -964,7 +964,10 @@ function addBackplate(baseFile, spec = BACKPLATE) {
 // the torso's middle (z = the chest joint's), winding reversed, each vertex keeping its bones and weights and texture,
 // so the back is the same shaped, trimmed and ridged plate. It replaces the Backplate mesh's geometry (#575's plate
 // from the core) in place, or is added as Backplate.
-const MIRROR_BACK = Object.freeze({ source: 'Breastplate', name: 'Backplate', from: 1.12, to: 1.63, facing: 0.25, maxX: 0.24, push: 0.012 });
+// widen: [top, bottom, factor]: below `top` the plate is let out sideways toward `factor` at `bottom` (a back is
+// protected whole; only the front tapers to the waist)
+const MIRROR_BACK = Object.freeze({ source: 'Breastplate', name: 'Backplate', from: 1.12, to: 1.63, facing: 0.25, maxX: 0.24, push: 0.012,
+  widen: Object.freeze([1.42, 1.14, 1.3]) });
 function mirrorBack(baseFile, spec = MIRROR_BACK) {
   const base = glb(baseFile), doc = structuredClone(base.doc), bin0 = base.bin, skin = doc.skins[0];
   const SIZE = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }, COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
@@ -997,7 +1000,10 @@ function mirrorBack(baseFile, spec = MIRROR_BACK) {
       for (const v of tri) {
         if (!remap.has(v)) {
           remap.set(v, pos.length / 3);
-          pos.push(P[v][0], P[v][1], 2 * cz - P[v][2] + spec.push);
+          const [top, bottom, factor] = process.env.MIRROR_WIDEN ? JSON.parse(process.env.MIRROR_WIDEN) : spec.widen ?? [0, 0, 1];
+          const t = Math.max(0, Math.min(1, (top - P[v][1]) / Math.max(1e-6, top - bottom)));
+          const k = 1 + (factor - 1) * t * t * (3 - 2 * t);
+          pos.push(P[v][0] * k, P[v][1], 2 * cz - P[v][2] + spec.push);
           nrm.push(N[v][0], N[v][1], -N[v][2]); uv.push(...T[v]); joints.push(...J[v]); weights.push(...Wt[v]);
         }
         out.push(remap.get(v));
