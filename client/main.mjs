@@ -410,14 +410,12 @@ function setIdentityEditing(bar, editing, { focus = false } = {}) {
 }
 function syncIdentityBars({ collapseIfValid = false } = {}) {
   const trimmed = nameInput.value.trim();
-  const display = trimmed || 'Unset';
+  const display = trimmed || 'Assigned on entry';
   for (const bar of identityBars) {
     const labelEl = bar.querySelector('[data-identity-name]');
     if (labelEl) labelEl.textContent = display;
     bar.classList.toggle('missing-name', !trimmed);
-    if (!trimmed) {
-      setIdentityEditing(bar, true);
-    } else if (collapseIfValid) {
+    if (collapseIfValid) {
       setIdentityEditing(bar, false);
     }
   }
@@ -726,6 +724,7 @@ function ensureRuntime() {
 function runMenuAction(result, failureScreen) {
   pendingFailureScreen = failureScreen;
   if (result.ok) {
+    if(result.name){nameFields.forEach(field=>{field.value=result.name;});syncIdentityBars({collapseIfValid:true});}
     showMenuError('');
     return true;
   }
@@ -1858,7 +1857,6 @@ $('[data-tutorial-onboarding-skip]').addEventListener('click', () => {
 });
 $('[data-tutorial-begin]').addEventListener('click', () => {
   closeTutorialOffer();
-  if (!nameInput.value.trim()) nameFields.forEach(field=>{field.value='Spellblade';});
   startTutorial();
 });
 // The transcript: the asides heard (an aside is listed once it has been), the take being heard again, and the lesson
@@ -1971,11 +1969,9 @@ function revealTutorialControls(taught) {
 }
 function startTutorial() {
   showMenuError('');
-  let name = nameInput.value.trim().slice(0, 18);
-  if (!name) {
-    name = 'Spellblade';
-    nameFields.forEach((field) => { field.value = name; });
-  }
+  const name = menuController.nameForMatch(nameInput.value);
+  nameFields.forEach(field=>{field.value=name;});
+  syncIdentityBars({collapseIfValid:true});
   localStorage.setItem('ss-player-name', name);
   tutorialEquipment.reset();
   runtime?.weapon.setEquipment({ sword: false, hand: false });
@@ -2380,10 +2376,16 @@ function updatePlaques() {
   const equippedSpell = view.spells.find((s) => s.id === currentSpellId) || view.spells[0];
   const equippedUlt = view.ultimates.find((u) => u.id === currentUltId) || view.ultimates[0];
 
+  const technique=SWORD_TECHNIQUES.find(t=>t.id===settings.get('loadout.technique'));
+  const techGlyph=iconSvg(technique?.icon??'attack');
+  const spellGlyph=iconSvg(currentSpellId);
+  const shortcutTech=$('#armory-technique-glyph'),shortcutSpell=$('#armory-spell-glyph');
+  if(shortcutTech){shortcutTech.innerHTML=techGlyph;shortcutTech.title=technique?.name??'Sword';}
+  if(shortcutSpell){shortcutSpell.innerHTML=spellGlyph;shortcutSpell.title=equippedSpell.name;shortcutSpell.dataset.spell=currentSpellId;}
   const techIcon = $('#plaque-icon-technique');
-  if (techIcon) techIcon.textContent = '⚔';
+  if (techIcon) techIcon.innerHTML = techGlyph;
   const techName = $('#plaque-name-technique');
-  if (techName) techName.textContent = 'None equipped';
+  if (techName) techName.textContent = technique?.name??'None equipped';
 
   const sorceryIcon = $('#plaque-icon-sorcery');
   if (sorceryIcon) sorceryIcon.textContent = equippedSpell.mark;
@@ -4331,15 +4333,15 @@ route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 // On startup, solo play, tutorial, and local menus begin immediately with zero network requests.
 // A remote connection is established on demand when deliberately requesting multiplayer or resuming an active match.
 async function connectInitialSession() {
-  if (autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+  if (autoSolo === 'BREAKTHROUGH') {
     runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }
-  if (autoSolo === 'BOT_DUEL' && nameInput.value) {
+  if (autoSolo === 'BOT_DUEL') {
     runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }
-  if (autoSolo === 'PRACTICE' && nameInput.value) {
+  if (autoSolo === 'PRACTICE') {
     runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
     return;
   }

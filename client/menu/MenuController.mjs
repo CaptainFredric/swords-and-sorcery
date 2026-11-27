@@ -223,9 +223,12 @@ export class MenuController {
     });
   }
 
+  nameForMatch(rawName) {
+    return normalizeName(rawName)||this.savedName()||`Spellblade ${Math.floor(1000+Math.random()*9000)}`;
+  }
+
   #withName(rawName, action) {
-    const name = normalizeName(rawName);
-    if (!name) return { ok: false, error: 'Enter a Spellblade name.' };
+    const name = this.nameForMatch(rawName);
     this.storage?.setItem?.('ss-player-name', name);
     action(name);
     return { ok: true, name };

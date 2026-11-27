@@ -26,7 +26,7 @@ export const DEFAULT_ON_FOOT_LAYOUT = Object.freeze({
   // The killfeed now lives underneath this row, on foot AND on siege rigs.
   // Custom saves are respected; live feed clearance handles older positions.
   siegeView: {right: 14, top: 8, size: 44, custom:true},
-  interact: { right: 204, bottom: 96, size: 58 },
+  interact: { right: 230, bottom: 96, size: 48, custom:true },
   deploy: { right: 196, bottom: 164, size: 58 },
   pause: { left: 10, top: 8, size: 38 },
   scores: { left: 54, top: 8, size: 38 },
@@ -203,7 +203,7 @@ export function mountedTouchLayout(onFoot,handedness='right',machine='generic'){
     // The on-foot VIEW factory placement was marked custom for onboarding.
     // That flag alone must not override the ballista's nonoverlapping default
     // VIEW position. Explicitly edited VIEW positions still win.
-    const untouchedOnFootView=machine==='biBye'&&action==='siegeView'&&
+    const untouchedOnFootView=(action==='interact'||(machine==='biBye'&&action==='siegeView'))&&
       original&&Object.entries(original).every(([key,value])=>saved?.[key]===value);
     layout[action]=saved?.custom&&!preset&&!untouchedOnFootView?
       {...saved}:{...placement,custom:true};

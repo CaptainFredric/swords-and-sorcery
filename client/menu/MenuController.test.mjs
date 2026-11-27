@@ -55,12 +55,16 @@ test('menu actions normalize names once and persist the accepted identity', () =
   assert.equal(store.get('ss-player-name'), 'The Long Spellblad');
 });
 
-test('blank names and malformed room codes fail without touching the socket', () => {
-  const { controller, calls } = harness();
-
-  assert.deepEqual(controller.quickPlay('   '), { ok: false, error: 'Enter a Spellblade name.' });
-  assert.deepEqual(controller.joinPrivate('abc', 'Aden'), { ok: false, error: 'Enter the five-character room code.' });
-  assert.deepEqual(calls, []);
+test('blank names get a persistent numbered Spellblade identity; malformed room codes still fail', () => {
+  const { controller, calls, store } = harness();
+  const result=controller.quickPlay('   ');
+  assert.equal(result.ok,true);
+  assert.match(result.name,/^Spellblade [0-9]{4}$/);
+  assert.equal(store.get('ss-player-name'),result.name);
+  assert.equal(controller.practice('').name,result.name);
+  const count=calls.length;
+  assert.deepEqual(controller.joinPrivate('abc','Aden'),{ok:false,error:'Enter the five-character room code.'});
+  assert.equal(calls.length,count);
 });
 
 test('private join normalizes room codes before dispatch', () => {
@@ -80,10 +84,12 @@ test('socket errors during active play stay in the arena instead of routing to a
 });
 
 
-test('inspection keeps name validation and the chosen solo arena', () => {
+test('inspection uses the numbered fallback and respects the chosen solo arena', () => {
   const { controller, calls } = harness();
-  assert.equal(controller.inspectionPractice('  ').ok, false);
-  assert.deepEqual(calls, []);
+  const guest=controller.inspectionPractice('  ');
+  assert.match(guest.name,/^Spellblade [0-9]{4}$/);
+  assert.equal(calls[0][1],guest.name);
+  calls.length=0;
   controller.chooseSoloArena('ruined-keep');
   assert.equal(controller.inspectionPractice(' Inspector ').ok, true);
   assert.deepEqual(calls, [['inspection', 'Inspector', 'ruined-keep']]);

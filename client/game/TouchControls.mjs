@@ -1052,7 +1052,27 @@ export class TouchControls {
       }
     }
     this.#clearMountedSteelSkillOverlap();
+    this.#clearMountViewOverlap();
     this.#syncMobileFeedLane();
+  }
+
+  // Protect saved layouts too; use unrotated CSS coordinates on phones
+  // whose game shell is turned sideways. Do not alter saved preferences.
+  #clearMountViewOverlap() {
+    const mount=this.buttons.interact,view=this.buttons.siegeView;
+    if(!mount||!view)return;
+    mount.style.translate='';
+    if(!this.active||this.mounted||mount.hidden||view.hidden||this.previewMode||
+       this.layer.classList.contains('touch-layout-editing'))return;
+    const rect=b=>Number.isFinite(b?.offsetLeft)&&Number.isFinite(b?.offsetTop)&&b.offsetWidth>0&&b.offsetHeight>0?
+      {left:b.offsetLeft,top:b.offsetTop,right:b.offsetLeft+b.offsetWidth,bottom:b.offsetTop+b.offsetHeight}:null;
+    const moving=rect(mount),fixed=rect(view);
+    if(!moving||!fixed)return;
+    const bounds={left:0,top:0,right:this.layer.clientWidth,bottom:this.layer.clientHeight};
+    const others=Object.values(this.buttons).filter(b=>b!==mount&&b!==view&&!b.hidden&&
+      globalThis.getComputedStyle?.(b)?.display!=='none').map(rect).filter(Boolean);
+    const shift=clearTouchButtonOverlap(moving,fixed,bounds,others);
+    if(shift&&(shift.dx||shift.dy))mount.style.translate=`${Math.round(shift.dx)}px ${Math.round(shift.dy)}px`;
   }
 
   #setMotionIndicator(mode) {

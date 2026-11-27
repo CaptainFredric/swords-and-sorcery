@@ -632,3 +632,11 @@ test('mobile ballista places LEAVE extreme upper-right, VIEW above Skill, Sweep 
  assert.ok(BI_BYE_MOUNTED_ACTIONS.siegeSweep.right<BI_BYE_MOUNTED_ACTIONS.siegeSkill.right,
   'SWEEP sits farther right toward the thumb edge');
 });
+
+test('on-foot Mount uses an explicit bottom-anchored touch target, separate from VIEW',()=>{
+ const mount=DEFAULT_ON_FOOT_LAYOUT.interact,view=DEFAULT_ON_FOOT_LAYOUT.siegeView;
+ assert.equal(mount.custom,true);assert.ok(mount.bottom>=0&&mount.size>=44);
+ assert.equal(mount.top,undefined);assert.ok(mount.right>view.right+view.size);
+ const mirrored=mirrorLayoutHorizontal(DEFAULT_ON_FOOT_LAYOUT);
+ assert.equal(mirrored.interact.left,mount.right);assert.equal(mirrored.interact.bottom,mount.bottom);
+});
