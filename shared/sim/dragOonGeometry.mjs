@@ -34,7 +34,9 @@ export function dragOonFrame(m) {
 
 export function dragOonOperatorPose(m) {
   const frame = dragOonFrame(m);
-  const p = boxWorld(frame, DRAG_OON_GEOMETRY.stations.operatorSeat);
+  const settleY = m?.campFire?.settled ? DRAG_OON_GEOMETRY.campFireSettleY : 0;
+  const s = DRAG_OON_GEOMETRY.stations.operatorSeat;
+  const p = boxWorld(frame, [s[0], s[1] + settleY, s[2]]);
   return { x: p[0], y: p[1], z: p[2] };
 }
 
@@ -42,8 +44,9 @@ export function dragOonPassengerStationPose(m, slotIndex, type = 'seat') {
   const stations = DRAG_OON_GEOMETRY.stations.passengers;
   const station = stations[clamp(slotIndex | 0, 0, stations.length - 1)];
   const frame = dragOonFrame(m);
+  const settleY = m?.campFire?.settled ? DRAG_OON_GEOMETRY.campFireSettleY : 0;
   const local = type === 'aperture' ? station.aperture : type === 'camera' ? station.camera : station.seat;
-  const p = boxWorld(frame, local);
+  const p = boxWorld(frame, [local[0], local[1] + settleY, local[2]]);
   return {
     x: p[0],
     y: p[1],

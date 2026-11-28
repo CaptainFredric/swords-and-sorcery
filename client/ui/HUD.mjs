@@ -430,6 +430,32 @@ export class HUD {
       '</div>';
     this.partLastHp=new Map();
     this.partHitTimers=new Map();
+    const dragoonDeckHtml =
+      '<div class="dragoon-deck" data-dragoon-deck hidden>' +
+        '<div class="dragoon-crew-pod" data-dragoon-crew>' +
+          '<div class="dragoon-crew-grid">' +
+            '<div class="dragoon-seat" data-seat="L1"><i></i><b>L1</b><svg viewBox="0 0 24 24" class="dragoon-inf-ring"><circle class="ring-bg" cx="12" cy="12" r="10"/><circle class="ring-arc" cx="12" cy="12" r="10"/></svg></div>' +
+            '<div class="dragoon-seat" data-seat="R1"><i></i><b>R1</b><svg viewBox="0 0 24 24" class="dragoon-inf-ring"><circle class="ring-bg" cx="12" cy="12" r="10"/><circle class="ring-arc" cx="12" cy="12" r="10"/></svg></div>' +
+            '<div class="dragoon-seat is-op" data-seat="OP"><i></i><b>OP</b><svg viewBox="0 0 24 24" class="dragoon-inf-ring"><circle class="ring-bg" cx="12" cy="12" r="10"/><circle class="ring-arc" cx="12" cy="12" r="10"/></svg></div>' +
+            '<div class="dragoon-seat" data-seat="L2"><i></i><b>L2</b><svg viewBox="0 0 24 24" class="dragoon-inf-ring"><circle class="ring-bg" cx="12" cy="12" r="10"/><circle class="ring-arc" cx="12" cy="12" r="10"/></svg></div>' +
+            '<div class="dragoon-seat" data-seat="R2"><i></i><b>R2</b><svg viewBox="0 0 24 24" class="dragoon-inf-ring"><circle class="ring-bg" cx="12" cy="12" r="10"/><circle class="ring-arc" cx="12" cy="12" r="10"/></svg></div>' +
+          '</div>' +
+          '<div class="dragoon-inf-strip" data-dragoon-infusions></div>' +
+        '</div>' +
+        '<div class="dragoon-bars">' +
+          '<div class="dragoon-bar-row"><div class="dragoon-bar-head"><span>HULL</span><output data-dg-hull-val></output></div><div class="dragoon-track"><div class="dragoon-fill is-hull" data-dg-hull-fill></div></div></div>' +
+          '<div class="dragoon-bar-row"><div class="dragoon-bar-head"><span>FUEL</span><output data-dg-fuel-val></output></div><div class="dragoon-track is-fuel"><div class="dragoon-fill is-fuel" data-dg-fuel-fill></div><div class="dragoon-fuel-disabled" data-dg-fuel-disabled></div></div></div>' +
+          '<div class="dragoon-bar-row"><div class="dragoon-bar-head"><span>FURNACE</span><output data-dg-heat-val></output></div><div class="dragoon-track is-heat"><div class="dragoon-heat-overzone" data-dg-heat-overzone></div><div class="dragoon-fill is-heat" data-dg-heat-fill></div><div class="dragoon-fill is-heat-over" data-dg-heat-overfill></div><i class="dragoon-heat-danger-tick" data-dg-heat-tick></i></div></div>' +
+        '</div>' +
+        '<div class="dragoon-deck-actions" data-dragoon-actions>' +
+          '<div class="dragoon-act" data-dg-act="spray"><em></em><b>LMB</b><small></small></div>' +
+          '<div class="dragoon-act" data-dg-act="leap"><em></em><b>SPC</b><small></small></div>' +
+          '<div class="dragoon-act" data-dg-act="steam"><em></em><b>RMB</b><small></small></div>' +
+          '<div class="dragoon-act" data-dg-act="skill"><em></em><b>U</b><small></small></div>' +
+          '<div class="dragoon-act is-rite" data-dg-act="rite" hidden><em></em><b>R</b><small></small></div>' +
+          '<div class="dragoon-act is-pax" data-dg-act="leave" hidden><em></em><b>T</b><small>EVAC</small></div>' +
+        '</div>' +
+      '</div>';
     this.machineGauge.innerHTML =
       '<div class="machine-pitch"><i class="machine-pitch-line"></i><output data-ram-pitch>0°</output></div>'+ 
       '<small class="machine-piston" data-machine-piston></small>'+
@@ -443,7 +469,9 @@ export class HUD {
         flightBrace('right','R')+
         '<div class="machine-component"><div class="machine-health-head"><b data-component-name></b><output data-component-hp></output></div>'+
         '<div class="machine-health-track"><div class="machine-health-fill" data-component-fill></div></div></div>'+
-      '</div><small class="machine-gauge-context" data-machine-context></small>';
+      '</div>'+
+      dragoonDeckHtml+
+      '<small class="machine-gauge-context" data-machine-context></small>';
     this.root.append(this.machineGauge);
     // Track real wrapping as subtitles change, including multi-beat lines and
     // changes in viewport width. The health gauge reserves the measured room.
@@ -509,7 +537,8 @@ export class HUD {
     // an on-screen warning. Its state is the same pure rule as the host's.
     this.armour?.classList.toggle('steel-floor',oneHitSteelFloorActive(local,serverNow));
     this.displayedTrail += (hp - this.displayedTrail) * 0.035;
-    if (hp < this.displayedTrail) this.displayedTrail = Math.max(hp, this.displayedTrail - 0.25);
+    if (!local.alive || hp <= 0) this.displayedTrail = 0;
+    else if (hp < this.displayedTrail) this.displayedTrail = Math.max(hp, this.displayedTrail - 0.25);
     else this.displayedTrail = hp;
     this.healthTrail.style.width = `${this.displayedTrail}%`;
     // badly hurt: the edges of the view keep a slow pulse, stronger the lower it gets
@@ -591,13 +620,14 @@ export class HUD {
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId||inDragOon)));
     this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
     this.root.classList.toggle('dragoon-mounted', inDragOon);
-    const gauge = machineGaugeView(local, snapshot, serverNow);
+    this.root.classList.toggle('dragoon-passenger', Boolean(local?.alive && local.aboardDragOonId));
+    const gauge = machineGaugeView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ram-mounted', gauge?.kind === 'ram' || gauge?.kind === 'dragoon');
     const gaugeVisibilityChanged = this.machineGauge.hidden !== !gauge;
     this.machineGauge.hidden = !gauge;
     if (gaugeVisibilityChanged) this.#syncMachineCaptionClearance();
     if (gaugeVisibilityChanged || (gauge && this.machineGauge.dataset.kind !== gauge.kind)) this.#gaugeLaneDue = true;
-    this.driveHousing.hidden = !gauge?.pressure;
+    this.driveHousing.hidden = !gauge?.pressure || gauge?.kind === 'dragoon';
     if (this.#gaugeLaneDue) { this.#gaugeLaneDue = false; queueMicrotask(() => this.#syncGaugeLane()); }
     if (gauge) {
       const el = this.machineGauge;
@@ -671,7 +701,7 @@ export class HUD {
         el.querySelector('[data-ram-pitch]').textContent = (pitch > 0 ? '+' : '') + pitch + '°';
         el.style.setProperty('--ram-pitch', Math.max(-10, Math.min(50, gauge.pitch)).toFixed(2) + 'deg');
       }
-      if (gauge.pressure) {
+      if (gauge.pressure && gauge.kind !== 'dragoon') {
         this.driveHousing.dataset.kind = gauge.kind;
         this.driveHousing.classList.toggle('overheated', Boolean(gauge.pressure.overheated));
         this.driveHousing.querySelector('.drive-housing-head b').textContent = gauge.pressure.label ?? 'DRIVE PRESSURE';
@@ -679,10 +709,18 @@ export class HUD {
           machineGaugeNumber(gauge.pressure.value) + '/' + machineGaugeNumber(gauge.pressure.max);
         this.driveHousing.querySelector('[data-drive-fill]').style.width = gauge.pressure.percent.toFixed(2) + '%';
       }
+      const dgDeck = el.querySelector('[data-dragoon-deck]');
+      const dgAsm = el.querySelector('.machine-health-assembly');
+      if (dgDeck && dgAsm) {
+        const isDg = gauge.kind === 'dragoon' && Boolean(gauge.deck);
+        dgDeck.hidden = !isDg;
+        dgAsm.hidden = isDg;
+        if (isDg) this.#renderDragOonDeck(dgDeck, gauge.deck);
+      }
     }
     const isFlight = Boolean(siege?.isFlight);
     const mountedSkill=mountedSiegeSkillTile(local,snapshot,serverNow);
-    this.flightSkillTile.hidden=!mountedSkill;
+    this.flightSkillTile.hidden=!mountedSkill || gauge?.kind === 'dragoon';
     if(mountedSkill){
       const tile=this.flightSkillTile;
       const glyph=isFlight&&siege.skillIcon?siege.skillIcon:mountedSkill.icon;
@@ -702,7 +740,7 @@ export class HUD {
     // Mounted players already have HP/parts, U Skill and E Sharp Turn tiles.
     // The old 330px black instruction placard obscured the forward aim.
     this.ballistaPanel.hidden = !siege || Boolean(local.operatingBallistaId) ||
-      Boolean(local.operatingRamId) || isFlight || gauge?.kind === 'ram';
+      Boolean(local.operatingRamId) || isFlight || gauge?.kind === 'ram' || gauge?.kind === 'dragoon';
     const prompt=hellpingContextPrompt(local,snapshot,this.ballistaControls?.bindings,serverNow);
     this.siegeContextPrompt.hidden=!prompt;
     this.siegeContextAction=prompt?.action??null;
@@ -1478,8 +1516,116 @@ export class HUD {
     return line;
   }
 
+  #renderDragOonDeck(deckEl, d) {
+    deckEl.dataset.role = d.role;
+    deckEl.classList.toggle('is-rite-relevant', Boolean(d.riteRelevant));
+    deckEl.classList.toggle('is-rite-eligible', Boolean(d.rite.eligible));
+    deckEl.classList.toggle('is-heat-danger', Boolean(d.heat.danger));
+    deckEl.classList.toggle('is-sealed', Boolean(d.sealed));
+
+    // Hull, Fuel (filled + available + hatched disabled penalty), & Heat (64% normal / 36% overpressure)
+    deckEl.querySelector('[data-dg-hull-val]').textContent = `${Math.ceil(d.hull.value)}/${d.hull.max}`;
+    deckEl.querySelector('[data-dg-hull-fill]').style.width = `${d.hull.pct.toFixed(2)}%`;
+
+    deckEl.querySelector('[data-dg-fuel-val]').textContent = d.fuel.overheated
+      ? `${Math.round(d.fuel.value)}/${Math.round(d.fuel.effectiveMax)} (${d.fuel.max})`
+      : `${Math.round(d.fuel.value)}/${d.fuel.max}`;
+    deckEl.querySelector('[data-dg-fuel-fill]').style.width = `${d.fuel.fillPct.toFixed(2)}%`;
+    deckEl.querySelector('[data-dg-fuel-disabled]').style.width = `${d.fuel.disabledPct.toFixed(2)}%`;
+
+    deckEl.querySelector('[data-dg-heat-val]').textContent = d.heat.danger
+      ? `DANGER ${Math.round(d.heat.value)}`
+      : `${Math.round(d.heat.value)}/${d.heat.brimming ? d.heat.overMax : d.heat.normalMax}`;
+    deckEl.querySelector('[data-dg-heat-fill]').style.width = `${d.heat.normalFillPct.toFixed(2)}%`;
+    deckEl.querySelector('[data-dg-heat-overfill]').style.width = `${d.heat.overFillPct.toFixed(2)}%`;
+    deckEl.querySelector('[data-dg-heat-overzone]').style.width = `${d.heat.overShare}%`;
+    deckEl.querySelector('[data-dg-heat-tick]').style.left = `${d.heat.crewDangerTickPct.toFixed(1)}%`;
+
+    // 5-position spatial crew & Rite commitments
+    const elGlyph = { fire: 'fireball', frost: 'frostfire', gale: 'gale', lightning: 'line_of_conduct', steel: 'steel' };
+    for (const [slotId, seat] of Object.entries(d.seats)) {
+      const node = deckEl.querySelector(`[data-seat="${slotId}"]`);
+      if (!node) continue;
+      if (!seat) { node.hidden = true; continue; }
+      node.hidden = false;
+      node.dataset.occupied = seat.occupied ? 'true' : 'false';
+      node.dataset.self = seat.isSelf ? 'true' : 'false';
+      node.dataset.element = seat.element ?? 'none';
+      node.classList.toggle('is-heat-trauma', Boolean(seat.occupied && seat.heatPulse));
+      node.classList.toggle('is-chivalry', Boolean(d.riteRelevant && seat.chivalryReady));
+      node.classList.toggle('is-committed', Boolean(d.riteRelevant && seat.committed));
+      const iconHost = node.querySelector('i');
+      const wantIcon = seat.occupied ? (slotId === 'OP' ? 'ram' : (elGlyph[seat.element] ?? 'spell')) : '';
+      if (iconHost.dataset.icon !== wantIcon) {
+        iconHost.dataset.icon = wantIcon;
+        iconHost.innerHTML = wantIcon ? iconSvg(wantIcon) : '';
+      }
+      node.setAttribute('title', `${slotId}: ${seat.occupied ? seat.name + (seat.element ? ' (' + seat.element.toUpperCase() + ')' : '') : 'Empty'}`);
+    }
+
+    // Active elemental infusion badges with tier 1 / tier 2 circular arc indicators
+    const infHost = deckEl.querySelector('[data-dragoon-infusions]');
+    const infKey = d.infusions.map(i => `${i.element}:${i.tier}`).join('|');
+    if (infHost.dataset.key !== infKey) {
+      infHost.dataset.key = infKey;
+      infHost.replaceChildren();
+      for (const inf of d.infusions) {
+        const badge = document.createElement('span');
+        badge.className = `dragoon-inf-pip tier-${inf.tier} el-${inf.element}`;
+        badge.setAttribute('title', `${inf.element.toUpperCase()} ${inf.tier === 2 ? 'FULL' : 'HALF'}`);
+        badge.innerHTML = `${iconSvg(elGlyph[inf.element] ?? 'fireball')}<i></i>`;
+        infHost.appendChild(badge);
+      }
+    }
+
+    // Compact ability & skill dock
+    const setAct = (name, icon, keyTxt, statusTxt, { cdPct = 0, active = false, hidden = false, ready = true } = {}) => {
+      const box = deckEl.querySelector(`[data-dg-act="${name}"]`);
+      if (!box) return;
+      box.hidden = Boolean(hidden);
+      if (hidden) return;
+      const em = box.querySelector('em');
+      if (em.dataset.icon !== icon) { em.dataset.icon = icon; em.innerHTML = iconSvg(icon); }
+      box.querySelector('b').textContent = keyTxt;
+      box.querySelector('small').textContent = statusTxt;
+      box.classList.toggle('is-active', Boolean(active));
+      box.classList.toggle('is-cooling', cdPct > 0.01);
+      box.classList.toggle('is-unready', !ready);
+      box.style.setProperty('--cd', String(Math.max(0, Math.min(1, cdPct))));
+    };
+
+    const isPax = d.role === 'passenger';
+    const ab = d.abilities;
+    setAct('spray', ab.spray.icon, ab.spray.key, ab.spray.active ? 'ON' : 'SPRAY', { active: ab.spray.active, hidden: isPax });
+    setAct('leap', ab.leap.icon, ab.leap.key, ab.leap.remaining > 0.05 ? `${ab.leap.remaining.toFixed(0)}s` : 'LEAP', {
+      cdPct: ab.leap.remaining / ab.leap.total, active: ab.leap.active, hidden: isPax,
+    });
+    setAct('steam', ab.steam.icon, ab.steam.key, ab.steam.remaining > 0.05 ? `${ab.steam.remaining.toFixed(0)}s` : 'STEAM', {
+      cdPct: ab.steam.remaining / ab.steam.total, hidden: isPax,
+    });
+    setAct('skill', ab.skill.icon, ab.skill.key, ab.skill.active ? 'ON' : ab.skill.remaining > 0.05 ? `${ab.skill.remaining.toFixed(0)}s` : 'SKILL', {
+      cdPct: ab.skill.remaining / ab.skill.total, active: ab.skill.active, hidden: isPax,
+    });
+    const riteStateText = d.rite.active ? `${d.rite.remaining.toFixed(1)}s`
+      : d.rite.eligible ? (isPax ? 'READY' : 'ASCEND')
+      : d.rite.committed ? 'OPT-IN'
+      : `${d.rite.committedCount}/${d.rite.participantCount}`;
+    setAct('rite', 'riteOfAscension', d.rite.key, riteStateText, {
+      hidden: !d.riteRelevant,
+      active: d.rite.active || d.rite.eligible,
+      ready: d.rite.eligible || d.rite.committed || d.rite.active,
+    });
+    setAct('leave', 'eject', d.leaveKey, d.transition ? `${d.transition.remaining.toFixed(1)}s` : 'LEAVE', {
+      hidden: !isPax && !d.transition,
+      active: Boolean(d.transition),
+    });
+  }
+
   /** Who felled me, how, and how close it was (deathCam.deathCardText). */
   setDeath({ name, how = '', left = '' } = {}) {
+    const kicker = document.getElementById('death-kicker');
+    const soloBanner = name === 'ASCENDED' || name === 'ALL ABORT!' || name === 'OVERPRESSURE';
+    if (kicker) kicker.hidden = soloBanner;
     this.deathKiller.textContent = name || 'THE ABYSS';
     if (this.deathHow) this.deathHow.textContent = how;
     if (this.deathLeft) {

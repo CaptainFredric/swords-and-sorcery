@@ -121,3 +121,11 @@ test('converged elemental kills get mixed appearance and letter-level ALL-natura
   assert.equal(fullLetters.map(l=>l.text).join(''),'natural');
   assert.deepEqual([...new Set(fullLetters.flatMap(l=>l.tones))],['frost','fire']);
 });
+
+test('DRAG-OON Rite uses gold ascension tone and Overheat/All Abort use fire tone',()=>{
+  assert.equal(killFeedTone({source:'dragoon-rite-crew',killerId:null,victimId:'p1'}),'ascension');
+  assert.equal(killFeedTone({source:'dragoon-rite-of-ascension',killerId:'p1',victimId:'p2'}),'ascension');
+  assert.equal(killFeedTone({source:'dragoon-rite-exhaust',killerId:'p1',victimId:'p2'}),'ascension');
+  assert.equal(killFeedTone({source:'brimming-internal-heat',killerId:null,victimId:'p1'}),'fire');
+  assert.equal(killFeedTone({source:'dragoon-all-abort-crew',killerId:null,victimId:'p1'}),'fire');
+});

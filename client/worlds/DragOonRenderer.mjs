@@ -398,32 +398,36 @@ export class DragOonRenderer {
   }
 
   #updateMaterials(inst, serverNow, m, destroyed) {
-    const heatNorm = clamp((m.heat ?? 0) / DRAG_OON_TUNING.heatMax, 0, 1.8);
+    const heat = m.heat ?? 0;
+    const heatNorm = clamp(heat / DRAG_OON_TUNING.heatMax, 0, 1.0);
+    const overFrac = clamp((heat - DRAG_OON_TUNING.heatMax) / Math.max(1, DRAG_OON_TUNING.overpressureHeatMax - DRAG_OON_TUNING.heatMax), 0, 1);
     const spraying = Boolean(m.sprayHeld || m.flightLikeHell?.active || m.rite?.active);
     const leaping = Boolean(m.leap?.phase === 'prep' || m.leap?.phase === 'airborne' || m.flightLikeHell?.active || m.rite?.active);
     const steaming = (serverNow - this.steamBurstAt) < 1.1;
-    const brimming = Boolean(m.brimming?.active || (m.heat ?? 0) > DRAG_OON_TUNING.heatMax);
+    const brimming = Boolean(m.brimming?.active || heat > DRAG_OON_TUNING.heatMax);
     const flash = performance.now() < this.hitFlashUntil;
+    const brimPulse = brimming ? (0.85 + 0.15 * Math.sin(serverNow * (16 + overFrac * 18))) : 1;
 
-    const cannonIntensity = destroyed ? 0 : (spraying ? 1.25 : 0) + heatNorm * 0.55;
-    const underIntensity = destroyed ? 0 : (m.rite?.active ? 2.1 : leaping ? 1.45 : 0) + heatNorm * 0.25;
-    const furnaceIntensity = destroyed ? 0 : (brimming ? 1.45 : 0.2) + heatNorm * 0.72;
-    const steamIntensity = destroyed ? 0 : (steaming ? 1.25 : 0) + heatNorm * 0.35;
+    const cannonIntensity = destroyed ? 0 : (spraying ? 1.25 : 0) + heatNorm * 0.45 + overFrac * 0.85 * brimPulse;
+    const underIntensity = destroyed ? 0 : (m.rite?.active ? 2.2 : leaping ? 1.45 : 0) + heatNorm * 0.2 + overFrac * 0.4;
+    const furnaceIntensity = destroyed ? 0 : (0.15 + heatNorm * 0.65 + (brimming ? (0.75 + overFrac * 1.4) * brimPulse : 0));
+    const steamIntensity = destroyed ? 0 : (steaming ? 1.35 : 0) + heatNorm * 0.25 + overFrac * 0.9 * brimPulse;
 
     const zoneHex = (m.infusions?.tiers?.frost ?? 0) >= 2 && (m.infusions?.tiers?.fire ?? 0) < 1 ? 0x62c6ff
       : (m.infusions?.tiers?.lightning ?? 0) >= 2 ? 0xc292ff
+      : overFrac > 0.35 ? 0xff9234
       : 0xff5a18;
 
     setEmissiveGlow(inst.materialsByName.get('Mat_HeatZone_Cannons'), 0x000000, zoneHex, cannonIntensity);
     setEmissiveGlow(inst.materialsByName.get('Mat_HeatZone_UndersideIgnition'), 0x000000, 0xff6f22, underIntensity);
-    setEmissiveGlow(inst.materialsByName.get('Mat_HeatZone_FurnaceInterior'), 0x200a06, 0xff4010, furnaceIntensity);
+    setEmissiveGlow(inst.materialsByName.get('Mat_HeatZone_FurnaceInterior'), 0x200a06, overFrac > 0.4 ? 0xff6d1c : 0xff3b10, furnaceIntensity);
     setEmissiveGlow(inst.materialsByName.get('Mat_HeatZone_SteamVents'), 0x000000, steaming ? 0xd2efff : 0xff7030, steamIntensity);
 
-    // Exterior armor only briefly flashes on impact; never self-illuminates cleanly.
+    // Exterior armor retains recognizable dark iron/crimson scale identity (only flashes on direct impact hit).
     for (const armorMat of ARMOR_MATERIALS) {
       const mat = inst.materialsByName.get(armorMat);
       if (!mat) continue;
-      setEmissiveGlow(mat, 0x000000, 0x993a24, flash ? 0.42 : 0);
+      setEmissiveGlow(mat, 0x000000, 0x993a24, flash ? 0.38 : 0);
     }
   }
 

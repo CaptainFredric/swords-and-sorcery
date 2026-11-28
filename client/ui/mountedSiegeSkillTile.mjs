@@ -18,10 +18,10 @@ const FLIGHT=Object.freeze({
   doNotStopMyAscension:['doNotStopMyAscension','ASCEND'],
 });
 const DRAG_OON=Object.freeze({
-  razeThePasture:['fireball','RAZE PASTURE'],
-  flightLikeHell:['flightDash','FLIGHT HELL'],
-  campFire:['shield','CAMP FIRE'],
-  brimmingWithPotential:['fireball','OVERPRESSURE'],
+  razeThePasture:['razeThePasture','RAZE PASTURE'],
+  flightLikeHell:['flightLikeHell','FLIGHT HELL'],
+  campFire:['campFire','CAMP FIRE'],
+  brimmingWithPotential:['brimmingWithPotential','OVERPRESSURE'],
 });
 
 // Desktop's normal cooldown-tile contract, shared by every mounted machine.

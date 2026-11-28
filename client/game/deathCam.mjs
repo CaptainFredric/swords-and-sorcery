@@ -134,7 +134,7 @@ export function deathCamera(age, death, killer = null, { policy = { look: 'follo
   };
 }
 
-const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', vortexFire: 'Blazing Vortex', vortexBlaze: 'Blazing Vortex', 'fight-flight-terminal': 'Flight to the Valkyrie', 'fight-flight-burning-ground': 'Valkyrie flames', 'dragoon-rite-of-ascension': 'Rite of Ascension blast', 'dragoon-rite-crew': 'Rite of Ascension blast', 'dragoon-rite-exhaust': 'DRAG-OON inferno exhaust', 'dragoon-abort': 'All Abort! blast', overheat: 'Furnace overpressure', destroy: 'Machine destruction', abyss: 'The fall' });
+const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', vortexFire: 'Blazing Vortex', vortexBlaze: 'Blazing Vortex', 'fight-flight-terminal': 'Flight to the Valkyrie', 'fight-flight-burning-ground': 'Valkyrie flames', 'dragoon-rite-of-ascension': 'Rite of Ascension blast', 'dragoon-rite-crew': 'Rite of Ascension', 'dragoon-rite-exhaust': 'DRAG-OON inferno exhaust', 'dragoon-all-abort-crew': 'Machine destruction', 'dragoon-all-abort': 'All Abort! blast', 'dragoon-abort': 'All Abort! blast', 'brimming-internal-heat': 'Brimming internal heat', overheat: 'Furnace overpressure', destroy: 'Machine destruction', abyss: 'The fall' });
 
 /**
  * What the death card says: who (and how), and how close it was: SLAIN BY ASTRA, 3 HP REMAINING.
@@ -143,8 +143,9 @@ const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Firebal
 export function deathCardText({ killerName = null, source = null, killerHealth = null } = {}) {
   const how = HOW[source] ?? (source ? source[0].toUpperCase() + source.slice(1) : '');
   if (!killerName) {
-    if (source === 'dragoon-rite-of-ascension' || source === 'dragoon-rite-crew') return { name: 'RITE OF ASCENSION', how: how || 'Rite of Ascension detonation', left: '' };
-    if (source === 'dragoon-abort' || source === 'overheat' || source === 'destroy') return { name: 'ALL ABORT!', how: how || 'Machine destruction', left: '' };
+    if (source === 'dragoon-rite-of-ascension' || source === 'dragoon-rite-crew') return { name: 'ASCENDED', how: 'Rite of Ascension', left: '' };
+    if (source === 'brimming-internal-heat' || source === 'dragoon-overheat') return { name: 'OVERPRESSURE', how: how || 'Brimming internal heat', left: '' };
+    if (source === 'dragoon-all-abort-crew' || source === 'dragoon-abort' || source === 'overheat' || source === 'destroy') return { name: 'ALL ABORT!', how: how || 'Machine destruction', left: '' };
     if (typeof source === 'string' && source.startsWith('dragoon')) return { name: 'DRAG-OON', how, left: '' };
     return { name: source === 'abyss' ? 'THE ABYSS' : 'THE FALL', how: HOW.abyss, left: '' };
   }

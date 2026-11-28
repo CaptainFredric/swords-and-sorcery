@@ -3902,6 +3902,8 @@ practiceDragOonPanel?.addEventListener('change',event=>{
   }else if(el?.dataset?.dragoonInfusion){
     markPendingDragOon('inf:'+el.dataset.dragoonInfusion,el.value);
     socket.send({type:'practiceDragOon',action:'setInfusionTier',element:el.dataset.dragoonInfusion,tier:Number(el.value)});
+  }else if(el?.id==='practice-dragoon-hitboxes'){
+    runtime?.setDragOonDebugHitVolumes?.(Boolean(el.checked));
   }
 });
 $('#shared-practice-copy')?.addEventListener('click',async()=>{

@@ -10,6 +10,7 @@ export const POSTURES = Object.freeze({
   // spells are judged from; camera: where the first-person view sits (a little above, as the helm's slit is)
   standing: Object.freeze({ height: 1.8, center: 0.9, eye: 1.35, camera: 1.58, crown: 1.75 }),
   crouched: Object.freeze({ height: 1.2, center: 0.6, eye: 0.85, camera: 1.08, crown: 1.15 }),
+  dragOonSeated: Object.freeze({ height: 1.08, center: 0.54, eye: 0.82, camera: 1.02, crown: 1.04 }),
 });
 
 export const CROUCH = Object.freeze({
@@ -18,8 +19,9 @@ export const CROUCH = Object.freeze({
   viewSec: 0.14,
 });
 
-/** The body a knight has now (or had, from a lag-compensated transform): standing unless `crouched`. */
+/** The body a knight has now (or had, from a lag-compensated transform): seated inside DRAG-OON, crouched, or standing. */
 export function postureOf(body) {
+  if (body?.operatingDragOonId || body?.aboardDragOonId || body?.dragOonPose === 'braced_seat') return POSTURES.dragOonSeated;
   return body?.crouched ? POSTURES.crouched : POSTURES.standing;
 }
 

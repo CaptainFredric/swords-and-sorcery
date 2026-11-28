@@ -76,4 +76,6 @@ test('the death card: who, how, and how close it was', () => {
   assert.equal(deathCardText({ killerName: 'Astra', source: 'fireball', killerHealth: 100 }).how, 'Fireball');
   assert.equal(deathCardText({ killerName: 'Astra', source: 'burn', killerHealth: 2.2 }).left, '3 HP REMAINING', 'never rounds a living knight down to 0');
   assert.deepEqual(deathCardText({ killerName: null, source: 'abyss' }), { name: 'THE ABYSS', how: 'The fall', left: '' });
+  assert.deepEqual(deathCardText({ killerName: null, source: 'dragoon-rite-crew' }), { name: 'ASCENDED', how: 'Rite of Ascension', left: '' });
+  assert.deepEqual(deathCardText({ killerName: null, source: 'brimming-internal-heat' }), { name: 'OVERPRESSURE', how: 'Brimming internal heat', left: '' });
 });

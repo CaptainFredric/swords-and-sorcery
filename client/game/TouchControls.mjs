@@ -832,7 +832,8 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['siegeSweep','siegeSweep'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      const dragSkillIcon = db?.skill?.id ?? 'razeThePasture';
+      for(const [action,name] of [['attack',dragOp?'desolationSpray':mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['guard',dragOp?'steamTheTeam':'guard'],['jump',dragOp?'fuelsTheLimit':'jump'],['siegeSkill',dragOp?dragSkillIcon:flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['siegeSweep','siegeSweep'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -850,8 +851,14 @@ export class TouchControls {
         this.buttons.attack?.setAttribute('aria-label','Hold Desolation Spray');
         this.buttons.guard?.setAttribute('aria-label','Steam the Team');
         this.buttons.jump?.setAttribute('aria-label',"Fuel's the Limit leap");
+      }else if(dragPax&&db){
+        const spl=this.buttons.spell?.querySelector('span');if(spl)spl.textContent='CAST';
+        const itr=this.buttons.interact?.querySelector('span');if(itr)itr.textContent='LEAVE';
+        this.buttons.spell?.setAttribute('aria-label',db.campFire?.sealed?'Apertures sealed during Camp Fire':'Cast spell from aperture');
+        this.buttons.interact?.setAttribute('aria-label','Begin timed evacuation');
       }else{
         const grd=this.buttons.guard?.querySelector('span');if(grd&&grd.textContent==='STEAM')grd.textContent='GUARD';
+        const spl=this.buttons.spell?.querySelector('span');if(spl&&spl.textContent==='CAST')spl.textContent='SPELL';
         this.buttons.jump.querySelector('span').textContent=ram?(liftUp?'LIFT UP':'RAISE'):'JUMP';
       }
       this.buttons.crouch.querySelector('span').textContent=ram?(liftDown?'LIFT DOWN':'LOWER'):'CROUCH';

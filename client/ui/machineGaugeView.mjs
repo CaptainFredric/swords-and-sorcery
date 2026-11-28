@@ -3,11 +3,12 @@ import { soFistTiming } from '../../shared/sim/soFistGeometry.mjs';
 import { FIGHT_FLIGHT } from '../../shared/sim/fightFlight.mjs';
 import {BI_BYE_COMPONENTS} from '../../shared/sim/biByeComponents.mjs';
 import {steelStrength} from '../../shared/src/steel.mjs';
+import { dragOonDeckView } from './dragOonHudView.mjs';
 const positive = value => Number.isFinite(value) && value > 0;
 const amount = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, value) : fallback;
 const fraction = (health, maxHealth) => maxHealth > 0 ? Math.max(0, Math.min(100, 100 * health / maxHealth)) : 0;
 
-export function machineGaugeView(local, snapshot, now = 0) {
+export function machineGaugeView(local, snapshot, now = 0, options = {}) {
   if (!local?.alive || !snapshot) return null;
   let machine, kind, title;
   const opId = local.operatingRamId || local.operatingBallistaId || local.operatingFightFlightId || local.operatingDragOonId || local.aboardDragOonId;
@@ -120,9 +121,6 @@ export function machineGaugeView(local, snapshot, now = 0) {
     const fuel = amount(machine.fuel);
     const heat = amount(machine.heat);
     const overheated = heat > 100 || amount(machine.overheatPenalty) > 0.5;
-    const paxCount = Array.isArray(machine.passengers) ? machine.passengers.filter(Boolean).length : 0;
-    const tiers = machine.infusions?.tiers ?? {};
-    const infParts = Object.entries(tiers).filter(([, t]) => t > 0).map(([k, t]) => `${k.toUpperCase()} ${t === 2 ? 'II' : 'I'}`);
     view.component = {
       label: `FUEL (CAP ${Math.round(effectiveCap)})`,
       health: fuel,
@@ -137,8 +135,7 @@ export function machineGaugeView(local, snapshot, now = 0) {
       label: 'FURNACE HEAT',
       overheated,
     };
-    view.piston = `${machine.campFire?.sealed ? 'SEALED CAMP FIRE' : machine.flightLikeHell?.active ? 'FLIGHT LIKE HELL' : machine.raze?.phase === 'holding' ? 'RAZING RING' : machine.brimming?.active ? 'OVERPRESSURE' : 'HEAT ' + Math.round(heat)} · CREW ${paxCount}/${machine.passengerCapacity ?? 4}`;
-    view.context = infParts.length ? `INFUSIONS: ${infParts.join(' · ')}` : local.aboardDragOonId ? `APERTURE #${(local.dragOonStation ?? 0) + 1} · [Q] CAST · [T] EVACUATE` : '[LMB] SPRAY · [SPACE] LEAP · [RMB] STEAM · [U] SKILL';
+    view.deck = dragOonDeckView(local, snapshot, now, options);
   }
   return view;
 }

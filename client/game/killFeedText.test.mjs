@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
+import {killFeedDeath,dragOonRiteCrewFeed,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
 
 const death=(source,killContext=null,at=12.25)=>({
  type:'death',source,killerId:'A',victimId:'B',at,...(killContext?{killContext}:{})
@@ -368,4 +368,25 @@ test('elemental convergence and multi-infused Disaster produce natural-causes ep
  assert.equal(allowsSharedHeroEpitaph({
    source:'fireball',killerId:'Rowan',victimId:'Perry',elementalCauses:['frost','fire'],damageContributors:['Rowan','Rowan2']
  }),false,'elemental convergence line is never overwritten by shared-hero joke');
+});
+
+test('DRAG-OON Rite, All Abort!, and Overpressure killfeed copy distinguishes crew from enemies',()=>{
+ const soloRite=Array.from({length:40},(_,i)=>killFeedDeath({type:'death',source:'dragoon-rite-crew',killerId:null,victimId:'p1',at:i/10},null,'Perry').text);
+ assert.ok(soloRite.some(t=>t==='Perry attended his final conflagregation.'));
+ assert.ok(soloRite.some(t=>t==='Perry went up in a ball of flame.'));
+ assert.equal(dragOonRiteCrewFeed(['Perry','Rowan']).text,'Perry and Rowan attended their last conflagregation.');
+ assert.equal(dragOonRiteCrewFeed(['Perry','Rowan','Bram']).text,'Perry, Rowan, and Bram attended their last conflagregation.');
+
+ const enemyRite=killFeedDeath({type:'death',source:'dragoon-rite-of-ascension',killerId:'op',victimId:'foe',at:5},'Rowan','Perry');
+ assert.ok(enemyRite.text.includes('Rowan')&&enemyRite.text.includes('Perry'));
+ assert.doesNotMatch(enemyRite.text,/conflagregation/);
+
+ assert.equal(
+  killFeedDeath({type:'death',source:'dragoon-all-abort-crew',killerId:null,victimId:'p1',at:5},null,'Perry').text,
+  'Perry is seriously considering an alternative method of transportation.'
+ );
+ assert.equal(
+  killFeedDeath({type:'death',source:'brimming-internal-heat',killerId:null,victimId:'p1',at:5},null,'Perry').text,
+  'The heat of the moment got the better of Perry.'
+ );
 });

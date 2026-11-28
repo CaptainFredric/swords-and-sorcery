@@ -943,7 +943,26 @@ export class RemotePlayers {
         ...spellHandTurns(d.spellHand)],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
-    if(pb.alive&&(pb.operatingBallistaId||pb.operatingDragOonId||pb.aboardDragOonId))Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
+    if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
+    if(pb.alive&&(pb.operatingDragOonId||pb.aboardDragOonId)){
+      const dragId = pb.operatingDragOonId || pb.aboardDragOonId;
+      const dragM = (this.latestSnapshot?.machines?.find(m => m?.id === dragId)) || this.latestSnapshot?.dragOon;
+      const casting = Boolean(state === 'cast' || (pb.castEndsAt ?? 0) > serverNow);
+      Object.assign(plan, {
+        clip: 'Idle',
+        time: 0,
+        layers: null,
+        concurrent: null,
+        dragOonSeated: {
+          role: pb.aboardDragOonId ? 'passenger' : 'operator',
+          station: pb.dragOonStation ?? 0,
+          casting,
+          pitch: pb.pitch ?? 0,
+          sealed: Boolean(dragM?.campFire?.sealed),
+          riteActive: Boolean(dragM?.rite?.active),
+        },
+      });
+    }
     if(pb.alive&&pb.operatingFightFlightId){
       if(!pb.attackActive&&!pb.guarding)Object.assign(plan,{flightMounted:true,clip:'Idle',layers:null,concurrent:null});
       else plan.flightMounted=true;

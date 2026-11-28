@@ -1050,6 +1050,13 @@ function occupiedMachineId(player) {
   return player?.operatingFightFlightId || player?.operatingBallistaId || player?.operatingRamId || player?.operatingDragOonId || player?.aboardDragOonId || null;
 }
 
+function enclosedDragOon(room, player) {
+  const id = player?.operatingDragOonId || player?.aboardDragOonId;
+  if (!id) return null;
+  const m = room?.machines?.get?.(id) || (room?.dragOon?.id === id ? room.dragOon : null);
+  return m && !m.retired && m.health > 0 && m.mode !== 'DESTROYED' ? m : null;
+}
+
 export function pilotGuardTakes(room, attacker, met, atSec) {
   const machine = (met?.solid?.machineId ? room.machines?.get(met.solid.machineId) : null) || room.fightFlight;
   if (!machine?.grounded || !met?.solid?.componentId || !String(met.solid.id ?? '').startsWith('fight-flight-')) return null;
@@ -2106,6 +2113,8 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
   const ultimate = Boolean(projectile.ultimate);
   for (const player of room.players.values()) {
     if (!player.alive || player.id === projectile.ownerId || areAllies(room, projectile.ownerId, player.id)) continue;
+    // Enclosed DRAG-OON steel enclosure shields seated occupants from external spell splashes.
+    if (player.id !== directVictimId && enclosedDragOon(room, player)) continue;
     const center = playerCenter(player);
     const direct = player.id === directVictimId;
     const distance = direct ? 0 : blastDistance(point, player.position, postureOf(player).crown);
@@ -2177,6 +2186,8 @@ function coreflagrationBurst(room, projectile, point, nowSec, damage, final = fa
   const spell = spellFor(projectile.spell);
   for (const player of room.players.values()) {
     if (!player.alive || player.id === projectile.ownerId || areAllies(room, projectile.ownerId, player.id)) continue;
+    // Enclosed DRAG-OON steel enclosure shields seated occupants from external spatial blasts.
+    if (enclosedDragOon(room, player)) continue;
     if (blastDistance(point, player.position, postureOf(player).crown) > spell.radius) continue;
     // A successful parry negates this defender's first burst on landing; the later explosion remains dangerous.
     if (!final && projectile.coreParriedDefenderId === player.id) continue;
@@ -2328,6 +2339,7 @@ function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {})
     }
     for(const target of room.players.values()){
       if(!target.alive||target.id===projectile.ownerId||target.spawnProtectionUntil>nowSec||areAllies(room,projectile.ownerId,target.id))continue;
+      if(enclosedDragOon(room,target))continue;
       // Preserve the existing ordinary spell body shape and endpoint eligibility.
       const center=playerCenter(target),radius=Math.min(.75,postureOf(target).height/2);
       if(Math.hypot(center.x-after.x,center.y-after.y,center.z-after.z)>=radius)continue;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dragOonHudView } from './dragOonHudView.mjs';
+import { dragOonHudView, dragOonDeckView } from './dragOonHudView.mjs';
 import { machineGaugeView } from './machineGaugeView.mjs';
 import { mountedSiegeSkillTile } from './mountedSiegeSkillTile.mjs';
 import { siegePickerCards, siegePickerStatus, siegePickerMarkup } from './SiegeMachinePicker.mjs';
@@ -151,4 +151,54 @@ test('SiegeMachinePicker, Workshop, Practice, Private rules, and fleetRenderKind
   const flhSkill = dragEntry.skills.find(s => s.id === 'flightLikeHell');
   assert.match(flhSkill.sections?.find(sec => sec.title === 'Rite of Ascension')?.text ?? '', /Unite the prowess of your crew to ascend upon an inferno/);
   assert.match(flhSkill.line, /unite the prowess of your crew to ascend upon an inferno/i);
+});
+
+test('dragOonDeckView computes hatched fuel penalty, 64/36 heat split, 5-seat Crew Diamond, and Rite reuse', () => {
+  const op = { id: 'op1', name: 'Perry', alive: true, team: 'ATTACKERS', operatingDragOonId: 'drag-oon-1', ultimate: 'chivalry', prowess: 100 };
+  const pax1 = { id: 'pax1', name: 'Rowan', alive: true, team: 'ATTACKERS', aboardDragOonId: 'drag-oon-1', dragOonStation: 0, spell: 'gale', ultimate: 'chivalry', prowess: 100 };
+  const pax2 = { id: 'pax2', name: 'Bram', alive: true, team: 'ATTACKERS', aboardDragOonId: 'drag-oon-1', dragOonStation: 1, spell: 'steel', ultimate: 'chivalry', prowess: 100 };
+  const d = makeDragOonSnapshot({
+    heat: 140,
+    fuel: 60,
+    fuelMax: 100,
+    effectiveFuelMax: 80,
+    passengers: ['pax1', 'pax2', null, null],
+    infusions: { tiers: { gale: 2, steel: 1 }, counts: { gale: 2, steel: 1 } },
+    skill: { id: 'flightLikeHell', phase: 'idle', readyAt: 10 },
+    flightLikeHell: null,
+    riteCommitments: { op1: true, pax1: true },
+    riteStatus: { eligible: false, committedCount: 2, participantCount: 3 },
+  });
+  const snap = { machines: [d], players: [op, pax1, pax2] };
+  const deck = dragOonDeckView(op, snap, 12);
+
+  assert.equal(deck.role, 'operator');
+  assert.equal(Math.round(deck.fuel.fillPct), 60);
+  assert.equal(Math.round(deck.fuel.emptyAvailPct), 20);
+  assert.equal(Math.round(deck.fuel.disabledPct), 20);
+  assert.equal(deck.fuel.overheated, true);
+
+  assert.equal(deck.heat.normalShare, 64);
+  assert.equal(deck.heat.overShare, 36);
+  assert.equal(deck.heat.normalFillPct, 64);
+  assert.ok(deck.heat.overFillPct > 11 && deck.heat.overFillPct < 13);
+  assert.ok(deck.heat.crewDangerTickPct > 68 && deck.heat.crewDangerTickPct < 69);
+  assert.equal(deck.heat.danger, true);
+
+  assert.equal(deck.seats.OP.committed, true);
+  assert.equal(deck.seats.L1.element, 'gale');
+  assert.equal(deck.seats.L1.committed, true);
+  assert.equal(deck.seats.R1.element, 'steel');
+  assert.equal(deck.seats.R1.takingTrauma, true);
+  assert.equal(deck.seats.L2.occupied, false);
+  assert.equal(deck.riteRelevant, true);
+  assert.equal(deck.abilities.spray.icon, 'desolationSpray');
+  assert.equal(deck.abilities.skill.icon, 'flightLikeHell');
+
+  const paxDeck = dragOonDeckView(pax1, snap, 12, { touch: true });
+  assert.equal(paxDeck.role, 'passenger');
+  assert.equal(paxDeck.passenger.stationLabel, 'L1');
+  assert.equal(paxDeck.passenger.apertureOpen, true);
+  assert.equal(paxDeck.passenger.castKey, 'CAST');
+  assert.equal(paxDeck.passenger.leaveKey, 'LEAVE');
 });

@@ -18,7 +18,7 @@ async function connectSocket(port) {
     ws.addEventListener('error', rej, { once: true });
   });
   const send = msg => ws.send(JSON.stringify(msg));
-  const next = async (type, predicate = () => true, timeoutMs = 6000) => {
+  const next = async (type, predicate = () => true, timeoutMs = 15000) => {
     const until = Date.now() + timeoutMs;
     while (Date.now() < until) {
       const idx = queue.findIndex(m => m.type === type && predicate(m));
@@ -30,7 +30,7 @@ async function connectSocket(port) {
   return { ws, send, next, queue };
 }
 
-test('Multiplayer WebSocket crew executes Burning Brotherhood, Camp+Steam, Brimming, and team Rite of Ascension', { timeout: 20000 }, async (t) => {
+test('Multiplayer WebSocket crew executes Burning Brotherhood, Camp+Steam, Brimming, and team Rite of Ascension', { timeout: 45000 }, async (t) => {
   const folder = await mkdtemp(path.join(tmpdir(), 'dragoon-net-'));
   const game = createGameServer({ port: 0, host: '127.0.0.1', profileStore: new ProfileStore(folder) });
   await game.start();

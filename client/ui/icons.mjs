@@ -104,6 +104,17 @@ export const ICONS = Object.freeze({
   siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   deploy: '<path d="M4 12h16M12 4v16M7 7l10 10M17 7l-10 10"/>',
+  // DRAG-OON machine-specific iconography
+  desolationSpray: '<path d="M3 9h5v6H3z" fill="currentColor" fill-opacity=".28"/><path d="M8 10h2v4H8zM10 11l10-5c1.5 2 2 5 2 6s-.5 4-2 6l-10-5z" fill="currentColor" fill-opacity=".22"/><path d="M10 11.5 21 7M10 12h12M10 12.5 21 17" stroke-width="1.5"/>',
+  fuelsTheLimit: '<path d="M5 12h14l-2 4H7z" fill="currentColor" fill-opacity=".25"/><path d="m12 3 5 5H7z" fill="currentColor" stroke="none"/><path d="M8 16l-2 5m6-5v6m4-6 2 5" stroke-width="1.7"/>',
+  steamTheTeam: '<circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity=".3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8 3 3M19 5l-3 3m-8 8-3 3" stroke-width="1.6"/><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2" fill="none"/>',
+  burningBrotherhood: '<rect x="5" y="4" width="14" height="16" rx="2" fill="currentColor" fill-opacity=".2"/><circle cx="12" cy="8.5" r="2"/><circle cx="7.5" cy="12.5" r="1.5"/><circle cx="16.5" cy="12.5" r="1.5"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/>',
+  allAbort: '<path d="m7 4 5 3 5-3 3 6-2 8-6 3-6-3-2-8z" fill="currentColor" fill-opacity=".2"/><path d="m12 7-2 5 4 2-2 5M3 5l3 2m15-2-3 2M3 19l3-2m15 2-3-2" stroke-width="1.6"/>',
+  razeThePasture: '<ellipse cx="12" cy="17.5" rx="9" ry="3.5" fill="currentColor" fill-opacity=".18"/><path d="M8 16c0-3 2.5-4.5 2-7.5 2 1.2 3 3 2.5 5 1.2-1 2-2.5 2-4.5 2.5 2 3.5 4.5 2.5 7" stroke-width="1.5"/><path d="M3 17.5a9 3.5 0 0 0 18 0" stroke-dasharray="3 2"/>',
+  flightLikeHell: '<path d="M5 6h14l-1.5 4h-11z" fill="currentColor" fill-opacity=".26"/><path d="M7 10 5 20m4-10-1 11m6-11 1 11m2-11 2 10" stroke-width="1.6"/><path d="M3 21h18" stroke-width="1.5"/>',
+  campFire: '<path d="M4 16V9l8-5 8 5v7z" fill="currentColor" fill-opacity=".24"/><path d="M6 16h12M9 12h6M7 20l1-2m4 2v-2m4 2-1-2m-8 2h10" stroke-width="1.5"/>',
+  brimmingWithPotential: '<path d="M5 17a7 7 0 1 1 14 0" fill="none" stroke-width="1.8"/><path d="M12 15l4.8-5.2" stroke-width="2"/><circle cx="12" cy="15.5" r="1.6" fill="currentColor" stroke="none"/><path d="M17 4l2 2m1 4h2M12 2v2" stroke-width="1.5"/>',
+  riteOfAscension: '<path d="M8 14 12 3l4 11z" fill="currentColor" fill-opacity=".3"/><path d="M6 14h12l-2 4H8zM9 18l-2 4m5-4v5m3-5 2 4" stroke-width="1.6"/><circle cx="12" cy="9" r="1.4" fill="currentColor" stroke="none"/>',
 });
 
 /** An icon as inline SVG markup (a missing name falls back to `fallback`). */

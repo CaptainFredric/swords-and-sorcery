@@ -24,11 +24,23 @@ function elementalConvergenceCount(event){
   return [...new Set(event.elementalCauses.filter(el=>DISASTER_ELEMENTS.includes(el)))].length;
 }
 
-/** Pure, deterministic single-death copy and existing HUD color family. */
+ /** Pure, deterministic single-death copy and existing HUD color family. */
 export function killFeedDeath(event,killerName=null,victimName='someone',{mode=null}={}){
  const source=event?.source??'';
  const k=killerName,v=victimName||'someone';
  if(source==='fight-flight-terminal')return null; // one later Ascension summary, even on self-death
+ if(source==='dragoon-rite-crew'){
+   return text([
+     `${v} attended his final conflagregation.`,
+     `${v} went up in a ball of flame.`,
+   ],event,'fire');
+ }
+ if(source==='brimming-internal-heat'||source==='dragoon-overheat'||source==='overheat'){
+   return {text:`The heat of the moment got the better of ${v}.`,kind:'fire'};
+ }
+ if(source==='dragoon-all-abort-crew'||source==='dragoon-abort'||source==='destroy'){
+   return {text:`${v} is seriously considering an alternative method of transportation.`,kind:'fire'};
+ }
  if(!k||event.killerId===event.victimId){
    if(source==='abyss')return text([
      `${v} bought only a one-way ticket`,
@@ -251,7 +263,35 @@ export function killFeedDeath(event,killerName=null,victimName='someone',{mode=n
    `${v} was defeated by ${apostrophe(k)} not-so-secret weapon`,
    `${k} caused ${v} to lay down arms`,
  ],event,'sword');
+ if(source==='dragoon-rite-of-ascension'||source==='dragoon-rite-exhaust')return text([
+   `${k} sent ${v} up in a ball of flame.`,
+   `${v} became ashes beneath ${apostrophe(k)} ascension.`,
+ ],event,'fire');
+ if(source==='dragoon-all-abort')return {text:`${v} stood too close when ${apostrophe(k)} furnace ruptured`,kind:'fire'};
+ if(source==='dragoon-flight-like-hell')return {text:`${v} stood directly beneath ${apostrophe(k)} inferno`,kind:'fire'};
+ if(source==='dragoon-steam')return {text:`${k} steamed ${v} clear off the field`,kind:'steel'};
+ if(source==='dragoon-leap-slam')return {text:`${k} dropped DRAG-OON squarely onto ${v}`,kind:'fire'};
+ if(source==='dragoon-raze'||source==='dragoon-raze-dot')return {text:`${v} lingered in ${apostrophe(k)} burning pasture`,kind:'fire'};
+ if(source==='dragoon-camp-fire')return {text:`${v} drew too close to ${apostrophe(k)} campfire`,kind:'fire'};
+ if(source==='dragoon-desolation-spray'||source==='dragoon-flame-dot'||source==='dragoon-radiant-heat'){
+   return {text:`${k} scorched ${v} with Desolation Spray`,kind:'fire'};
+ }
  return {text:`${k} slew ${v}`,kind:'sword'};
+}
+/** Collective DRAG-OON Rite of Ascension epitaph for participating crew. */
+export function dragOonRiteCrewFeed(victims=[],event={}){
+  const names=[...new Set((Array.isArray(victims)?victims:[]).filter(Boolean))];
+  if(!names.length)return null;
+  if(names.length===1){
+    return text([
+      `${names[0]} attended his final conflagregation.`,
+      `${names[0]} went up in a ball of flame.`,
+    ],event,'fire');
+  }
+  const joined=names.length===2
+    ?`${names[0]} and ${names[1]}`
+    :`${names.slice(0,-1).join(', ')}, and ${names.at(-1)}`;
+  return {text:`${joined} attended their last conflagregation.`,kind:'fire'};
 }
 /** Terminal impact reports names once: individual death events still own all
  * scores, respawns, kill effects and voice work, but do not duplicate the feed. */

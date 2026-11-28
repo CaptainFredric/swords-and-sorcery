@@ -23,6 +23,7 @@ import {DragOonFieldEffects} from './DragOonFieldEffects.mjs';
 import {soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import { playerMovementWorld } from '../../shared/sim/playerMovementWorld.mjs';
 import {ramCameraFollow,ramCameraOrbit,ramSightPoint} from './ramCamera.mjs';
+import { dragOonCameraTarget } from './dragOonCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { gestureMachines } from './spellbladeGestures.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
@@ -48,7 +49,7 @@ import { shouldPredictSeparation, separationTickKey } from './separationCadence.
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
+import {killFeedDeath,dragOonRiteCrewFeed,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
 import {killFeedAppearance} from './killFeedColor.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
@@ -244,12 +245,12 @@ export class GameRuntime {
     this.flightRenderer=new FightFlightRenderer(this.scene);
     this.valkyrieAuras=new ValkyrieKnightAuras(this.scene);
     this.fleetRenderer = new MachineFleetRenderer(this.scene);
-    this.dragOonEffects = new DragOonFieldEffects(this.scene);
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
     const view = this.#viewSize();
     this.camera = new THREE.PerspectiveCamera(78, view.width / view.height, 0.05, 180);
     this.scene.add(this.camera);
+    this.dragOonEffects = new DragOonFieldEffects(this.scene, this.camera);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
     this.renderer.setSize(view.width, view.height);
@@ -1357,6 +1358,7 @@ export class GameRuntime {
       }
       this.effects?.setDensity(this.view.particles ?? 1);
       this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
+      this.dragOonEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.disasterSound?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
@@ -1369,6 +1371,10 @@ export class GameRuntime {
     }
   }
 
+  setDragOonDebugHitVolumes(enabled) {
+    this.dragOonEffects?.setDebugHitVolumes?.(enabled);
+  }
+
   // phones and tablets: on-screen controls replace the mouse and keyboard
   enableTouch() {
     if (this.touch) return;
@@ -1379,6 +1385,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
+    this.dragOonEffects?.setDensity(Math.min(this.view.particles??1,.65));
     this.disasterSound?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
@@ -3794,6 +3801,24 @@ export class GameRuntime {
     }
     const localTeam=this.latestSnapshot?.players.find(p=>p.id===this.playerId)?.team;
     const sameTeamAsViewer=Boolean(localTeam&&victim?.team&&localTeam===victim.team);
+    if (event.source === 'dragoon-rite-crew') {
+      this.riteCrewFeedWindows ??= new Map();
+      const at = Number.isFinite(event.at) ? event.at : this.socket.serverNow();
+      const bucketKey = victim?.team || 'rite';
+      let rGroup = this.riteCrewFeedWindows.get(bucketKey);
+      if (!rGroup || at - rGroup.lastAt > 0.25) {
+        rGroup = { firstAt: at, lastAt: at, names: [] };
+        this.riteCrewFeedWindows.set(bucketKey, rGroup);
+      }
+      const vName = victim?.name ?? 'someone';
+      if (!rGroup.names.includes(vName)) rGroup.names.push(vName);
+      rGroup.lastAt = at;
+      const collective = dragOonRiteCrewFeed(rGroup.names, event);
+      if (collective?.text) {
+        this.hud.addFeed(collective.text, 'ascension', `dragoon-rite:${bucketKey}:${rGroup.firstAt}`);
+      }
+      return;
+    }
     const copy=killFeedDeath({...event,sameTeamAsViewer},
       killer?.name??null,victim?.name??'someone',{
         mode:this.latestSnapshot?.mode,
@@ -3859,7 +3884,7 @@ export class GameRuntime {
   // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
   #dying(event, killer) {
     const me = this.playerId;
-    const felledBy = killer && killer.id !== me ? killer : null;
+    const felledBy = event.source === 'dragoon-rite-crew' ? null : (killer && killer.id !== me ? killer : null);
     this.hud.setDeath(deathCardText({ killerName: felledBy?.name ?? null, source: event.source, killerHealth: felledBy?.health }));
     const body = this.localState?.position ?? this.localAuth?.position;
     if (!body) return;
@@ -4088,32 +4113,26 @@ export class GameRuntime {
         const role = isPax ? 'passenger' : 'operator';
         const station = this.localAuth?.dragOonStation ?? 0;
         const airborne = Boolean(!b.grounded || b.flightLikeHell?.active || b.rite?.active);
-        if(this.siegeView==='sight'){
-          const pose = bRenderer?.getMountedCameraPose?.('sight', { role, station, airborne });
-          if (pose?.position) target.copy(pose.position);
-          else target.set(b.x??0,(b.y??0)+2.15,b.z??0);
-        }else if (isPax) {
-          const paxPose = bRenderer?.getMountedCameraPose?.('third', { role: 'passenger', station, airborne });
-          const anchor = paxPose?.position ? paxPose.position.toArray() : [(b.x??0),(b.y??0)+3.25,(b.z??0)];
-          const dist = 1.65;
-          const cp = Math.cos(Math.max(-0.55, Math.min(0.65, this.input.pitch)));
-          const desired = [
-            anchor[0] + Math.sin(this.input.yaw) * cp * dist,
-            anchor[1] + Math.sin(Math.max(-0.45, Math.min(0.55, -this.input.pitch))) * dist + 0.35,
-            anchor[2] + Math.cos(this.input.yaw) * cp * dist,
-          ];
-          target.set(...clip(this.#reach, anchor, desired, .22));
-        }else{
-          const pivot=[(b.x??0),(b.y??0)+(b.rite?.active?3.1:airborne?2.85:2.45),(b.z??0)];
-          const dist=b.rite?.active?10.6:airborne?8.8:8.0;
-          const cp=Math.cos(Math.max(-0.6,Math.min(0.85,this.input.pitch)));
-          const desired=[
-            pivot[0]+Math.sin(this.input.yaw)*cp*dist,
-            pivot[1]+Math.sin(Math.max(-0.45,Math.min(0.85,-this.input.pitch)))*dist+(b.rite?.active?2.5:airborne?2.1:1.4),
-            pivot[2]+Math.cos(this.input.yaw)*cp*dist,
-          ];
-          target.set(...clip(this.#reach,pivot,desired,.32));
-        }
+        const sightPose = this.siegeView === 'sight'
+          ? bRenderer?.getMountedCameraPose?.('sight', { role, station, airborne })
+          : null;
+        const paxPose = this.siegeView !== 'sight' && isPax
+          ? bRenderer?.getMountedCameraPose?.('third', { role: 'passenger', station, airborne })
+          : null;
+        const camRes = dragOonCameraTarget({
+          reach: this.#reach,
+          machine: b,
+          view: this.siegeView,
+          role,
+          sightPose,
+          paxPose,
+          yaw: this.input.yaw,
+          pitch: this.input.pitch,
+          previousDist: this.dragOonCamDist ?? null,
+          dt,
+        });
+        this.dragOonCamDist = camRes.dist;
+        target.set(...camRes.position);
       }else if(ram){
         if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
         else {
@@ -4551,9 +4570,10 @@ export class GameRuntime {
           // and Guard follow the actual slower authoritative fighting yaw.
           yaw: mounted || this.localAuth.blustered ? this.localAuth.yaw : this.input.yaw,
           pitch: mounted ? 0 : this.input.pitch,
-      }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
+      }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || Boolean(this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId) || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
       if (this.remotePlayers.self?.setCockpitHeadHidden) {
-        this.remotePlayers.self.setCockpitHeadHidden(isFpFlight);
+        const isFirstPersonDragOp = Boolean(this.localAuth?.operatingDragOonId && this.siegeView === 'sight');
+        this.remotePlayers.self.setCockpitHeadHidden(isFpFlight || isFirstPersonDragOp);
       }
       this.flightRenderer?.setFirstPerson?.(isFpFlight);
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
@@ -4774,9 +4794,11 @@ export class GameRuntime {
     if (this.fleetRenderer?.fleet) {
       for (const [id, entry] of this.fleetRenderer.fleet) {
         const machineState = this.latestSnapshot?.machines?.find((m) => m.id === id);
-        if (!machineState?.operatorId) continue;
-        const driver = machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId);
-        if (!driver?.root?.visible) continue;
+        if (!machineState) continue;
+        const driver = machineState.operatorId
+          ? (machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId))
+          : null;
+        if (entry.type !== 'dragoon' && (!machineState.operatorId || !driver?.root?.visible)) continue;
         if (entry.type === 'ram') {
           const ramPose = entry.renderer.presentationData;
           if (ramPose) {
@@ -4810,21 +4832,81 @@ export class GameRuntime {
           }
         } else if (entry.type === 'dragoon') {
           const seatOut = new THREE.Vector3();
-          if (entry.renderer.getNodeWorldPosition?.('seat_operator', seatOut)) {
-            driver.root.position.copy(seatOut);
-            driver.root.rotation.set(0, machineState.heading ?? 0, 0, 'YXZ');
-          }
-          const stIds = ['L1', 'R1', 'L2', 'R2'];
-          const stOffsets = [75, -75, 115, -115];
+          const apOut = new THREE.Vector3();
+          const chassisQuat = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(machineState.chassisPitch ?? 0, machineState.heading ?? 0, machineState.chassisRoll ?? 0, 'YXZ')
+          );
+          const chassisUp = new THREE.Vector3(0, 1, 0).applyQuaternion(chassisQuat);
+          const settleY = machineState.campFire?.settled ? -0.195 : 0;
+          const placeSeatedRig = (rig, playerRecord, role, stationIndex) => {
+            if (!rig?.root?.visible) return;
+            const stIds = ['L1', 'R1', 'L2', 'R2'];
+            const stId = stIds[stationIndex ?? 0] ?? 'L1';
+            const seatNodeName = role === 'operator' ? 'seat_operator' : `seat_passenger_${stId}`;
+            const hasGlbSeat = Boolean(entry.renderer.getNodeWorldPosition?.(seatNodeName, seatOut));
+            if (!hasGlbSeat) {
+              const localSeat = role === 'operator'
+                ? [0, 1.06 + settleY, -0.72]
+                : ([[ -0.96, 1.06, 0.25 ], [ 0.96, 1.06, 0.25 ], [ -0.96, 1.06, 1.65 ], [ 0.96, 1.06, 1.65 ]][stationIndex ?? 0] || [0, 1.06, 0.25]);
+              seatOut.set(localSeat[0], localSeat[1] + (role === 'passenger' ? settleY : 0), localSeat[2]).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+            }
+            // Offset -0.38m down along chassis Y so the seated Spellblade rig floor sits on the 0.68m deck and pelvis rests on the 1.06m seat
+            rig.root.position.copy(seatOut).addScaledVector(chassisUp, -0.38);
+
+            let localYaw = 0;
+            let apertureWorld = null;
+            if (role === 'passenger') {
+              const hasAp = Boolean(entry.renderer.getNodeWorldPosition?.(`fx_spellcast_${stId}`, apOut));
+              if (!hasAp) {
+                const stFallback = [[-2.08, 1.7, 0.2], [2.08, 1.7, 0.2], [-2.08, 1.7, 1.7], [2.08, 1.7, 1.7]][stationIndex ?? 0];
+                apOut.set(stFallback[0], stFallback[1] + settleY, stFallback[2]).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+              }
+              apertureWorld = apOut.clone();
+              // Compute outward yaw in chassis local space so occupant faces outward into the embrasure cleanly
+              const localDelta = apertureWorld.clone().sub(seatOut).applyQuaternion(chassisQuat.clone().invert());
+              localYaw = Math.atan2(-localDelta.x, -localDelta.z);
+            }
+
+            const qLocal = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), localYaw);
+            rig.root.quaternion.copy(chassisQuat).multiply(qLocal);
+
+            const casting = Boolean((playerRecord?.castEndsAt ?? 0) > this.socket.serverNow());
+            rig.visualInstance?.animator?.dragOonPose?.apply?.({
+              role,
+              station: stationIndex ?? 0,
+              casting,
+              pitch: playerRecord?.pitch ?? 0,
+              sealed: Boolean(machineState.campFire?.sealed),
+              riteActive: Boolean(machineState.rite?.active),
+              apertureWorld,
+            }, dt);
+          };
+
+          const opPlayer = machineState.operatorId === this.localAuth?.id
+            ? this.localAuth
+            : this.latestSnapshot?.players?.find(p => p.id === machineState.operatorId);
+          placeSeatedRig(driver, opPlayer, 'operator', 0);
+
           for (let i = 0; i < (machineState.passengers?.length ?? 0); i++) {
             const pid = machineState.passengers[i];
             if (!pid) continue;
             const paxRig = pid === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(pid);
-            if (!paxRig?.root?.visible) continue;
-            if (entry.renderer.getNodeWorldPosition?.(`seat_passenger_${stIds[i] ?? 'L1'}`, seatOut)) {
-              paxRig.root.position.copy(seatOut);
-              paxRig.root.rotation.set(0, (machineState.heading ?? 0) + ((stOffsets[i] ?? 75) * Math.PI) / 180, 0, 'YXZ');
-            }
+            const paxPlayer = pid === this.localAuth?.id
+              ? this.localAuth
+              : this.latestSnapshot?.players?.find(p => p.id === pid);
+            placeSeatedRig(paxRig, paxPlayer, 'passenger', i);
+          }
+
+          // Smooth aisle walk during cooperative boarding/evacuation transitions
+          for (const tr of machineState.crewTransitions ?? []) {
+            const trRig = tr.playerId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(tr.playerId);
+            if (!trRig?.root?.visible) continue;
+            const total = Math.max(0.2, (tr.endsAt ?? 0) - (tr.startedAt ?? 0));
+            const rawFrac = Math.max(0, Math.min(1, (this.socket.serverNow() - (tr.startedAt ?? 0)) / total));
+            const frac = tr.kind === 'disembark' ? 1 - rawFrac : rawFrac;
+            const aislePt = new THREE.Vector3(0, frac < 0.25 ? 0.1 + frac * 2.2 : 0.68 + settleY, 3.85 - frac * 3.8).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+            trRig.root.position.copy(aislePt);
+            trRig.root.quaternion.copy(chassisQuat);
           }
         }
       }
@@ -4833,7 +4915,7 @@ export class GameRuntime {
     this.#followGusts();
     this.effects.update(dt);
     this.dragOonEffects?.update(this.latestSnapshot, this.socket.serverNow(), dt, (machineId, nodeName) =>
-      this.fleetRenderer?.getRenderer(machineId)?.getNodeWorldPosition?.(nodeName) ?? null);
+      this.fleetRenderer?.getRenderer(machineId)?.getNodeWorldPosition?.(nodeName) ?? null, this.activeWorld);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
     if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&

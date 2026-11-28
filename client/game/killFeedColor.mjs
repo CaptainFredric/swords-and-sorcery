@@ -27,6 +27,22 @@ export const KILLFEED_SOURCE_TONES=Object.freeze({
   'fight-flight-repeater':'siege','fight-flight-rotor':'siege',
   'fight-flight-burning-ground':'fire',
   'fight-flight-terminal':'ascension',
+  'dragoon-rite-crew':'ascension',
+  'dragoon-rite-of-ascension':'ascension',
+  'dragoon-rite-exhaust':'ascension',
+  'dragoon-desolation-spray':'fire',
+  'dragoon-flame-dot':'fire',
+  'dragoon-radiant-heat':'fire',
+  'dragoon-raze':'fire',
+  'dragoon-raze-dot':'fire',
+  'dragoon-camp-fire':'fire',
+  'dragoon-flight-like-hell':'fire',
+  'dragoon-leap-slam':'fire',
+  'dragoon-steam':'steel',
+  'dragoon-all-abort':'fire',
+  'dragoon-all-abort-crew':'fire',
+  'brimming-internal-heat':'fire',
+  'dragoon-overheat':'fire',
   'bibye-siege':'siege','bibye-conditioning':'frost',
   'bibye-shockwave':'frost','bibye-sharp-turn':'siege',
   'bibye-blade-sweep':'siege',
@@ -49,9 +65,9 @@ export function killFeedInfusionTags(source,tiers){
 }
 export function killFeedTone(event){
  const source=String(event?.source??'');
- // The separate Valkyrie summary should always be bright fiery gold, not
- // ordinary white for a technically self-inflicted terminal strike.
- if(source==='fight-flight-terminal'||event?.ascension===true)return 'ascension';
+ // The separate Valkyrie & Rite Ascension entries should always be bright fiery gold.
+ if(source==='fight-flight-terminal'||source==='dragoon-rite-crew'||source==='dragoon-rite-of-ascension'||source==='dragoon-rite-exhaust'||event?.ascension===true)return 'ascension';
+ if(source==='dragoon-all-abort-crew'||source==='dragoon-abort'||source==='brimming-internal-heat'||source==='dragoon-overheat')return 'fire';
  if(source==='abyss')return 'abyss'; // attributed and uncredited falls alike
  if(!event?.killerId||event.killerId===event.victimId)return 'self';
  if(source==='one_hit_of_wonders'){
