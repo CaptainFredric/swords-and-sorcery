@@ -17,6 +17,10 @@ import { setFlightUltimateHold } from './fightFlightTerminal.mjs';
 import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
 import { surfaceHeightAt, segmentAabbHit } from '../src/collision.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
+import { DRAG_OON_ID, DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
+import { createDragOon } from './dragOon.mjs';
+import { triggerDesolationSpray, requestFiresTheLimit, requestSteamTheTeam } from './dragOonAbilities.mjs';
+import { requestDragOonSkill } from './dragOonSkills.mjs';
 import { normalizeSiegeLoadout, selectedSiegeSkill } from '../src/siegeLoadout.mjs';
 import { beginAttack, endAttack } from './combat.mjs';
 import { considerOperatorSteel } from './practiceSiegeOperators.mjs';
@@ -120,6 +124,7 @@ export function createSiegeBladesState(room, options = {}) {
   const botDifficulty = settings.botDifficulty ?? (room.botSkill ?? 'knight');
   const machineSelection = settings.machineSelection ?? 'random';
   const clashStarts = settings.clashStarts ?? null;
+  const experimentalDragOon = Boolean(room.isPrivate && settings.experimentalDragOon);
 
   const initialRadius = room.worldId === 'outerworks' ? 24.0 : room.worldId === 'blackbell-foundry' ? 26.0 : room.worldId === 'high-grounds' ? 28.0 : 26.0;
   return {
@@ -130,6 +135,7 @@ export function createSiegeBladesState(room, options = {}) {
     botDifficulty,
     machineSelection,
     clashStarts,
+    experimentalDragOon,
 
     roundNumber: 1,
     roundStartedAt: 0,
@@ -171,6 +177,7 @@ export const SIEGE_SELECTION_SECONDS = 6;
 export const SIEGE_RESELECTION_SECONDS = 5;
 export const siegeSelectionSeconds = (roundNumber) => (roundNumber > 1 ? SIEGE_RESELECTION_SECONDS : SIEGE_SELECTION_SECONDS);
 const VALID_MACHINE_CLASSES = new Set(Object.values(SIEGE_MACHINE_CLASSES));
+const validSiegeClassForState = (state, machine) => VALID_MACHINE_CLASSES.has(machine) || (Boolean(state?.experimentalDragOon) && machine === DRAG_OON_ID);
 
 /** Server-owned selection phase before EVERY round, including the first. */
 export function beginSiegeBladesSelection(room, nowSec) {
@@ -184,11 +191,22 @@ export function beginSiegeBladesSelection(room, nowSec) {
     player.operatingRamId = null;
     player.operatingBallistaId = null;
     player.operatingFightFlightId = null;
+    player.operatingDragOonId = null;
+    player.aboardDragOonId = null;
+    player.dragOonStation = null;
+    player.dragOonTransition = null;
+    player.maxHealth = player.baseMaxHealth ?? 100;
+    player.dragOonMaxHealthLoss = 0;
+    player.dragOonFrostInterference = null;
+    player.operatingDragOonId = null;
+    player.aboardDragOonId = null;
+    player.dragOonStation = null;
+    player.dragOonTransition = null;
     player.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: player.yaw ?? 0, pitch: 0 };
     const previous = player.preferredSiegeMachine;
     const configured = state.machineSelection;
-    const suggestion = VALID_MACHINE_CLASSES.has(previous) ? previous
-      : player.actorKind === 'human' && VALID_MACHINE_CLASSES.has(configured) ? configured : null;
+    const suggestion = validSiegeClassForState(state, previous) ? previous
+      : player.actorKind === 'human' && validSiegeClassForState(state, configured) ? configured : null;
     if (suggestion && player.actorKind === 'human') state.selectionChoices.set(player.id, suggestion);
   }
   room.events?.push({ type: 'siegeBladesSelectionStarted', roundNumber: state.roundNumber,
@@ -202,7 +220,7 @@ export function selectSiegeBladesMachine(room, player, machine, nowSec) {
   if (!s || room.state !== 'PLAYING' || s.matchFinished ||
     s.selectionEndsAt === null || nowSec >= s.selectionEndsAt ||
     !player || player.actorKind !== 'human' || !s.selectionChoices ||
-    !VALID_MACHINE_CLASSES.has(machine)) return false;
+    !validSiegeClassForState(s, machine)) return false;
   s.selectionChoices.set(player.id, machine);
   player.preferredSiegeMachine = machine;
   return true;
@@ -313,14 +331,15 @@ export function provisionSiegeBladesFleet(room, nowSec) {
       'ballista': SIEGE_MACHINE_CLASSES.BALLISTA,
       'fight-and-flight': SIEGE_MACHINE_CLASSES.FLIGHT,
       'flight': SIEGE_MACHINE_CLASSES.FLIGHT,
+      ...(state.experimentalDragOon ? { 'drag-oon': DRAG_OON_ID, 'dragoon': DRAG_OON_ID } : {}),
     };
     const choice = state.selectionChoices?.get(player.id);
     const pref = player.preferredSiegeMachine;
-    let chosenClass = NORM_CLASS[choice] ?? (VALID_MACHINE_CLASSES.has(choice) ? choice : null);
-    if (!chosenClass) chosenClass = NORM_CLASS[pref] ?? (VALID_MACHINE_CLASSES.has(pref) ? pref : null);
+    let chosenClass = NORM_CLASS[choice] ?? (validSiegeClassForState(state, choice) ? choice : null);
+    if (!chosenClass) chosenClass = NORM_CLASS[pref] ?? (validSiegeClassForState(state, pref) ? pref : null);
     if (!chosenClass && player.actorKind === 'human') {
       const initial = state.machineSelection;
-      chosenClass = NORM_CLASS[initial] ?? (VALID_MACHINE_CLASSES.has(initial) ? initial : null);
+      chosenClass = NORM_CLASS[initial] ?? (validSiegeClassForState(state, initial) ? initial : null);
     }
     // Bots without a forced preference rotate their machinery across rounds,
     // rather than always picking the same class from one spawn index.
@@ -329,12 +348,15 @@ export function provisionSiegeBladesFleet(room, nowSec) {
     // Bots select real Armory skills. A Sharp Turn remains an innate ballista
     // attack, independent of the selected Skill.
     const skillSlot = chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA ? 'biBye'
-      : chosenClass === SIEGE_MACHINE_CLASSES.RAM ? 'soFist' : 'fightFlight';
+      : chosenClass === SIEGE_MACHINE_CLASSES.RAM ? 'soFist'
+      : chosenClass === DRAG_OON_ID ? 'dragOon' : 'fightFlight';
     if (player.actorKind === 'bot') {
       const botSkill = chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA
         ? (state.botDifficulty === 'champion' ? 'lookAroundAndFindOut' : 'boltToTheOccasion')
         : chosenClass === SIEGE_MACHINE_CLASSES.RAM
         ? (state.botDifficulty === 'champion' ? 'longArmToTheJaw' : 'beatToThePunch')
+        : chosenClass === DRAG_OON_ID
+        ? (state.botDifficulty === 'champion' ? 'brimmingWithPotential' : 'razeThePasture')
         : (state.botDifficulty === 'champion' ? 'narrowToOne' : 'fireAwayRightHere');
       player.siegeLoadout = normalizeSiegeLoadout({ ...player.siegeLoadout, [skillSlot]: botSkill });
     }
@@ -342,7 +364,17 @@ export function provisionSiegeBladesFleet(room, nowSec) {
     const machineId = `sb-${player.id}-r${state.roundNumber}`;
     let machine = null;
 
-    if (chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA) {
+    if (chosenClass === DRAG_OON_ID && state.experimentalDragOon) {
+      machine = createDragOon({
+        id: machineId,
+        x: spawnPoint.x,
+        y: spawnPoint.y,
+        z: spawnPoint.z,
+        heading: spawnPoint.yaw,
+        team,
+      });
+      player.operatingDragOonId = machine.id;
+    } else if (chosenClass === SIEGE_MACHINE_CLASSES.BALLISTA) {
       machine = createBiByeLlista({
         id: machineId,
         x: spawnPoint.x,
@@ -535,6 +567,13 @@ export function resetSiegeBladesRound(room, nowSec) {
     player.operatingRamId = null;
     player.operatingBallistaId = null;
     player.operatingFightFlightId = null;
+    player.operatingDragOonId = null;
+    player.aboardDragOonId = null;
+    player.dragOonStation = null;
+    player.dragOonTransition = null;
+    player.maxHealth = player.baseMaxHealth ?? 100;
+    player.dragOonMaxHealthLoss = 0;
+    player.dragOonFrostInterference = null;
 
     player.shaken = null;
     player.electricalBacklash = null;
@@ -622,6 +661,8 @@ function stepSiegeBladesBots(room, nowSec) {
       stepBallistefan(room, bot, m, target, ai, tuning, nowSec, decide, state);
     } else if (kind === 'flight') {
       stepDonte(room, bot, m, target, ai, tuning, nowSec, decide, state);
+    } else if (kind === 'dragoon') {
+      stepDragOonBot(room, bot, m, target, ai, tuning, nowSec, decide, state);
     }
   }
 }
@@ -954,6 +995,73 @@ function stepDonte(room, a, m, target, ai, tuning, now, decide, state) {
   }
 }
 
+function stepDragOonBot(room, a, m, target, ai, tuning, now, decide, state) {
+  const at = { x: m.x, y: m.y, z: m.z };
+  const otNeeded = Boolean(state?.overtimeActive && dist(at, state.zone.center) > Math.max(4, state.zone.radius - 2));
+  const dest = (otNeeded && dist(at, target.position) > state.zone.radius) ? { position: state.zone.center, velocity: {} } : target;
+  const d = dist(at, target.position);
+  const los = !blocked(room, at, target.position);
+  const aim = aimInput(at, target, ai, tuning, 30, 0.9);
+  const wheel = drive(room, m, dest, ai, tuning, {
+    ideal: 10.5,
+    deadZone: 2.5,
+    reverse: d < 5.5,
+    checkBlocked: decide,
+  });
+
+  a.input = {
+    ...a.input,
+    ...wheel,
+    yaw: aim.yaw,
+    pitch: aim.pitch,
+  };
+
+  if (!decide || m.health <= 0) return;
+
+  // Release Desolation Spray before crossing catastrophic overheat
+  const overheated = (m.heat ?? 0) >= 92 || (m.fuel ?? 0) <= 6;
+  const canSpray = los && d <= 16.5 && !m.campFire?.active && !m.flightLikeHell?.active && m.raze?.phase !== 'holding' && (m.fuel ?? 0) > 12 && (m.heat ?? 0) < 88;
+  if (m.sprayHeld && overheated) {
+    triggerDesolationSpray(room, m, a, false, now);
+  } else if (!m.sprayHeld && canSpray && Math.abs(difference(aim.yaw, m.heading + (m.cannonYaw ?? 0))) < 0.65) {
+    triggerDesolationSpray(room, m, a, true, now);
+  } else if (m.sprayHeld && (!los || d > 19)) {
+    triggerDesolationSpray(room, m, a, false, now);
+  }
+
+  // Vent / push back close threats with Steam the Team when heated or pressured
+  if (now + 1e-8 >= (m.steamReadyAt ?? 0) && ((m.heat ?? 0) >= 70 || (d < 8.5 && (m.heat ?? 0) >= 35))) {
+    requestSteamTheTeam(room, m, a, now);
+  }
+
+  // Leap slam with Fire's the Limit to close medium range gaps
+  if (m.grounded && d > 13 && d < 23 && (m.fuel ?? 0) >= 30 && now + 1e-8 >= (m.leapReadyAt ?? 0) && !m.campFire?.active && !m.raze?.phase) {
+    requestFiresTheLimit(room, m, a, now);
+  }
+
+  // Equipped Skill usage
+  const sk = m.skill?.id;
+  if (sk === 'razeThePasture') {
+    if (m.raze?.phase === 'holding' && (now - m.raze.startedAt >= 1.1 || d < 8)) {
+      requestDragOonSkill(room, m, a, { down: false }, now);
+    } else if (!m.raze && m.grounded && d >= 6 && d <= 15 && now + 1e-8 >= (m.skill.readyAt ?? 0)) {
+      requestDragOonSkill(room, m, a, { down: true }, now);
+    }
+  } else if (sk === 'flightLikeHell') {
+    if (!m.grounded && !m.flightLikeHell?.active && d <= 14 && (m.fuel ?? 0) > 18 && now + 1e-8 >= (m.skill.readyAt ?? 0)) {
+      requestDragOonSkill(room, m, a, { down: true }, now);
+    }
+  } else if (sk === 'campFire') {
+    if (!m.campFire?.active && m.grounded && (m.health < m.maxHealth * 0.45 || d < 6) && now + 1e-8 >= (m.skill.readyAt ?? 0)) {
+      requestDragOonSkill(room, m, a, { down: true }, now);
+    }
+  } else if (sk === 'brimmingWithPotential') {
+    if (!m.brimming?.active && d <= 18 && (m.heat ?? 0) >= 45 && now + 1e-8 >= (m.skill.readyAt ?? 0)) {
+      requestDragOonSkill(room, m, a, { down: true }, now);
+    }
+  }
+}
+
 /**
  * Main authoritative step for Siege Blades mode.
  */
@@ -1144,7 +1252,7 @@ export const SIEGE_BLADES_HANDLER = Object.freeze({
   command: (room, player, message, nowSec) => {
     if (message.type !== 'siegeBladesChoose') return null;
     return selectSiegeBladesMachine(room, player, message.machine, nowSec)
-      ? {} : { rejected: 'Choose one of the three siege machines during the selection phase.' };
+      ? {} : { rejected: 'Choose an eligible siege machine during the selection phase.' };
   },
   spawn: (room, player, spawns) => {
     const assignment = room.siegeBlades?.spawnAssignments?.get(player.id);
@@ -1162,6 +1270,7 @@ export const SIEGE_BLADES_HANDLER = Object.freeze({
       scores: { ...s.scores },
       selectionEndsAt: s.selectionEndsAt,
       selectionChoices: s.selectionEndsAt !== null ? Object.fromEntries(s.selectionChoices) : null,
+      experimentalDragOon: Boolean(s.experimentalDragOon),
       roundWinner: s.roundWinner,
       roundResetCountdown: s.roundResetCountdown != null ? Math.max(0, s.roundResetCountdown) : null,
       overtimeActive: s.overtimeActive,

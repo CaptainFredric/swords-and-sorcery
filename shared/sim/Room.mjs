@@ -26,6 +26,7 @@ import { createObjectiveState } from './objectives.mjs';
 import { modeCall } from './modeRuntime.mjs';
 import { createHighGroundsState, availableHighGroundsSpawns, finishHighGroundsOnTime } from './highGroundsMode.mjs';
 import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
+import { removeDragOonOccupant } from './dragOonCrew.mjs';
 import { getMachineKind } from './fleetGeometry.mjs';
 import { createEdgeOfVictoryState, edgeSpawnOrder, eliminateEdgePlayer, updateEdgeSurvivors } from './edgeOfVictory.mjs';
 
@@ -163,6 +164,20 @@ export class Room {
     }
   }
 
+  get dragOon() {
+    return this._legacyDragOon ?? [...this.machines.values()].find(m => getMachineKind(m) === 'dragoon') ?? null;
+  }
+  set dragOon(val) {
+    if (this._legacyDragOon && this.machines?.has(this._legacyDragOon.id)) {
+      this.machines.delete(this._legacyDragOon.id);
+    }
+    this._legacyDragOon = val;
+    if (val && this.machines) {
+      if (!val.id) val.id = `dragoon-${this.code ?? 'room'}-${this.dragOonRevision ?? 0}`;
+      this.machines.set(val.id, val);
+    }
+  }
+
   addMachine(machine) {
     if (!machine) return null;
     const kind = getMachineKind(machine);
@@ -177,6 +192,8 @@ export class Room {
       this._legacyBiByeLlista = machine;
     } else if (kind === 'flight' && !this._legacyFightFlight) {
       this._legacyFightFlight = machine;
+    } else if (kind === 'dragoon' && !this._legacyDragOon) {
+      this._legacyDragOon = machine;
     }
     return machine;
   }
@@ -188,10 +205,15 @@ export class Room {
       const p = this.players.get(machine.operatorId);
       if (p) this.dismountPlayerFromMachines(p, nowSec, false);
     }
+    for (const pid of machine.passengers ?? []) {
+      const p = pid ? this.players.get(pid) : null;
+      if (p) this.dismountPlayerFromMachines(p, nowSec, false);
+    }
     this.machines.delete(id);
     if (this._legacySoFistication?.id === id) this._legacySoFistication = null;
     if (this._legacyBiByeLlista?.id === id) this._legacyBiByeLlista = null;
     if (this._legacyFightFlight?.id === id) this._legacyFightFlight = null;
+    if (this._legacyDragOon?.id === id) this._legacyDragOon = null;
     return true;
   }
 
@@ -205,7 +227,7 @@ export class Room {
 
   getMachineForPlayer(playerId) {
     for (const m of this.machines.values()) {
-      if (m.operatorId === playerId) return m;
+      if (m.operatorId === playerId || m.passengers?.includes(playerId)) return m;
     }
     return null;
   }
@@ -213,14 +235,16 @@ export class Room {
   dismountPlayerFromMachines(player, nowSec = 0, isDisconnect = false) {
     if (!player) return;
     for (const m of this.machines.values()) {
-      if (m.operatorId === player.id) {
-        const kind = getMachineKind(m);
+      const kind = getMachineKind(m);
+      if (m.operatorId === player.id || (kind === 'dragoon' && m.passengers?.includes(player.id))) {
         if (kind === 'ram') {
           dismountSoFistication(this, m, player, { force: true });
         } else if (kind === 'ballista') {
           dismountBiByeLlista(m, player, isDisconnect, this.world);
         } else if (kind === 'flight') {
           dismountFightFlight(this, m, player, { force: true, at: nowSec });
+        } else if (kind === 'dragoon') {
+          removeDragOonOccupant(this, m, player, { at: nowSec, reason: isDisconnect ? 'disconnect' : 'dismount' });
         }
       }
     }
@@ -233,24 +257,39 @@ export class Room {
     if (this._legacyFightFlight?.operatorId === player.id) {
       dismountFightFlight(this, this._legacyFightFlight, player, { force: true, at: nowSec });
     }
+    if (this._legacyDragOon && (this._legacyDragOon.operatorId === player.id || this._legacyDragOon.passengers?.includes(player.id))) {
+      removeDragOonOccupant(this, this._legacyDragOon, player, { at: nowSec, reason: isDisconnect ? 'disconnect' : 'dismount' });
+    }
     player.operatingRamId = null;
     player.operatingBallistaId = null;
     player.operatingFightFlightId = null;
+    player.operatingDragOonId = null;
+    player.aboardDragOonId = null;
+    player.dragOonStation = null;
+    player.dragOonTransition = null;
   }
 
   resetFleet(nowSec = 0) {
     this.roundGeneration = (this.roundGeneration ?? 0) + 1;
     for (const p of this.players.values()) {
       this.dismountPlayerFromMachines(p, nowSec, false);
+      if (p.baseMaxHealth && p.maxHealth !== p.baseMaxHealth) p.maxHealth = p.baseMaxHealth;
+      p.dragOonMaxHealthLoss = 0;
+      p.dragOonFrostInterference = null;
     }
     this.machines.clear();
     this._legacySoFistication = null;
     this._legacyBiByeLlista = null;
     this._legacyFightFlight = null;
+    this._legacyDragOon = null;
     this.projectiles.clear();
     if (this.bibyeProjectiles) this.bibyeProjectiles.clear();
     if (this.fightFlightProjectiles) this.fightFlightProjectiles.clear();
     this.flightBurnZones = [];
+    this.dragOonFlames = [];
+    this.dragOonSteamRings = [];
+    this.dragOonRazeFields = [];
+    this.dragOonSuppressionZones = [];
     this.oneHitWaves = [];
     this.oneHitBurnZones = [];
     this.oneHitFields = [];
@@ -265,6 +304,7 @@ export class Room {
     this._legacySoFistication = null;
     this._legacyBiByeLlista = null;
     this._legacyFightFlight = null;
+    this._legacyDragOon = null;
     resetChallengeTracking(this);
     this.isPrivate = isPrivate;
     this.sharedPractice=false;
@@ -285,6 +325,10 @@ export class Room {
     this.fightFlightRevision = 0;
     this.fightFlightProjectiles = new Map();
     this.flightBurnZones=[];
+    this.dragOonFlames = [];
+    this.dragOonSteamRings = [];
+    this.dragOonRazeFields = [];
+    this.dragOonSuppressionZones = [];
     if (this.world.ballistaEmplacement) {
       this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
       this.biByeRevision = 0;
@@ -693,6 +737,8 @@ export class Room {
     this.soFistication=null;this.soFistRevision++;
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
     this.flightBurnZones=[];
+    this._legacyDragOon=null;this.dragOonRevision=(this.dragOonRevision??0)+1;
+    this.dragOonFlames=[];this.dragOonSteamRings=[];this.dragOonRazeFields=[];this.dragOonSuppressionZones=[];
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
     modeCall(this,'init');
@@ -892,6 +938,8 @@ export class Room {
           this.world = bastionBreachForObjective(this.objectiveState);
         this.biByeLlista = this.world.ballistaEmplacement ? createBiByeLlista(this.world.ballistaEmplacement) : null;
         this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
+    this._legacyDragOon=null;this.dragOonRevision=(this.dragOonRevision??0)+1;
+    this.dragOonFlames=[];this.dragOonSteamRings=[];this.dragOonRazeFields=[];this.dragOonSuppressionZones=[];
         this.biByeRevision = (this.biByeRevision ?? 0) + 1;
         this.bibyeProjectiles = new Map();
       } catch { /* unknown world: keep the current one */ }
@@ -1166,6 +1214,8 @@ export class Room {
     this.soFistication = null;
     this.soFistRevision++;
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
+    this._legacyDragOon=null;this.dragOonRevision=(this.dragOonRevision??0)+1;
+    this.dragOonFlames=[];this.dragOonSteamRings=[];this.dragOonRazeFields=[];this.dragOonSuppressionZones=[];
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
         if (!this.objectiveState && this.mode !== GAME_MODES.RESTLESS_DAY) continue;

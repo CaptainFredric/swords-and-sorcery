@@ -535,10 +535,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     }
     if ((message.type === 'createPublicRoom' || message.type === 'createRoom') && !session.roomCode) {
       try {
-        const settings = message.settings && typeof message.settings === 'object' && !Array.isArray(message.settings)
-          ? message.settings : {};
-        const room = roomManager.createCustomRoom({ ...settings, isPrivate: message.type === 'createRoom',
-          mode: message.mode ?? settings.mode ?? GAME_MODES.FFA }, time);
+        const rawSettings = message.settings && typeof message.settings === 'object' && !Array.isArray(message.settings)
+          ? { ...message.settings } : {};
+        const isPrivate = message.type === 'createRoom';
+        if (!isPrivate) delete rawSettings.experimentalDragOon;
+        const room = roomManager.createCustomRoom({ ...rawSettings, isPrivate,
+          mode: message.mode ?? rawSettings.mode ?? GAME_MODES.FFA }, time);
         joinNew(session, room, message.name,
           room.policy.teamMode&&['ATTACKERS','DEFENDERS'].includes(message.team)?message.team:null);
       } catch (error) { send(session, { type: 'error', message: error.message }); }

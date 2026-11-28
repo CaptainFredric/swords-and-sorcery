@@ -20,11 +20,12 @@ function siegeSettings(current, patch, changedMode) {
   const pick = (key) => patch[key] ?? was[key] ?? SIEGE_ROOM_RULES.defaults[key];
   const format = pick('format'), matchRounds = Number(pick('matchRounds')), endlessRoundCap = Number(pick('endlessRoundCap'));
   const clash = pick('clashStarts');
+  const experimentalDragOon = Boolean(pick('experimentalDragOon'));
   if (!SIEGE_ROOM_RULES.formats.includes(format)) return { error: 'Choose a Match or an Endless Exhibition.' };
   if (!SIEGE_ROOM_RULES.matchRounds.includes(matchRounds)) return { error: 'A Match plays 3, 5 or 7 rounds.' };
   if (!SIEGE_ROOM_RULES.endlessRoundCaps.includes(endlessRoundCap)) return { error: 'An exhibition caps at 10, 25 or 50 rounds, or none.' };
   if (clash !== null && typeof clash !== 'boolean') return { error: 'Choose whether clash starts are enabled.' };
-  return { format, matchRounds, endlessRoundCap, clashStarts: clash };
+  return { format, matchRounds, endlessRoundCap, clashStarts: clash, ...(experimentalDragOon ? { experimentalDragOon: true } : {}) };
 }
 export function roomSettings(current, patch) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { error: 'Choose valid room settings.' };

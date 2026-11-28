@@ -540,6 +540,21 @@ html[data-turn] .turn-only { display: block !important; }
 .siege-model-status[hidden] { display: none; }
 #armory-siege.is-static-preview .armory-preview { cursor: default; }
 #armory-siege.is-static-preview .siege-viewport-controls { opacity: .45; pointer-events: none; }
+.siege-exp-btn {
+  margin-top: 6px; padding: 4px 8px; align-self: flex-start;
+  border: 1px dashed rgba(224, 152, 74, .65); border-radius: 3px;
+  background: rgba(58, 28, 16, .68); color: #f6cf8a;
+  font: 800 10px/1.2 var(--font-script); letter-spacing: .07em; cursor: pointer;
+}
+.siege-exp-btn:hover, .siege-exp-btn[aria-pressed="true"] {
+  border-style: solid; border-color: #f3c46b; background: rgba(112, 34, 22, .85); color: #fff4d6;
+}
+.private-exp-toggle {
+  display: flex !important; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px dashed rgba(224, 152, 74, .55); border-radius: 3px; background: rgba(56, 26, 16, .45);
+  color: #f5d89e; cursor: pointer;
+}
+.private-exp-toggle input { width: 15px; height: 15px; accent-color: #ef9b45; flex: 0 0 auto; }
 #game-shell:has(#armory-menu:not(.hidden)) #menu-world > .turn-hint { display: none; }
 .armory-turn-hint { color: #f5e8b8; font: 700 10px/1.15 var(--font-script); letter-spacing: .08em; }
 .armory-preview:active { cursor: grabbing; }

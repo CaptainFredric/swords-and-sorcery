@@ -18,9 +18,12 @@ import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
 import {FlightSound} from './sound/FlightSound.mjs';
+import {DragOonSound} from './sound/DragOonSound.mjs';
+import {DragOonFieldEffects} from './DragOonFieldEffects.mjs';
 import {soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import { playerMovementWorld } from '../../shared/sim/playerMovementWorld.mjs';
 import {ramCameraFollow,ramCameraOrbit,ramSightPoint} from './ramCamera.mjs';
+import { dragOonCameraTarget } from './dragOonCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { gestureMachines } from './spellbladeGestures.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
@@ -46,7 +49,7 @@ import { shouldPredictSeparation, separationTickKey } from './separationCadence.
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { siegeSteelRepairPoint } from './siegeSteelRepairPoint.mjs';
-import {killFeedDeath,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
+import {killFeedDeath,dragOonRiteCrewFeed,terminalAscensionFeed,vortexStreakFeed,graveTimeFeed,groupCheatingFeed,groupHeroFeed,allowsSharedHeroEpitaph} from './killFeedText.mjs';
 import {killFeedAppearance} from './killFeedColor.mjs';
 import { sendMovementInput } from './movementInput.mjs';
 import { recordPredictedPose, predictedPoseAt } from './predictedPoseHistory.mjs';
@@ -203,7 +206,7 @@ export class GameRuntime {
       listener:()=>this.localState?.position??this.localAuth?.position??null,
       playerPosition:id=>this.#bodyPosition(id),
     });
-    this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);
+    this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);this.dragOonSound=new DragOonSound(sound);
     this.flightDashPresentation=new FlightDashPresentation();
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
@@ -247,6 +250,7 @@ export class GameRuntime {
     const view = this.#viewSize();
     this.camera = new THREE.PerspectiveCamera(78, view.width / view.height, 0.05, 180);
     this.scene.add(this.camera);
+    this.dragOonEffects = new DragOonFieldEffects(this.scene, this.camera);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
     this.renderer.setSize(view.width, view.height);
@@ -533,13 +537,13 @@ export class GameRuntime {
       // Z and the existing upper-right touch VIEW control also work on foot.
       // Never commandeer machine optics or inspection's free camera.
       if(action==='siegeView'&&pressed&&this.localAuth?.alive&&!this.inspectionFree&&
-        !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId){
+        !this.localAuth.operatingBallistaId&&!this.localAuth.operatingRamId&&!this.localAuth.operatingFightFlightId&&!this.localAuth.operatingDragOonId&&!this.localAuth.aboardDragOonId){
         this.onFootThirdPerson=!this.onFootThirdPerson;
         this.hud.flashText(this.onFootThirdPerson?'THIRD PERSON':'FIRST PERSON','',650);
         return;
       }
-      if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId)) {
-        if(this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
+      if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId||this.localAuth?.operatingDragOonId||this.localAuth?.aboardDragOonId)) {
+        if(this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId||this.localAuth?.operatingDragOonId||this.localAuth?.aboardDragOonId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
         this.siegeView=next.view;this.siegeReturnView=next.returnView;
       }
@@ -555,7 +559,7 @@ export class GameRuntime {
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
       if (this.trialControlsLocked) { this.weapon.setAttack(false); return; }
-      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId) {
+      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId) {
         return;
       }
       if (held) this.pressedAt.attack = this.socket.serverNow();
@@ -569,7 +573,7 @@ export class GameRuntime {
     };
     this.input.onGuardLocal = (held) => {
       if (this.trialControlsLocked) { this.weapon.setGuard(false); return; }
-      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || (held && this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded && !combatActionPolicy(this.localAuth, this.socket.serverNow()).concurrent)) return;
+      if (this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId || this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId || (held && this.localAuth?.operatingFightFlightId && !this.latestSnapshot?.fightFlight?.grounded && !combatActionPolicy(this.localAuth, this.socket.serverNow()).concurrent)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
@@ -583,10 +587,11 @@ export class GameRuntime {
     this.input.onCastLocal = (metadata = {}) => {
       if (this.trialControlsLocked) return;
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
-      const mounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
-      // Preserve mounted casting restrictions. Only legitimate personal Steel
-      // gets its existing clench/ring prediction while aboard a siege machine.
+      const mounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId||this.localAuth?.operatingDragOonId);
+      const paxDrag = this.localAuth?.aboardDragOonId ? (this.latestSnapshot?.machines?.find(m => m?.id === this.localAuth.aboardDragOonId) || this.latestSnapshot?.dragOon) : null;
+      // Preserve mounted casting restrictions. Passengers in DRAG-OON cast freely unless hatches are sealed.
       if (mounted && intendedSpell!=='steel') return;
+      if (paxDrag?.campFire?.sealed && intendedSpell!=='steel') return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
@@ -1353,6 +1358,7 @@ export class GameRuntime {
       }
       this.effects?.setDensity(this.view.particles ?? 1);
       this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
+      this.dragOonEffects?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.disasterSound?.setDensity(Math.min(this.view.particles??1,this.touch ? .65 : 1));
       this.#shadowDetail();
     }
@@ -1365,6 +1371,10 @@ export class GameRuntime {
     }
   }
 
+  setDragOonDebugHitVolumes(enabled) {
+    this.dragOonEffects?.setDebugHitVolumes?.(enabled);
+  }
+
   // phones and tablets: on-screen controls replace the mouse and keyboard
   enableTouch() {
     if (this.touch) return;
@@ -1375,6 +1385,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.oneHitEffects?.setDensity(Math.min(this.view.particles??1,.65));
+    this.dragOonEffects?.setDensity(Math.min(this.view.particles??1,.65));
     this.disasterSound?.setDensity(Math.min(this.view.particles??1,.65));
     this.touch.setActive(this.input.touchFocus);
     this.syncInspection();
@@ -1401,7 +1412,7 @@ export class GameRuntime {
     // its full-screen preview and modal suppression over the next menu.
     if(wasPlaying&&!this.playing&&this.touchLayoutEditor?.active)
       this.touchLayoutEditor.close({resumeArena:false});
-    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.chase=0;this.chaseOut=0;this.chaseAim=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.flightDashPresentation.reset();}
+    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.chase=0;this.chaseOut=0;this.chaseAim=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.dragOonSound.stop();this.flightDashPresentation.reset();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();
   }
@@ -1456,7 +1467,7 @@ export class GameRuntime {
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.playerId);
-    const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId);
+    const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId||this.localAuth?.operatingDragOonId||this.localAuth?.aboardDragOonId);
     const previousFlightId=this.localAuth?.operatingFightFlightId??null;
     const currentFlightId=auth?.alive?auth.operatingFightFlightId??null:null;
     if(previousFlightId!==currentFlightId){
@@ -1484,13 +1495,32 @@ export class GameRuntime {
     // over to the server's if it counted the chain otherwise)
     if (auth?.attackActive) this.weapon.adoptVariant(auth.attackVariant ?? 0, auth.attackStartedAt, this.weapon.now() - this.socket.serverNow());
     this.input.oneHitWaveId=auth?.alive&&!auth.operatingFightFlightId&&!auth.operatingRamId&&
-      !auth.operatingBallistaId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
+      !auth.operatingBallistaId&&!auth.operatingDragOonId&&!auth.aboardDragOonId&&!auth.restlessCarrying ? auth.oneHitWaveId??null : null;
     this.input.oneHitAimUntil=auth?.alive&&auth.ultimateState?.id==='one_hit_of_wonders'&&
       auth.ultimateState.phase==='active' ? auth.ultimateState.oneHit?.aimUntil??null : null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     this.input.mountedFlight=Boolean(auth?.alive&&auth.operatingFightFlightId);
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
+    const dragState = (this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId)
+      ? (snapshot.machines?.find(m => m?.id === (this.localAuth.operatingDragOonId || this.localAuth.aboardDragOonId)) || snapshot.dragOon)
+      : null;
+    this.input.mountedDragOon=Boolean(auth?.alive&&auth.operatingDragOonId);
+    this.input.aboardDragOon=Boolean(auth?.alive&&auth.aboardDragOonId);
+    this.input.dragOonRiteActive=Boolean(dragState?.rite?.active);
+    this.input.dragOonRiteEligible=Boolean(dragState?.riteStatus?.eligible);
+    this.input.dragOonRiteCommitted=Boolean(dragState?.riteCommitments?.[auth?.id]);
     this.input.ballistaSkillPhase=this.input.mountedBallista?(snapshot.bibyeBallista?.skill?.phase??'idle'):'idle';
+    if((auth?.operatingDragOonId||auth?.aboardDragOonId)&&!wasMounted){
+      // DRAG-OON defaults strictly to third-person perspective
+      this.siegeView='third';
+      this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
+      this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
+      const dm=snapshot.machines?.find(m=>m?.id===(auth.operatingDragOonId||auth.aboardDragOonId))||snapshot.dragOon;
+      const heading=dm?.heading;
+      const stOffset = auth.aboardDragOonId ? (([75, -75, 115, -115][auth.dragOonStation ?? 0] ?? 75) * Math.PI / 180) : 0;
+      this.input.yaw=Number.isFinite(heading)?(heading+stOffset):(Number.isFinite(auth.yaw)?auth.yaw:(Number.isFinite(this.input.yaw)?this.input.yaw:0));
+      this.input.pitch=auth.aboardDragOonId ? -0.18 : 0;
+    }
     if(auth?.operatingFightFlightId&&!wasMounted){
       this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
@@ -1523,7 +1553,7 @@ export class GameRuntime {
       if (Number.isFinite(yaw)) this.input.yaw = yaw;
       if (Number.isFinite(pitch)) this.input.pitch = pitch;
     }
-    if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId && !auth?.operatingFightFlightId)) {
+    if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId && !auth?.operatingFightFlightId && !auth?.operatingDragOonId && !auth?.aboardDragOonId)) {
       this.flightDashPresentation.reset();
       this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
@@ -1552,7 +1582,7 @@ export class GameRuntime {
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
     } else {
-      if (auth.operatingBallistaId||auth.operatingRamId||auth.operatingFightFlightId) {
+      if (auth.operatingBallistaId||auth.operatingRamId||auth.operatingFightFlightId||auth.operatingDragOonId||auth.aboardDragOonId) {
         this.predictionHistory=[];
         this.predictionError = 0;
         this.localState.position = { ...auth.position };
@@ -1672,6 +1702,14 @@ export class GameRuntime {
       }
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
+      if(event.type?.startsWith('dragOon')){
+        const dState=(event.machineId?this.latestSnapshot?.machines?.find(m=>m?.id===event.machineId):null)||this.latestSnapshot?.dragOon;
+        this.dragOonSound.event(event,dState,this.socket.serverNow());
+        this.dragOonEffects?.onEvent(event);
+        if (event.type === 'dragOonSteam' && event.machineId) {
+          this.fleetRenderer?.getRenderer(event.machineId)?.onSteam?.(event.at ?? this.socket.serverNow());
+        }
+      }
       // one ballista bolt through a second knight: its knight may stop to admire his work (every observer has these
       // events; one reaction per bolt)
       if(event.type==='bibyeBoltImpact'&&event.hitKind==='player'&&event.landed&&event.ownerId&&event.projectileId){
@@ -3763,6 +3801,24 @@ export class GameRuntime {
     }
     const localTeam=this.latestSnapshot?.players.find(p=>p.id===this.playerId)?.team;
     const sameTeamAsViewer=Boolean(localTeam&&victim?.team&&localTeam===victim.team);
+    if (event.source === 'dragoon-rite-crew') {
+      this.riteCrewFeedWindows ??= new Map();
+      const at = Number.isFinite(event.at) ? event.at : this.socket.serverNow();
+      const bucketKey = victim?.team || 'rite';
+      let rGroup = this.riteCrewFeedWindows.get(bucketKey);
+      if (!rGroup || at - rGroup.lastAt > 0.25) {
+        rGroup = { firstAt: at, lastAt: at, names: [] };
+        this.riteCrewFeedWindows.set(bucketKey, rGroup);
+      }
+      const vName = victim?.name ?? 'someone';
+      if (!rGroup.names.includes(vName)) rGroup.names.push(vName);
+      rGroup.lastAt = at;
+      const collective = dragOonRiteCrewFeed(rGroup.names, event);
+      if (collective?.text) {
+        this.hud.addFeed(collective.text, 'ascension', `dragoon-rite:${bucketKey}:${rGroup.firstAt}`);
+      }
+      return;
+    }
     const copy=killFeedDeath({...event,sameTeamAsViewer},
       killer?.name??null,victim?.name??'someone',{
         mode:this.latestSnapshot?.mode,
@@ -3828,7 +3884,7 @@ export class GameRuntime {
   // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
   #dying(event, killer) {
     const me = this.playerId;
-    const felledBy = killer && killer.id !== me ? killer : null;
+    const felledBy = event.source === 'dragoon-rite-crew' ? null : (killer && killer.id !== me ? killer : null);
     this.hud.setDeath(deathCardText({ killerName: felledBy?.name ?? null, source: event.source, killerHealth: felledBy?.health }));
     const body = this.localState?.position ?? this.localAuth?.position;
     if (!body) return;
@@ -4026,28 +4082,58 @@ export class GameRuntime {
     // other non-flight camera path; no stale visual or forced camera mode.
     this.flightDashPresentation.reset();
     const ram=Boolean(this.localAuth?.operatingRamId);
+    const dragId=this.localAuth?.operatingDragOonId||this.localAuth?.aboardDragOonId||null;
+    const drag=Boolean(dragId);
     let bRenderer = null;
     let b = null;
-    if (ram) {
+    if (drag) {
+      bRenderer = this.fleetRenderer?.getRenderer(dragId);
+      b = this.latestSnapshot?.machines?.find(m => m?.id === dragId) || this.latestSnapshot?.dragOon;
+    } else if (ram) {
       bRenderer = this.fleetRenderer?.getRenderer(this.localAuth.operatingRamId) || this.world?.soFistication || this.ramRenderer;
       b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth.operatingRamId);
     } else {
       bRenderer = this.fleetRenderer?.getRenderer(this.localAuth?.operatingBallistaId) || this.world?.biByeLlista;
       b = bRenderer?.presentationData ?? this.#siegeMachine(this.localAuth?.operatingBallistaId);
     }
-    const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId) && b && b.mode !== 'DESTROYED';
-    const optics=clearOptics(this.clearBlend??0,this.view.fov,Boolean(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled),dt);
+    const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId||drag) && b && b.mode !== 'DESTROYED';
+    const optics=clearOptics(this.clearBlend??0,this.view.fov,Boolean(mounted&&!ram&&!drag&&this.siegeView==='clear'&&this.input.enabled),dt);
     this.clearBlend=optics.blend;
-    this.input.aimGain=mounted&&!ram&&this.input.enabled?optics.gain:1;
+    this.input.aimGain=mounted&&!ram&&!drag&&this.input.enabled?optics.gain:1;
     if(optics.blend>0)this.#setFov(optics.fov);
-    if(!(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled))this.hud.setBiByeSight(null);
+    if(!(mounted&&!ram&&!drag&&this.siegeView==='clear'&&this.input.enabled))this.hud.setBiByeSight(null);
     if (!mounted && !this.siegeCamera) return;
     const target = this.camera.position.clone();
     const rotation = this.camera.quaternion.clone();
     let ramOrbit=null;
     if (mounted) {
-      const locator = ram?null:bRenderer?.getMountedCameraPosition?.(this.siegeView, target);
-      if(ram){
+      const locator = (ram||drag)?null:bRenderer?.getMountedCameraPosition?.(this.siegeView, target);
+      if(drag){
+        const isPax = Boolean(this.localAuth?.aboardDragOonId);
+        const role = isPax ? 'passenger' : 'operator';
+        const station = this.localAuth?.dragOonStation ?? 0;
+        const airborne = Boolean(!b.grounded || b.flightLikeHell?.active || b.rite?.active);
+        const sightPose = this.siegeView === 'sight'
+          ? bRenderer?.getMountedCameraPose?.('sight', { role, station, airborne })
+          : null;
+        const paxPose = this.siegeView !== 'sight' && isPax
+          ? bRenderer?.getMountedCameraPose?.('third', { role: 'passenger', station, airborne })
+          : null;
+        const camRes = dragOonCameraTarget({
+          reach: this.#reach,
+          machine: b,
+          view: this.siegeView,
+          role,
+          sightPose,
+          paxPose,
+          yaw: this.input.yaw,
+          pitch: this.input.pitch,
+          previousDist: this.dragOonCamDist ?? null,
+          dt,
+        });
+        this.dragOonCamDist = camRes.dist;
+        target.set(...camRes.position);
+      }else if(ram){
         if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
         else {
           const sight = bRenderer?.authoredElevation ? ramSightPoint(b) : SO_FIST_STATION.sight;
@@ -4060,12 +4146,12 @@ export class GameRuntime {
         const back = sight ? 1.45 : 6.7;
         target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
       }
-      if(!ram&&this.siegeView==='clear'){
+      if(!ram&&!drag&&this.siegeView==='clear'){
         const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,1.45,-1.88]);
         target.set(...clip(this.#reach,anchor,target.toArray(),.18));
       }
       const kind = b.mode === 'DEPLOYED' && b.weaponFocus === 'MAIN' ? 'siege' : 'conditioning';
-      if (this.siegeView === 'third'&&!ram) {
+      if (this.siegeView === 'third'&&!ram&&!drag) {
         const pivot=boxWorld(biByeRootFrame({...b,...b.position}),[0,3.8,0]);
         target.set(pivot[0]+Math.sin(this.input.yaw)*6.7,pivot[1],pivot[2]+Math.cos(this.input.yaw)*6.7);
         const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,2.18,0]);
@@ -4073,7 +4159,7 @@ export class GameRuntime {
       }
       // The view responds to input immediately. The host points each real muzzle
       // at the reticle hit, accounting for the camera offset and joint limits.
-      const aim=ram?(ramOrbit??{yaw:this.input.yaw,pitch:this.input.pitch}):biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
+      const aim=drag?{yaw:this.input.yaw,pitch:this.input.pitch}:ram?(ramOrbit??{yaw:this.input.yaw,pitch:this.input.pitch}):biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
       rotation.setFromEuler(new THREE.Euler(aim.pitch,aim.yaw,0,'YXZ'));
 
     }
@@ -4199,7 +4285,7 @@ export class GameRuntime {
     }
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
-      this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();
+      this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();this.dragOonSound.stop();
       if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;}
       this.#renderView();
       return;
@@ -4468,7 +4554,7 @@ export class GameRuntime {
       // (outside, my own body is drawn and the helm's arms are not; mounted on ballista, draw body at station and hide FP arms)
       const isOperatingFlight = Boolean(this.localAuth?.operatingFightFlightId);
       const isFpFlight = isOperatingFlight && this.siegeView === 'sight' && (this.flightDashPresentation.thirdBlend??0)<.05;
-      const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||isOperatingFlight));
+      const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||isOperatingFlight||this.localAuth?.operatingDragOonId||this.localAuth?.aboardDragOonId));
       if (mounted) outside = true;
       this.weapon.setFlightCockpit?.({ active: isFpFlight, concurrent: combatActionPolicy(this.localAuth, serverNow).concurrent });
       this.weapon.group.visible = !outside;
@@ -4484,9 +4570,10 @@ export class GameRuntime {
           // and Guard follow the actual slower authoritative fighting yaw.
           yaw: mounted || this.localAuth.blustered ? this.localAuth.yaw : this.input.yaw,
           pitch: mounted ? 0 : this.input.pitch,
-      }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
+      }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || Boolean(this.localAuth?.operatingDragOonId || this.localAuth?.aboardDragOonId) || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
       if (this.remotePlayers.self?.setCockpitHeadHidden) {
-        this.remotePlayers.self.setCockpitHeadHidden(isFpFlight);
+        const isFirstPersonDragOp = Boolean(this.localAuth?.operatingDragOonId && this.siegeView === 'sight');
+        this.remotePlayers.self.setCockpitHeadHidden(isFpFlight || isFirstPersonDragOp);
       }
       this.flightRenderer?.setFirstPerson?.(isFpFlight);
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
@@ -4545,6 +4632,8 @@ export class GameRuntime {
       this.lastRamCharging = false;
     }
     this.flightSound.update(this.latestSnapshot?.fightFlight,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    const activeDragState = this.latestSnapshot?.dragOon || this.latestSnapshot?.machines?.find(m => m?.kind === 'dragoon');
+    this.dragOonSound.update(activeDragState,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
@@ -4565,6 +4654,7 @@ export class GameRuntime {
       playingLocally: this.socket.playingLocally,
       frozen: this.socket.inspectionFrozen,
       localAim: localFlightAim,
+      cameraPosition: this.camera.position,
     });
     this.world?.update?.(this.socket.serverNow(), this.camera, dt);
     // what the world's own works brought down or lifted this frame (Outerworks' palisade, its portcullis)
@@ -4704,9 +4794,11 @@ export class GameRuntime {
     if (this.fleetRenderer?.fleet) {
       for (const [id, entry] of this.fleetRenderer.fleet) {
         const machineState = this.latestSnapshot?.machines?.find((m) => m.id === id);
-        if (!machineState?.operatorId) continue;
-        const driver = machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId);
-        if (!driver?.root?.visible) continue;
+        if (!machineState) continue;
+        const driver = machineState.operatorId
+          ? (machineState.operatorId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(machineState.operatorId))
+          : null;
+        if (entry.type !== 'dragoon' && (!machineState.operatorId || !driver?.root?.visible)) continue;
         if (entry.type === 'ram') {
           const ramPose = entry.renderer.presentationData;
           if (ramPose) {
@@ -4738,12 +4830,92 @@ export class GameRuntime {
               driver.visualInstance?.animator?.applyFightFlight(entry.renderer.getOperatorGrips(), attacking || driverPlayer?.guarding, machineState, this.socket.serverNow(), dt, combat);
             } catch (_e) {}
           }
+        } else if (entry.type === 'dragoon') {
+          const seatOut = new THREE.Vector3();
+          const apOut = new THREE.Vector3();
+          const chassisQuat = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(machineState.chassisPitch ?? 0, machineState.heading ?? 0, machineState.chassisRoll ?? 0, 'YXZ')
+          );
+          const chassisUp = new THREE.Vector3(0, 1, 0).applyQuaternion(chassisQuat);
+          const settleY = machineState.campFire?.settled ? -0.195 : 0;
+          const placeSeatedRig = (rig, playerRecord, role, stationIndex) => {
+            if (!rig?.root?.visible) return;
+            const stIds = ['L1', 'R1', 'L2', 'R2'];
+            const stId = stIds[stationIndex ?? 0] ?? 'L1';
+            const seatNodeName = role === 'operator' ? 'seat_operator' : `seat_passenger_${stId}`;
+            const hasGlbSeat = Boolean(entry.renderer.getNodeWorldPosition?.(seatNodeName, seatOut));
+            if (!hasGlbSeat) {
+              const localSeat = role === 'operator'
+                ? [0, 1.06 + settleY, -0.72]
+                : ([[ -0.96, 1.06, 0.25 ], [ 0.96, 1.06, 0.25 ], [ -0.96, 1.06, 1.65 ], [ 0.96, 1.06, 1.65 ]][stationIndex ?? 0] || [0, 1.06, 0.25]);
+              seatOut.set(localSeat[0], localSeat[1] + (role === 'passenger' ? settleY : 0), localSeat[2]).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+            }
+            // Offset -0.38m down along chassis Y so the seated Spellblade rig floor sits on the 0.68m deck and pelvis rests on the 1.06m seat
+            rig.root.position.copy(seatOut).addScaledVector(chassisUp, -0.38);
+
+            let localYaw = 0;
+            let apertureWorld = null;
+            if (role === 'passenger') {
+              const hasAp = Boolean(entry.renderer.getNodeWorldPosition?.(`fx_spellcast_${stId}`, apOut));
+              if (!hasAp) {
+                const stFallback = [[-2.08, 1.7, 0.2], [2.08, 1.7, 0.2], [-2.08, 1.7, 1.7], [2.08, 1.7, 1.7]][stationIndex ?? 0];
+                apOut.set(stFallback[0], stFallback[1] + settleY, stFallback[2]).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+              }
+              apertureWorld = apOut.clone();
+              // Compute outward yaw in chassis local space so occupant faces outward into the embrasure cleanly
+              const localDelta = apertureWorld.clone().sub(seatOut).applyQuaternion(chassisQuat.clone().invert());
+              localYaw = Math.atan2(-localDelta.x, -localDelta.z);
+            }
+
+            const qLocal = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), localYaw);
+            rig.root.quaternion.copy(chassisQuat).multiply(qLocal);
+
+            const casting = Boolean((playerRecord?.castEndsAt ?? 0) > this.socket.serverNow());
+            rig.visualInstance?.animator?.dragOonPose?.apply?.({
+              role,
+              station: stationIndex ?? 0,
+              casting,
+              pitch: playerRecord?.pitch ?? 0,
+              sealed: Boolean(machineState.campFire?.sealed),
+              riteActive: Boolean(machineState.rite?.active),
+              apertureWorld,
+            }, dt);
+          };
+
+          const opPlayer = machineState.operatorId === this.localAuth?.id
+            ? this.localAuth
+            : this.latestSnapshot?.players?.find(p => p.id === machineState.operatorId);
+          placeSeatedRig(driver, opPlayer, 'operator', 0);
+
+          for (let i = 0; i < (machineState.passengers?.length ?? 0); i++) {
+            const pid = machineState.passengers[i];
+            if (!pid) continue;
+            const paxRig = pid === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(pid);
+            const paxPlayer = pid === this.localAuth?.id
+              ? this.localAuth
+              : this.latestSnapshot?.players?.find(p => p.id === pid);
+            placeSeatedRig(paxRig, paxPlayer, 'passenger', i);
+          }
+
+          // Smooth aisle walk during cooperative boarding/evacuation transitions
+          for (const tr of machineState.crewTransitions ?? []) {
+            const trRig = tr.playerId === this.localAuth?.id ? this.remotePlayers.self : this.remotePlayers.rigs.get(tr.playerId);
+            if (!trRig?.root?.visible) continue;
+            const total = Math.max(0.2, (tr.endsAt ?? 0) - (tr.startedAt ?? 0));
+            const rawFrac = Math.max(0, Math.min(1, (this.socket.serverNow() - (tr.startedAt ?? 0)) / total));
+            const frac = tr.kind === 'disembark' ? 1 - rawFrac : rawFrac;
+            const aislePt = new THREE.Vector3(0, frac < 0.25 ? 0.1 + frac * 2.2 : 0.68 + settleY, 3.85 - frac * 3.8).applyQuaternion(chassisQuat).add(entry.renderer.root.position);
+            trRig.root.position.copy(aislePt);
+            trRig.root.quaternion.copy(chassisQuat);
+          }
         }
       }
     }
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
+    this.dragOonEffects?.update(this.latestSnapshot, this.socket.serverNow(), dt, (machineId, nodeName) =>
+      this.fleetRenderer?.getRenderer(machineId)?.getNodeWorldPosition?.(nodeName) ?? null, this.activeWorld);
     const disasterCharge=this.localAuth?.ultimateState;
     const disasterNow=this.socket.serverNow();
     if(this.playing&&!this.inspectionFree&&this.localAuth?.alive&&this.activeWorld&&
@@ -4980,7 +5152,7 @@ export class GameRuntime {
     this.running = false;
     clearInterval(this.networkInputTimer);
     this.socket.setInputSampler?.(null);
-    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.valkyrieAuras.dispose();this.fleetRenderer?.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.dragOonSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();this.valkyrieAuras.dispose();this.fleetRenderer?.dispose();this.dragOonEffects?.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

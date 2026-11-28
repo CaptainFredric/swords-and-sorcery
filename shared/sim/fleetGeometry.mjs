@@ -4,10 +4,13 @@ import { getBiByeSolids, damageBiByeLlista, blastBiByeLlista } from './biByeLlis
 import { biByeHitVolumes, biByeFirstHit } from './biByeComponents.mjs';
 import { fightFlightSolids } from './fightFlight.mjs';
 import { fightFlightHitVolumes, fightFlightFirstHit, damageFightFlight } from './fightFlightComponents.mjs';
+import { dragOonSolids, dragOonHitVolumes, dragOonFirstHit } from './dragOonGeometry.mjs';
+import { damageDragOon, blastDragOon } from './dragOon.mjs';
 import { areAllies } from '../src/teams.mjs';
 
 export function getMachineKind(m) {
   if (!m) return null;
+  if (m.kind === 'dragoon' || m.class === 'drag-oon' || m.type === 'drag-oon' || m.fuel !== undefined) return 'dragoon';
   if (m.kind === 'flight' || m.class === 'fight-and-flight' || m.class === 'flight' || m.rotorHP !== undefined) return 'flight';
   if (m.kind === 'ballista' || m.class === 'bi-bye-llista' || m.class === 'ballista' || m.weaponFocus !== undefined) return 'ballista';
   if (m.kind === 'ram' || m.class === 'so-fist-ication' || m.class === 'ram' || m.components?.Fist !== undefined || m.pressure !== undefined) return 'ram';
@@ -27,6 +30,7 @@ export function getFleetMachines(room) {
   if (room.soFistication) legacy.push(room.soFistication);
   if (room.biByeLlista) legacy.push(room.biByeLlista);
   if (room.fightFlight) legacy.push(room.fightFlight);
+  if (room.dragOon) legacy.push(room.dragOon);
   return legacy;
 }
 
@@ -44,28 +48,57 @@ export function getFleetSolids(room, excludeMachineId = null) {
       solids.push(...getBiByeSolids(m));
     } else if (kind === 'flight') {
       solids.push(...fightFlightSolids(m));
+    } else if (kind === 'dragoon') {
+      solids.push(...dragOonSolids(m));
     }
   }
   return solids;
 }
 
 /**
- * Returns articulated hit volumes for all active machines, excluding a specified operator.
+ * Returns articulated hit volumes for a single siege machine.
+ */
+export function getMachineHitVolumes(m, nowSec = 0) {
+  if (!m || m.health <= 0 || m.retired) return [];
+  const kind = getMachineKind(m);
+  if (kind === 'ram') return soFistVolumes(m, nowSec).map(v => ({ ...v, machineId: m.id }));
+  if (kind === 'ballista') return biByeHitVolumes(m, nowSec).map(v => ({ ...v, machineId: m.id }));
+  if (kind === 'flight') return fightFlightHitVolumes(m).map(v => ({ ...v, machineId: m.id }));
+  if (kind === 'dragoon') return dragOonHitVolumes(m).map(v => ({ ...v, machineId: m.id }));
+  return [];
+}
+
+/**
+ * Returns articulated hit volumes for all active machines, excluding a specified operator/machine.
  */
 export function getFleetHitVolumes(room, excludeMachineId = null, nowSec = 0) {
   const volumes = [];
   for (const m of getFleetMachines(room)) {
     if (m.id === excludeMachineId || m.health <= 0 || m.retired) continue;
-    const kind = getMachineKind(m);
-    if (kind === 'ram') {
-      volumes.push(...soFistVolumes(m, nowSec).map(v => ({ ...v, machineId: m.id })));
-    } else if (kind === 'ballista') {
-      volumes.push(...biByeHitVolumes(m, nowSec).map(v => ({ ...v, machineId: m.id })));
-    } else if (kind === 'flight') {
-      volumes.push(...fightFlightHitVolumes(m).map(v => ({ ...v, machineId: m.id })));
-    }
+    volumes.push(...getMachineHitVolumes(m, nowSec));
   }
   return volumes;
+}
+
+/**
+ * Unified direct-damage dispatch across all siege machine classes.
+ */
+export function damageFleetMachine(room, m, amount, attackerId, source, nowSec, opts = {}) {
+  if (!m || m.health <= 0 || m.retired) return false;
+  const kind = getMachineKind(m);
+  if (kind === 'ram') {
+    return damageSoFistication(room, m, amount, attackerId, source, nowSec, opts);
+  }
+  if (kind === 'ballista') {
+    return damageBiByeLlista(room, m, amount, attackerId, source, nowSec, opts);
+  }
+  if (kind === 'flight') {
+    return damageFightFlight(room, m, amount, attackerId, source, nowSec, opts);
+  }
+  if (kind === 'dragoon') {
+    return damageDragOon(room, m, amount, attackerId, source, nowSec, opts);
+  }
+  return false;
 }
 
 /**
@@ -80,7 +113,11 @@ export function raycastFleet(room, from, to, options = {}) {
   let closest = null;
   for (const m of getFleetMachines(room)) {
     if (m.id === excludeMachineId || m.health <= 0 || m.retired) continue;
-    if (attackerId && m.operatorId && areAllies(room, attackerId, m.operatorId)) continue;
+    if (attackerId) {
+      if (m.operatorId === attackerId || m.passengers?.includes?.(attackerId)) continue;
+      if (m.operatorId && areAllies(room, attackerId, m.operatorId)) continue;
+      if (m.team && room?.players?.get?.(attackerId)?.team === m.team) continue;
+    }
 
     let hit = null;
     const kind = getMachineKind(m);
@@ -90,6 +127,8 @@ export function raycastFleet(room, from, to, options = {}) {
       hit = biByeFirstHit(m, a, b, nowSec, radius);
     } else if (kind === 'flight') {
       hit = fightFlightFirstHit(m, a, b, radius);
+    } else if (kind === 'dragoon') {
+      hit = dragOonFirstHit(m, a, b, radius);
     }
 
     if (hit && (!closest || hit.t < closest.t)) {
@@ -122,6 +161,8 @@ export function blastFleet(room, blast, attackerId, source, nowSec, excludeMachi
       blastSoFistication(room, m, blast, attackerId, source, nowSec);
     } else if (kind === 'ballista') {
       blastBiByeLlista(room, m, blast, attackerId, source, nowSec, room.world?.solids ?? []);
+    } else if (kind === 'dragoon') {
+      blastDragOon(room, m, blast, attackerId, source, nowSec);
     } else if (kind === 'flight') {
       const d = Math.hypot(m.x - point.x, m.y - point.y, m.z - point.z);
       if (d <= radius) {

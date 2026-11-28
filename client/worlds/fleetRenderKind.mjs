@@ -6,6 +6,7 @@
  */
 export function fleetRenderKind(machine) {
   const value = machine?.kind ?? machine?.class ?? machine?.type;
+  if (value === 'dragoon' || value === 'drag-oon' || machine?.fuel !== undefined) return 'dragoon';
   if (value === 'flight' || value === 'fight-and-flight') return 'flight';
   if (value === 'ballista' || value === 'bi-bye-llista') return 'ballista';
   return 'ram';

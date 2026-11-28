@@ -6,6 +6,11 @@ import {soFistSolids} from './soFistGeometry.mjs';
 import {createBiByeLlista,dismountBiByeLlista,getBiByeSolids} from './biByeLlista.mjs';
 import {biByeTerrainContext,biByeTerrainPose,biByeTerrainClear,biByeDeploymentSupport} from './biByeTerrain.mjs';
 import {surfaceHeightAt,resolvePlayerWorld,segmentAabbHit} from '../src/collision.mjs';
+import {DRAG_OON_ID} from '../src/dragOonConfig.mjs';
+import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
+import {createDragOon} from './dragOon.mjs';
+import {dragOonSolids,dragOonTerrainPose,dragOonClear,dragOonExit} from './dragOonGeometry.mjs';
+import {dragOonOccupantIds,removeDragOonOccupant} from './dragOonCrew.mjs';
 
 const actorBoxes=(room,ignore)=>[...room.players.values()].filter(p=>p.alive&&p.id!==ignore).map(p=>({id:'actor-'+p.id,center:[p.position.x,p.position.y+.9,p.position.z],size:[.9,1.8,.9]}));
 // Pure validation. No fallback coordinates and no mutation before a complete plan exists.
@@ -92,9 +97,128 @@ function retire(room,b,player,exit,ram=false){
  Object.assign(b,{retired:true,mode:'DESTROYED',operatorId:null,pendingVolley:null,pendingIndependent:null,mobileShotPendingAt:null,firingOperatorId:null,coupling:'INDEPENDENT',state:'SPENT',firedAt:-Infinity,mainReleasedAt:null,upperReleasedAt:null,reloadStartedAt:-Infinity,reloadEndsAt:-Infinity,speed:0,steer:0});
  for(const [id,p]of room.bibyeProjectiles??[])if(p.ballistaId===b.id)room.bibyeProjectiles.delete(id);
 }
+function dragOonCandidate(room, player, x, z, heading, old) {
+  const y = surfaceHeightAt(x, z, player.position.y + 1.5, room.world);
+  if (y === null) return null;
+  const b = createDragOon({ x, y, z, heading });
+  const other = [
+    ...getBiByeSolids(room.biByeLlista),
+    ...soFistSolids(room.soFistication),
+    ...fightFlightSolids(room.fightFlight),
+    ...fightFlightHitVolumes(room.fightFlight),
+  ];
+  const ignore = new Set(old ? dragOonOccupantIds(old) : []);
+  const actors = [...room.players.values()]
+    .filter(p => p.alive && !ignore.has(p.id))
+    .map(p => ({ id: 'actor-' + p.id, center: [p.position.x, p.position.y + 0.9, p.position.z], size: [0.9, 1.8, 0.9] }));
+  const pose = dragOonTerrainPose(b, room.world);
+  if (!pose) return null;
+  Object.assign(b, pose, { terrainInitialized: true });
+  if (!dragOonClear({ ...b, operatorId: player.id }, room.world, [...actors, ...other])) return null;
+  if (Math.hypot(b.chassisPitch, b.chassisRoll) > 10 * Math.PI / 180) return null;
+  if (!old) {
+    const eye = [player.position.x, player.position.y + 1.35, player.position.z];
+    const target = [x, b.y + 1.4, z];
+    if ([...(room.world.solids ?? []), ...other].some(s => segmentAabbHit(eye, target, s))) return null;
+  }
+  if (!dragOonExit(room, b, player, other)) return null;
+  const exits = {};
+  if (old) {
+    const extra = [...dragOonSolids(b), ...other];
+    for (const pid of dragOonOccupantIds(old)) {
+      const occ = room.players.get(pid);
+      if (!occ) continue;
+      const ex = dragOonExit(room, old, occ, extra);
+      if (!ex) return null;
+      exits[pid] = ex;
+    }
+  }
+  return { b, exits };
+}
+
+function practiceDragOon(room, player, action, now) {
+  if (!['build', 'rebuild', 'dismantle'].includes(action)) return { rejected: 'Unknown DRAG-OON action.' };
+  if (room?.mode !== 'PRACTICE' || room.state !== 'PLAYING' || !player?.alive || player.actorKind !== 'human' || room.players.get(player.id) !== player) {
+    return { rejected: 'DRAG-OON tools are available to living Spellblades in Practice.' };
+  }
+  const old = room.dragOon;
+  if (action === 'build' && old) return { rejected: 'DRAG-OON already exists. Rebuild or dismantle it.' };
+  if (action !== 'build' && !old) return { rejected: 'Build DRAG-OON first.' };
+  const others = old ? dragOonOccupantIds(old).filter(id => id !== player.id) : [];
+  if (others.length) return { rejected: 'Another Spellblade is currently inside DRAG-OON.' };
+  if (old && !old.grounded) return { rejected: 'Land DRAG-OON before rebuilding or dismantling.' };
+
+  let plan = null;
+  const exits = {};
+  if (action === 'dismantle') {
+    for (const pid of dragOonOccupantIds(old)) {
+      const occ = room.players.get(pid);
+      if (!occ) continue;
+      const ex = dragOonExit(room, old, occ);
+      if (!ex) return { rejected: 'No safe place to exit. Move DRAG-OON onto open ground.' };
+      exits[pid] = ex;
+    }
+  } else {
+    const heading = old?.heading ?? player.yaw ?? 0;
+    if (old) {
+      plan = dragOonCandidate(room, player, old.x, old.z, heading, old);
+      if (!plan) {
+        for (const radius of [2, 4, 6]) {
+          for (let n = 0; n < 8 && !plan; n++) {
+            const a = n * Math.PI / 4;
+            plan = dragOonCandidate(room, player, old.x + Math.cos(a) * radius, old.z + Math.sin(a) * radius, heading, old);
+          }
+          if (plan) break;
+        }
+      }
+    } else {
+      for (const distance of [7.5, 6.5, 9, 10.5]) {
+        for (const offset of [0, 0.35, -0.35, 0.7, -0.7]) {
+          const a = heading + offset;
+          plan = dragOonCandidate(room, player, player.position.x - Math.sin(a) * distance, player.position.z - Math.cos(a) * distance, heading, null);
+          if (plan) break;
+        }
+        if (plan) break;
+      }
+    }
+    if (!plan) return { rejected: 'No clear, supported ground for DRAG-OON. Move into a wider open area.' };
+    Object.assign(exits, plan.exits);
+  }
+
+  if (old) {
+    for (const pid of dragOonOccupantIds(old)) {
+      const occ = room.players.get(pid);
+      if (occ) removeDragOonOccupant(room, old, occ, { exitPos: exits[pid] ?? null, at: now, reason: 'administrative' });
+    }
+    old.retired = true;
+    old.mode = 'DESTROYED';
+    old.operatorId = null;
+    old.sprayHeld = false;
+  }
+  room.dragOonRevision = (room.dragOonRevision ?? 0) + 1;
+  if (action === 'dismantle') {
+    room.dragOon = null;
+    room.events.push({ type: 'dragOonDismantled', machineId: old.id, at: now });
+  } else {
+    const b = plan.b;
+    const skillId = selectedSiegeSkill(player, 'dragOon');
+    Object.assign(b, {
+      id: `dragoon-${room.code}-${room.dragOonRevision}`,
+      ownerId: player.id,
+      team: player.team ?? null,
+      builtAt: now,
+      skill: { ...(b.skill ?? {}), id: skillId },
+    });
+    room.dragOon = b;
+    room.events.push({ type: 'dragOonConstructed', machineId: b.id, rebuild: Boolean(old), point: { x: b.x, y: b.y, z: b.z }, at: now });
+  }
+  return {};
+}
+
 export const practiceBiByeCommand=(room,player,action,now)=>practiceSiegeCommand(room,player,action,'bi-bye-llista',now);
 export function practiceSiegeCommand(room,player,action,machine,now){
  if(machine==='fight-and-flight')return practiceFightFlight(room,player,action,now);
+ if(machine===DRAG_OON_ID)return practiceDragOon(room,player,action,now);
  if(!['build','rebuild','dismantle'].includes(action)||!['bi-bye-llista','so-fist-ication'].includes(machine))return {rejected:'Unknown siege action or machine.'};
  const ram=machine==='so-fist-ication',field=ram?'soFistication':'biByeLlista',revision=ram?'soFistRevision':'biByeRevision';
  if(room?.mode!=='PRACTICE'||room.state!=='PLAYING'||!player?.alive||player.actorKind!=='human'||room.players.get(player.id)!==player)return {rejected:'Siege tools are available to living players in Practice.'};

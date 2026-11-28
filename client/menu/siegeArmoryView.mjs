@@ -162,7 +162,80 @@ And it is nigh-unreachable.`,
   }
  }
 ]);
+const DRAG_OON_MACHINE = Object.freeze({
+  id: 'dragOon',
+  name: 'DRAG-OON',
+  mark: 'FLAME',
+  icon: 'desolationSpray',
+  experimental: true,
+  subtitle: 'LEFT THE STOVE ON, ON PURPOSE.',
+  overview: 'Heavy eight-wheeled armored fortress with twin four-nozzle flame cannons and four shielded crew casting stations.',
+  preview: 'Heavy eight-wheeled armored fortress with twin four-nozzle flame cannons and four shielded crew casting stations.',
+  line: `An armored mobile furnace built around twin low-mounted four-nozzle flame cannons and eight independently steered wheels.
+
+Allied Spellblades can climb inside to cast spells from shielded apertures, infusing DRAG-OON's flame, steam, and leaps with their elements.`,
+  facts: '2200 hull · 8-wheel pivot · 100 fuel · 4 crew apertures',
+  attacks: [
+    {
+      id: 'desolationSpray',
+      name: 'DESOLATION SPRAY',
+      icon: 'desolationSpray',
+      summary: 'Spew continuous flame across twin four-nozzle cannons.',
+      facts: '4 nozzles · ~11.5 fuel/s · crew elemental infusions',
+      line: 'Hold Attack to spew wide sustained flames from twin low-mounted articulated cannons. Seated casters infuse the stream with longer reach, chilled drag, lingering gale plumes, rapid lightning ignition, or molten steel.',
+    },
+    {
+      id: 'firesTheLimit',
+      name: "FUEL'S THE LIMIT",
+      icon: 'fuelsTheLimit',
+      summary: 'Ignite fuel beneath your hull to propel yourself through the air and crash down upon foes.',
+      facts: '26 fuel · 12s cooldown · underside blast + landing slam',
+      line: 'Blast skyward off your underside ignition shutters without harming hull or crew, steer across the arc, and slam down upon enemies.',
+    },
+    {
+      id: 'steamTheTeam',
+      name: 'STEAM THE TEAM',
+      icon: 'steamTheTeam',
+      summary: 'Vent superheated steam around your hull to blast foes and douse flames.',
+      facts: '12.5 m ring · 25s cooldown · heat-scaled blast + douse',
+      line: 'Release pressurized steam in an expanding 360° ring whose knockback and damage rise with furnace heat while cooling the boiler and snuffing exposed fires.',
+    },
+    {
+      id: 'burningBrotherhood',
+      name: 'BURNING BROTHERHOOD',
+      icon: 'burningBrotherhood',
+      summary: 'Seat allied Spellblades at casting apertures to infuse your fire and steam.',
+      facts: '4 aperture stations · rear bay entry · live elemental buffs',
+      line: 'Up to four allies can board unoccupied stations via the rear bay to cast safely from enclosed ports while infusing every attack.',
+    },
+    {
+      id: 'allAbort',
+      name: 'ALL ABORT!',
+      icon: 'allAbort',
+      summary: 'Critical furnace rupture detonates outward and violently ejects surviving crew.',
+      facts: 'Heat & fuel scaled blast · evacuate before core collapse',
+      line: 'When hull integrity reaches zero, internal pressure ruptures outward and blasts surviving crew clear of the wreck. Evacuate early to avoid internal burn trauma.',
+    },
+    {
+      id: 'sheathedInSteel',
+      name: 'SHEATHED IN STEEL',
+      icon: 'shield',
+      summary: 'Heavy enclosed plating dampens direct blows and sheds lingering burns.',
+      facts: 'Enclosed fortress · DoT hull immunity · allied steel wards',
+      line: 'Riveted furnace steel shrugs off lingering flames while hardening the cabin against siege strikes. Allied Sheathe in Steel wards reinforce the frame further.',
+    },
+  ],
+  controls: {
+    desktop: '[W/A/S/D] Pivot & Drive · [Left Click / Hold F] Desolation Spray · [Space] Fuel’s the Limit · [Right Click / G] Steam the Team · [U] Skill · [R] Rite of Ascension · [Z] Camera · [T] Board / Evacuate · [Q] Passenger Cast',
+    touch: 'Left Stick: Pivot & Drive · SPRAY: Desolation Spray · LEAP: Fuel’s the Limit · STEAM: Steam the Team · SKILL: Skill · ULT: Rite · MOUNT / LEAVE: Board or Evacuate · CAST (Pax): Aperture Spell',
+  },
+});
+
 const EXPLANATIONS={
+ razeThePasture:'Hold Skill to flood fuel into an expanding ground ring, then release to ignite after a brief delay. Tight releases burn for over 14 seconds; wide holds deliver heavy initial blast damage for a shorter burn.',
+ flightLikeHell:'Engage while airborne to tilt both twin cannons straight down, hovering softly while scorching everything beneath you. Inflicts reversible max health loss and suppresses overlapping enemy field hazards until landing safely. With Full Gale active and an opted-in crew carrying full Spells & Chivalry, ignite Rite of Ascension to unite the prowess of your crew to ascend upon an inferno, guide DRAG-OON toward its final destination, and unleash a catastrophic explosion.',
+ campFire:'Settle the chassis and seal every hatch, venting excess heat while periodically mending nearby allies. Sealed armor halves Steel repair costs and blocks enemy boarding, while external passenger casts pause until reopened.',
+ brimmingWithPotential:'Push furnace pressure past normal limits to amplify flame and steam damage up to +65% while drawing heavier heat and risking internal burn trauma to crew above 110 heat.',
  boltToTheOccasion:'Prime independent heavy aiming while Deployed, then fire Bolt II on a second Skill press (or Right Click). You may keep firing Bolt I in between (after a 0.2s safety catch). Cancelling before Bolt II spends no cooldown; firing starts a 24s cooldown.',
  coldHowTouching:'Give Bolt I projectiles proximity frost detonation on near misses until you fire Bolt II. Adds no homing or bonus damage; enters a 24s cooldown once Bolt II ends the effect.',
  lookAroundAndFindOut:'Sustain A Sharp Turn as a continuous 360° sweep. Fire to stop and settle the bow, unleashing only the bolts currently loaded, or press Skill again to cancel. Bolt II coupling stays locked during rotation, and the 24s cooldown begins when the action finishes.',
@@ -174,6 +247,19 @@ const EXPLANATIONS={
  doNotStopMyAscension:'Until you fire a repeating crossbow bolt, every rotor Dash uses flight charge at the Rise rate instead of spending personal Prowess (24s cooldown starts on activation). While active—with an intact rotor, positive flight charge, and full Spells & Chivalry—hold Dash + Ultimate for 1 second to commit the once-per-machine Valkyrie Dive.'
 };
 const SKILL_SECTIONS={
+ razeThePasture:[
+  {title:'Fuel Ring & Ignition Tradeoff',text:'Hold Skill to flood an expanding zone ahead of the cannon mount; release to trigger delayed ignition. Narrow rings sustain flames past 14 seconds, whereas broad rings detonate immediately for heavier blast damage and shorter burn time.'},
+ ],
+ flightLikeHell:[
+  {title:'Concentrated Inferno & Suppression',text:'Engage while airborne to tilt both twin cannons straight down, hovering softly while scorching everything beneath you with reversible max health loss and stifling overlapping enemy hazards.'},
+  {title:'Rite of Ascension',text:'Unite the prowess of your crew to ascend upon an inferno. Guide DRAG-OON toward its final destination and unleash a catastrophic explosion. Requires Flight Like Hell, Full Gale infusion, and every seated crewmate opting in with full Spells & Chivalry Prowess.'}
+ ],
+ campFire:[
+  {title:'Fortified Sanctuary',text:'Lowers suspension onto blocking hearth flames and locks every hatch. Halves allied Steel repair cost, vents heat smoothly, and gradually restores nearby allies while halting enemy boarding.'},
+ ],
+ brimmingWithPotential:[
+  {title:'Overpressure Curve',text:'Push internal pressure into the 100–220 overpressure band for up to +65% flame and steam power. Above 115 heat, overheated boiler fumes sear seated crew until heat vents back down.'},
+ ],
  longArmToTheJaw:[
   {title:'Detached Strike & Exposed Piston',text:'Launches the armored fist downrange at 23 m/s (125 close to 55 far damage across 12–36 m). While detached, the carriage’s exposed piston keeps working for ordinary punches.'},
   {title:'Retrieval & Abyss Recovery',text:'Drive alongside the grounded fist with unobstructed sightlines and press Skill to retrieve it (24s cooldown). If lost into an abyss, return to your deployment site and dismount for a locked 24s restoration at its previous HP.'},
@@ -210,14 +296,27 @@ const SKILL_SUMMARIES={
  fireAwayRightHere:'Rain bolts using flight charge instead of ammunition. Cease fire to conserve power while hovering.',
  narrowToOne:'Scan and hard-lock a visible target so the repeating crossbow tracks them while you look elsewhere.',
  doNotStopMyAscension:'Fuel rotor Dashes with flight charge until you fire. With Spells & Chivalry, commit to a Valkyrie Dive.',
+ razeThePasture:'Hold to soak an expanding target area with fuel, trading burn duration against initial ignition blast.',
+ flightLikeHell:'Tilt cannons downward in midair to hover-scorch foes with reversible max health loss and stifle enemy fields.',
+ campFire:'Seal all hatches and settle in place, venting heat, cutting repair cost, and steadily restoring allies.',
+ brimmingWithPotential:'Run the furnace into redline overpressure for amplified flame and steam output at heavy thermal risk.',
 };
-export function siegeArmoryView(choice){
- const selected=normalizeSiegeLoadout(choice);
- return MACHINES.map(machine=>({...machine,skills:SIEGE_SKILL_OPTIONS[machine.id].map(id=>({
-  id,name:SIEGE_SKILL_NAMES[id],summary:SKILL_SUMMARIES[id]??EXPLANATIONS[id],line:EXPLANATIONS[id],
-  ...(SKILL_SECTIONS[id]?{sections:SKILL_SECTIONS[id]}:{}),
-  ...(id==='boltToTheOccasion'?{icon:'boltToTheOccasion'}:id==='lookAroundAndFindOut'?{icon:'siegeSweep'}:{}),
-   ...(machine.id==='fightFlight'?{icon:id==='fireAwayRightHere'?'fireAway':id}:{}),
-  equipped:selected[machine.id]===id
- }))}));
+function formatSkills(machineId, selected) {
+  return SIEGE_SKILL_OPTIONS[machineId].map(id => ({
+    id, name: SIEGE_SKILL_NAMES[id], summary: SKILL_SUMMARIES[id] ?? EXPLANATIONS[id], line: EXPLANATIONS[id],
+    ...(SKILL_SECTIONS[id] ? { sections: SKILL_SECTIONS[id] } : {}),
+    ...(id === 'boltToTheOccasion' ? { icon: 'boltToTheOccasion' } : id === 'lookAroundAndFindOut' ? { icon: 'siegeSweep' } : {}),
+    ...(machineId === 'fightFlight' ? { icon: id === 'fireAwayRightHere' ? 'fireAway' : id } : {}),
+    ...(machineId === 'dragOon' ? { icon: id } : {}),
+    equipped: selected[machineId] === id,
+  }));
+}
+export function dragOonArmoryEntry(choice) {
+  const selected = normalizeSiegeLoadout(choice);
+  return { ...DRAG_OON_MACHINE, skills: formatSkills('dragOon', selected) };
+}
+export function siegeArmoryView(choice, { experimental = false } = {}) {
+  const selected = normalizeSiegeLoadout(choice);
+  const base = MACHINES.map(machine => ({ ...machine, skills: formatSkills(machine.id, selected) }));
+  return experimental ? [...base, dragOonArmoryEntry(selected)] : base;
 }

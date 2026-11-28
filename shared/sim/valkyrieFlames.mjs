@@ -4,11 +4,13 @@
 // which weapon happens to hit between two fire ticks.
 import {areAllies} from '../src/teams.mjs';
 import {segmentAabbHit} from '../src/collision.mjs';
+import {isPointSuppressedByDragOon} from './dragOonFields.mjs';
 
 export function valkyrieFlameContains(room,zone,player,now){
   if(!zone||!player?.position||!Number.isFinite(zone.startedAt)||
     !Number.isFinite(zone.expiresAt)||now<zone.startedAt||now>=zone.expiresAt)
     return false;
+  if(isPointSuppressedByDragOon(room,player.position,now))return false;
   const point=zone.point;
   if(!point||!(zone.radius>0))return false;
   if(Math.hypot(player.position.x-point.x,player.position.z-point.z)>zone.radius||

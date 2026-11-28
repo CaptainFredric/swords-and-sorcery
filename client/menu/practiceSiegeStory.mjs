@@ -6,12 +6,14 @@ const ids=Object.freeze({
  'bi-bye-llista':'biBye',
  'so-fist-ication':'soFist',
  'fight-and-flight':'fightFlight',
+ 'drag-oon':'dragOon',
 });
-const armory=Object.freeze(Object.fromEntries(siegeArmoryView().map(m=>[m.id,m])));
+const armory=Object.freeze(Object.fromEntries(siegeArmoryView(undefined,{experimental:true}).map(m=>[m.id,m])));
 const classification=Object.freeze({
  'bi-bye-llista':'TWIN-BOLT SIEGE ARTILLERY',
  'so-fist-ication':'MECHANICAL BATTERING RAM',
  'fight-and-flight':'AERIAL SIEGE APPARATUS',
+ 'drag-oon':'EXPERIMENTAL INCENDIARY PROTOTYPE',
 });
 
 export function practiceSiegeCopy(machine){

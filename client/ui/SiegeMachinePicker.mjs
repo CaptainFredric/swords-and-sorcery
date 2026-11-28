@@ -8,6 +8,12 @@ export const SIEGE_MACHINE_CARDS = Object.freeze([
   Object.freeze({id:'bi-bye-llista',name:'BI-BYE-LLISTA',role:'Twin-Bolt Ballista',description:'Deploy twin launchers and dominate from afar.'}),
   Object.freeze({id:'fight-and-flight',name:'FIGHT-AND-FLIGHT',role:'Flying Repeater',description:'Take to the skies. Rain bolts or strike with your rotors.'}),
 ]);
+export const DRAG_OON_EXPERIMENTAL_CARD = Object.freeze({
+  id:'drag-oon',
+  name:'DRAG-OON [EXP]',
+  role:'Prototype Furnace',
+  description:'Spew wide flame, launch skyward, vent steam, and channel allied apertures.',
+});
 
 // Actual game/model captures, cropped to small raster portraits and packaged
 // as standalone SVG image containers. No WebGL context or GLB fetch is needed
@@ -17,6 +23,7 @@ export const SIEGE_MACHINE_PORTRAITS = Object.freeze({
   'so-fist-ication':'/client/assets/props/siege-portraits/so-fist-ication.svg',
   'bi-bye-llista':'/client/assets/props/siege-portraits/bi-bye-llista.svg',
   'fight-and-flight':'/client/assets/props/siege-portraits/fight-and-flight.svg',
+  'drag-oon':'/client/assets/props/siege-portraits/so-fist-ication.svg',
 });
 let portraitsPreloaded=false;
 export function preloadSiegePortraits(){
@@ -29,24 +36,30 @@ export function preloadSiegePortraits(){
 export function siegePickerSeconds(selectionEndsAt,serverNow){
   return Number.isFinite(selectionEndsAt) ? Math.max(0,Math.ceil(selectionEndsAt-serverNow)) : 0;
 }
-export function siegePickerStatus(choice){
-  const machine=SIEGE_MACHINE_CARDS.find(c=>c.id===choice);
-  return machine
-    ?`Selected: ${machine.name} · Press 1–3 or click/tap to change before deployment`
-    :'Choose your contraption · Press 1–3 or click/tap (auto-assigned if unpicked)';
+export function siegePickerCards({experimentalDragOon=false}={}){
+  return experimentalDragOon?[...SIEGE_MACHINE_CARDS,DRAG_OON_EXPERIMENTAL_CARD]:SIEGE_MACHINE_CARDS;
 }
-export function siegePickerMarkup(){
+export function siegePickerStatus(choice,{experimentalDragOon=false}={}){
+  const cards=siegePickerCards({experimentalDragOon});
+  const machine=cards.find(c=>c.id===choice);
+  const range=experimentalDragOon?'1–4':'1–3';
+  return machine
+    ?`Selected: ${machine.name} · Press ${range} or click/tap to change before deployment`
+    :`Choose your contraption · Press ${range} or click/tap (auto-assigned if unpicked)`;
+}
+export function siegePickerMarkup({experimentalDragOon=false}={}){
+  const cards=siegePickerCards({experimentalDragOon});
   return `<div class="sb-draft-backdrop" aria-hidden="true"></div>
     <div class="sb-draft-content">
       <header class="sb-draft-head">
         <div class="sb-draft-title">
           <p class="sb-draft-eyebrow"><span data-sb-draft-arena>SIEGE BLADES</span> · ROUND <span data-sb-draft-round>1</span></p>
           <h2>Choose your machine</h2>
-          <p class="sb-draft-status" data-sb-draft-status aria-live="polite">${siegePickerStatus(null)}</p>
+          <p class="sb-draft-status" data-sb-draft-status aria-live="polite">${siegePickerStatus(null,{experimentalDragOon})}</p>
         </div>
         <div class="sb-draft-clock" role="timer" aria-label="Deploying in"><b data-sb-draft-seconds>6</b><small>DEPLOY</small></div>
       </header>
-      <div class="sb-draft-choices" role="radiogroup" aria-label="Siege machine">${SIEGE_MACHINE_CARDS.map((machine,index)=>`<button type="button" class="sb-draft-card" role="radio" data-siege-pick="${machine.id}" aria-checked="false" tabindex="${index===0?0:-1}">
+      <div class="sb-draft-choices" role="radiogroup" aria-label="Siege machine">${cards.map((machine,index)=>`<button type="button" class="sb-draft-card" role="radio" data-siege-pick="${machine.id}" aria-checked="false" tabindex="${index===0?0:-1}">
         <span class="sb-draft-art"><img src="${appUrl(SIEGE_MACHINE_PORTRAITS[machine.id])}" alt="${machine.name}, ${machine.role.toLowerCase()}" decoding="async" draggable="false"></span>
         <span class="sb-draft-text">
           <strong>${machine.name}</strong>
@@ -71,6 +84,7 @@ export class SiegeMachinePicker {
     this.element.setAttribute('aria-label','Choose your siege machine');
     this.element.tabIndex=-1;
     this.element.innerHTML=siegePickerMarkup();
+    this.experimentalDragOon=false;
     const choose=machine=>{
       if(!this.active)return;
       this.localChoice=machine;
@@ -83,15 +97,16 @@ export class SiegeMachinePicker {
     });
     this.element.addEventListener?.('keydown',event=>{
       if(event.repeat||!this.active)return;
-      const count=SIEGE_MACHINE_CARDS.length,current=SIEGE_MACHINE_CARDS.findIndex(c=>c.id===this.localChoice);
+      const cards=siegePickerCards({experimentalDragOon:this.experimentalDragOon});
+      const count=cards.length,current=cards.findIndex(c=>c.id===this.localChoice);
       let index=Number(event.key)-1;
-      // (the arrow keys step along the three, as in any radio group; 1, 2 and 3 pick directly)
+      // (the arrow keys step along the cards, as in any radio group; number keys pick directly)
       if(event.key==='ArrowRight'||event.key==='ArrowDown')index=(current+1+count)%count;
       if(event.key==='ArrowLeft'||event.key==='ArrowUp')index=current<0?count-1:(current-1+count)%count;
       if(!Number.isInteger(index)||index<0||index>=count)return;
       event.preventDefault();
-      choose(SIEGE_MACHINE_CARDS[index].id);
-      this.element.querySelector(`[data-siege-pick="${SIEGE_MACHINE_CARDS[index].id}"]`)?.focus?.({preventScroll:true});
+      choose(cards[index].id);
+      this.element.querySelector(`[data-siege-pick="${cards[index].id}"]`)?.focus?.({preventScroll:true});
     });
     root.append(this.element);
     this.round=null;
@@ -107,11 +122,17 @@ export class SiegeMachinePicker {
       card.setAttribute('aria-checked',String(selected));
       card.tabIndex=selected||(!choice&&index===0)?0:-1;
     }
-    this.element.querySelector('[data-sb-draft-status]').textContent=siegePickerStatus(choice);
+    this.element.querySelector('[data-sb-draft-status]').textContent=siegePickerStatus(choice,{experimentalDragOon:this.experimentalDragOon});
   }
   update(snapshot,playerId,serverNow){
     const state=snapshot?.mode==='SIEGE_BLADES'&&snapshot.roomState==='PLAYING'?snapshot.siegeBlades:null;
     if(!state||!Number.isFinite(state.selectionEndsAt)){this.hide();return false;}
+    const expDrag=Boolean(state.experimentalDragOon);
+    if(this.experimentalDragOon!==expDrag){
+      this.experimentalDragOon=expDrag;
+      this.element.innerHTML=siegePickerMarkup({experimentalDragOon:expDrag});
+      this.round=null;
+    }
     if(this.round!==state.roundNumber){
       this.round=state.roundNumber;
       this.localChoice=null;

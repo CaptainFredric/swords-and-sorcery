@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {FlightRiderPose} from './FlightRiderPose.mjs';
 import {RamOperatorPose} from './RamOperatorPose.mjs';
 import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
+import { DragOonOccupantPose } from './DragOonOccupantPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { COPS, COP_SHARE, pauldronFollow } from './pauldronFollow.mjs';
@@ -536,6 +537,16 @@ export class SpellbladeAnimator {
     this.#restoreCharacter();
     this.flightRider.restore();
     this.restoreRamArms();if(!plan?.ramMounted)this.siege.releaseStanding();
+    if (plan?.dragOonSeated) {
+      if (!this.dragOonPose?.active) this.reset();
+      this.dragOonPose ??= new DragOonOccupantPose(this.root, this.bones, this.siege);
+      this.dragOonPose.apply(plan.dragOonSeated, dt);
+      this.#applyCharacter({ pinned: true });
+      this.#followPauldrons();
+      this.onPose?.(plan);
+      return true;
+    }
+    this.dragOonPose?.release?.();
     if(plan?.mounted){
       if(!this.siege.active)this.reset();
       this.siege.apply();this.onPose?.(plan);return true;
@@ -722,7 +733,7 @@ export class SpellbladeAnimator {
   }
   restoreRamArms(){for(const [b,t]of this.ramArms??[]){b.quaternion.copy(t.q);b.position.copy(t.p);}this.ramArms=null;}
   releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}
-  releaseMounted(){this.flightRider?.restore?.();if(this.siege.release())this.reset();}
+  releaseMounted(){this.dragOonPose?.release?.();this.flightRider?.restore?.();if(this.siege.release())this.reset();}
 
   #clipOf(action) {
     for (const [name, candidate] of this.actions) if (candidate === action) return name;

@@ -722,6 +722,14 @@ export class TouchControls {
       const bl = snapshot?.bibyeBallista;
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
+      const dragOp=Boolean(local.alive&&local.operatingDragOonId),
+        dragPax=Boolean(local.alive&&local.aboardDragOonId),
+        drag=dragOp||dragPax,
+        db=(drag?(snapshot?.machines?.find(m=>m?.id===(local.operatingDragOonId||local.aboardDragOonId))):null)||
+          snapshot?.dragOon||snapshot?.machines?.find(m=>m?.kind==='dragoon'&&m.health>0&&!m.retired);
+      const nearDragOon=Boolean(local.alive&&!drag&&db&&db.health>0&&!db.retired&&
+        !db.campFire?.sealed&&(!db.team||db.team===local.team)&&
+        Math.hypot((db.x??0)-local.position.x,(db.z??0)-local.position.z)<=5.2);
       const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),
         ballista=Boolean(local.alive&&local.operatingBallistaId),
         fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
@@ -735,13 +743,13 @@ export class TouchControls {
       const nearRam=Boolean(local.alive&&rb&&rb.health>0&&!rb.retired&&
         !rb.operatorId&&(!rb.team||rb.team===local.team)&&
         ramMountReach(local,rb,soFistEntry(rb),station));
-      const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
+      const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId||drag));
       const layoutChanged=this.mounted!==mounted||this.flightMounted!==flight||
-        this.ramMounted!==ram||this.ballistaMounted!==ballista;
-      if(this.ramMounted!==undefined&&this.ramMounted!==ram||this.flightMounted!==flight)this.reset();
+        this.ramMounted!==ram||this.ballistaMounted!==ballista||this.dragMounted!==drag;
+      if(this.ramMounted!==undefined&&this.ramMounted!==ram||this.flightMounted!==flight||this.dragMounted!==drag)this.reset();
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;this.ballistaMounted=ballista;
-      this.flightMounted=flight;this.mounted=mounted;
+      this.flightMounted=flight;this.dragMounted=drag;this.mounted=mounted;
       const reverseAvailable=Boolean(ram&&rb?.reverseChargeAvailable);
       if(this.ramReverseAvailable!==reverseAvailable){
         this.ramReverseAvailable=reverseAvailable;
@@ -763,6 +771,7 @@ export class TouchControls {
       }
       this.layer.classList.toggle('touch-ballista',ballista);
       this.layer.classList.toggle('touch-flight',flight);
+      this.layer.classList.toggle('touch-dragoon',drag);
       // Sweep is a Ballista-only action. Never leave its touch target in the
       // Flight corner, including on first mount or after editing layouts.
       this.buttons.siegeSweep.hidden=!ballista;
@@ -807,6 +816,10 @@ export class TouchControls {
         // spells, not a separate READY panel. Active Skills have no shade.
         const recovery=fb.skill?.phase==='active'?0:Math.max(0,(fb.skill?.readyAt??0)-serverNow);
         setMountedRecovery(this.buttons.siegeSkill,recovery,24);
+      }else if(drag&&db){
+        setMountedRecovery(this.buttons.siegeSkill,Math.max(0,(db.skill?.readyAt??0)-serverNow),26);
+        setMountedRecovery(this.buttons.guard,Math.max(0,(db.steamReadyAt??0)-serverNow),25);
+        setMountedRecovery(this.buttons.jump,Math.max(0,(db.leapReadyAt??0)-serverNow),12);
       }else{
         for(const action of ['attack','ramFlick','siegeSkill','siegeSweep'])
           setMountedRecovery(this.buttons[action],0,1);
@@ -819,7 +832,8 @@ export class TouchControls {
         flightSkillId==='doNotStopMyAscension'?'Do Not Stop My Ascension!':"Fire Away? I'm Right Here.";
       const flightSkillShort=flightSkillId==='narrowToOne'?'NARROW':
         flightSkillId==='doNotStopMyAscension'?'ASCEND':'FIRE AWAY';
-      for(const [action,name] of [['attack',mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['siegeSkill',flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['siegeSweep','siegeSweep'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
+      const dragSkillIcon = db?.skill?.id ?? 'razeThePasture';
+      for(const [action,name] of [['attack',dragOp?'desolationSpray':mounted&&!flight?(ram?'ram':combat.primary.icon):'attack'],['dash',flight?'flightDash':'dash'],['crouch',ram?'lower':'crouch'],['guard',dragOp?'steamTheTeam':'guard'],['jump',dragOp?'fuelsTheLimit':'jump'],['siegeSkill',dragOp?dragSkillIcon:flight?flightSkillIcon:ram?(rb?.skill?.id==='longArmToTheJaw'?'longArmToTheJaw':rb?.skill?.id==='hellpingHand'?'hellpingHand':'beatToThePunch'):biByeSkillIcon(bl,serverNow)],['siegeBoth','boltBoth'],['siegeSweep','siegeSweep'],['deploy',ballista?modeButton.icon:'deploy'],['siegeWeapon',flight?'repeater':'siegeWeapon'],['interact',mounted?'eject':'interact']]){
         const button=this.buttons[action];if(button&&button.dataset.icon!==name){
           button.querySelector('svg').innerHTML=ICONS[name];button.dataset.icon=name;
         }
@@ -830,7 +844,23 @@ export class TouchControls {
       if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
       const liftUp=ram&&[...this.ramTiltGestures.values()].some(g=>g.lift&&g.action==='jump');
       const liftDown=ram&&[...this.ramTiltGestures.values()].some(g=>g.lift&&g.action==='crouch');
-      this.buttons.jump.querySelector('span').textContent=ram?(liftUp?'LIFT UP':'RAISE'):'JUMP';
+      if(dragOp&&db){
+        const atk=this.buttons.attack?.querySelector('span');if(atk)atk.textContent='SPRAY';
+        const grd=this.buttons.guard?.querySelector('span');if(grd)grd.textContent='STEAM';
+        const jmp=this.buttons.jump?.querySelector('span');if(jmp)jmp.textContent='LEAP';
+        this.buttons.attack?.setAttribute('aria-label','Hold Desolation Spray');
+        this.buttons.guard?.setAttribute('aria-label','Steam the Team');
+        this.buttons.jump?.setAttribute('aria-label',"Fuel's the Limit leap");
+      }else if(dragPax&&db){
+        const spl=this.buttons.spell?.querySelector('span');if(spl)spl.textContent='CAST';
+        const itr=this.buttons.interact?.querySelector('span');if(itr)itr.textContent='LEAVE';
+        this.buttons.spell?.setAttribute('aria-label',db.campFire?.sealed?'Apertures sealed during Camp Fire':'Cast spell from aperture');
+        this.buttons.interact?.setAttribute('aria-label','Begin timed evacuation');
+      }else{
+        const grd=this.buttons.guard?.querySelector('span');if(grd&&grd.textContent==='STEAM')grd.textContent='GUARD';
+        const spl=this.buttons.spell?.querySelector('span');if(spl&&spl.textContent==='CAST')spl.textContent='SPELL';
+        this.buttons.jump.querySelector('span').textContent=ram?(liftUp?'LIFT UP':'RAISE'):'JUMP';
+      }
       this.buttons.crouch.querySelector('span').textContent=ram?(liftDown?'LIFT DOWN':'LOWER'):'CROUCH';
       this.buttons.jump.setAttribute('aria-label',liftUp?'Raising entire hydraulic assembly':
         ram?'Hold to tilt front upward; swipe upward while held to lift upper assembly':'Jump');
@@ -962,12 +992,12 @@ export class TouchControls {
       }
 
       if(this.buttons.siegeSkill){
-        const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
-        const label=flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':skill.trackingState==='preview'?'MARKED':'ACQUIRE'):
+        const button=this.buttons.siegeSkill,machine=dragOp?db:flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
+        const label=dragOp?(db?.raze?.phase==='holding'?'IGNITE':db?.campFire?.sealed?'UNSEAL':db?.brimming?.active?'END BRIM':db?.flightLikeHell?.active?'END AIR':'SKILL'):flight?(skill?.phase==='active'?(flightSkillId==='narrowToOne'?(skill.trackingState==='noClearShot'?'NO SHOT':skill.trackingState==='sightLost'?'SIGHT LOST':skill.trackingState==='locked'?'LOCKED':skill.trackingState==='preview'?'MARKED':'ACQUIRE'):
           flightSkillId==='doNotStopMyAscension'?'CHARGE':'FIRE AWAY'):
           flightSkillShort):siegeSkillControlLabel(machine,serverNow);
-        button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
-        button.setAttribute('aria-label',`${flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':skill?.id==='hellpingHand'?'HELLping Hand':'Beat to the Punch'):(skill?.id==='coldHowTouching'?'Cold, How Touching':skill?.id==='lookAroundAndFindOut'?'Look Around and Find Out':'Bolt to the Occasion')}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+        button.hidden=!mounted||dragPax;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
+        button.setAttribute('aria-label',`${dragOp?(skill?.id??'DRAG-OON Skill'):flight?flightSkillName:ram?(skill?.id==='longArmToTheJaw'?'Long Arm to the Jaw':skill?.id==='hellpingHand'?'HELLping Hand':'Beat to the Punch'):(skill?.id==='coldHowTouching'?'Cold, How Touching':skill?.id==='lookAroundAndFindOut'?'Look Around and Find Out':'Bolt to the Occasion')}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
         if (flight) {
           const firing = Boolean(fb?.lastShotAt && (serverNow - fb.lastShotAt) < 0.16) || this.input?.flightFireHeld;
           button.classList.toggle('firing', firing);
@@ -1031,16 +1061,17 @@ export class TouchControls {
           this.buttons.deploy.setAttribute('aria-label',modeButton.disabled?modeButton.label+' in progress':modeButton.label==='MOBILE'?'Pack into mobile configuration':'Deploy heavy siege mode');
           this.buttons.deploy.setAttribute('aria-disabled',modeButton.disabled?'true':'false');
         }
-      } else if (nearFlight||nearRam||(near && bl?.mode !== 'DESTROYED')) {
+      } else if (nearDragOon||nearFlight||nearRam||(near && bl?.mode !== 'DESTROYED')) {
         if (this.buttons.interact) {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'MOUNT') label.textContent = 'MOUNT';
           // The MOUNT label and its command must name the same station.
           // Without this, generic siegeOperate may select a different machine.
-          this.buttons.interact.dataset.mountTarget = nearFlight ? 'fight-and-flight'
+          this.buttons.interact.dataset.mountTarget = nearDragOon ? 'drag-oon'
+            : nearFlight ? 'fight-and-flight'
             : nearRam ? 'so-fist-ication' : 'bi-bye-llista';
-          this.buttons.interact.setAttribute('aria-label',nearFlight?'Mount Fight-and-Flight':nearRam?'Operate ram':'Mount ballista');
+          this.buttons.interact.setAttribute('aria-label',nearDragOon?'Board DRAG-OON':nearFlight?'Mount Fight-and-Flight':nearRam?'Operate ram':'Mount ballista');
         }
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       } else {
@@ -1753,6 +1784,16 @@ export class TouchControls {
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ramFlick') this.input.ramFlick?.();
     if (action === 'ultimate') {
+      if (this.input.mountedDragOon || this.input.aboardDragOon) {
+        if (this.input.dragOonRiteActive && this.input.mountedDragOon) {
+          this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+        } else if (this.input.mountedDragOon && this.input.dragOonRiteEligible && this.input.dragOonRiteCommitted) {
+          this.socket?.send?.({ type: 'dragOonRiteActivate' });
+        } else {
+          this.socket?.send?.({ type: 'dragOonRiteCommit', committed: !this.input.dragOonRiteCommitted });
+        }
+        return;
+      }
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
       } else this.input.ultimate(`touch:${event.pointerId}`);
@@ -1766,6 +1807,12 @@ export class TouchControls {
       this.ramTiltGestures.set(event.pointerId,{action,clientX:event.clientX,clientY:event.clientY,lift:false});
       return; // ram controls cannot also emit ordinary Jump/Crouch
     }
+    if(this.input.mountedDragOon&&action==='jump'){
+      if (this.input.dragOonRiteActive) this.socket?.send?.({ type: 'dragOonRiteDetonate' });
+      else this.socket?.send?.({type:'dragOonLeap'});
+      return;
+    }
+    if(this.input.mountedDragOon&&action==='guard'){this.socket?.send?.({type:'dragOonSteam'});return;}
     if (action === 'jump') {
       if (this.input.mountedFlight || this.flightMounted) {
         this.jumpHeld=true;
@@ -1829,12 +1876,16 @@ export class TouchControls {
       this.flightLowerHeld = this.flightLowerSources.size > 0;
     }
     if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false, `touch:${pointerId}`);
+    if (action === 'siegeSkill' && (this.input.mountedDragOon || this.dragMounted)) this.input.siegeSkillRelease?.();
     if (action === 'dash' && (this.input.mountedFlight || this.flightMounted)) this.input.flightDash(false, `touch:${pointerId}`);
     if (action === 'ultimate') {
+      if (this.input.mountedDragOon || this.input.aboardDragOon) return;
       if (this.input.mountedFlight || this.flightMounted) {
         this.input.flightUltimate?.(false, `touch:${pointerId}`);
       } else this.input.ultimateRelease?.(`touch:${pointerId}`,cancelled);
     }
+    if(this.input.mountedDragOon&&action==='jump')return;
+    if(this.input.mountedDragOon&&action==='guard')return;
     if (action === 'jump') {
       // A long hold is Rise only. A fast tap is Hop only. Dragging the
       // same held finger looks around and suppresses accidental Hop on lift.

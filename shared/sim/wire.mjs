@@ -21,20 +21,27 @@ import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold,requestTerminalRitual} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,flickSoFistication,shuntSoFistication,primeSoFistSkill,soFistReverseChargeAvailable} from './soFistication.mjs';
 import {boardHellpingHand,exitHellpingHand} from './soFistHellpingHand.mjs';
-import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
-import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
-import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
-import {requestBiByeSharpTurn,requestLookAroundAndFindOut,biByeSweepFireLocked} from './biByeSweep.mjs';
+import { requestBiByeSharpTurn,requestLookAroundAndFindOut,biByeSweepFireLocked} from './biByeSweep.mjs';
 import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill,requestBiByeCoupledFromUpper } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 import { getFleetMachines, getMachineKind } from './fleetGeometry.mjs';
+import { DRAG_OON_ID } from '../src/dragOonConfig.mjs';
+import { effectiveFuelCapacity } from './dragOonThermal.mjs';
+import { triggerDesolationSpray, requestFiresTheLimit, requestSteamTheTeam } from './dragOonAbilities.mjs';
+import { requestDragOonSkill } from './dragOonSkills.mjs';
+import { requestDragOonBoard, requestDragOonDisembark } from './dragOonCrew.mjs';
+import { setDragOonRiteCommit, activateDragOonRite, detonateDragOonRite } from './dragOonRite.mjs';
+import { triggerAllAbortDestruction } from './dragOon.mjs';
+import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
+import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
+import { spawnPracticeSiegeOperator, removePracticeSiegeOperator, resetPracticeSiegeOperator } from './practiceSiegeOperators.mjs';
+import { readyPracticeUltimate, configurePracticeOneHit, configurePracticeDragOon, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
 import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate, releaseOneHitCharge, detonateOneHitWave, fireOneHitWave } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
-import { readyPracticeUltimate, configurePracticeOneHit, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { configureUltimateKnight } from './UltimateKnight.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
@@ -188,12 +195,76 @@ export function serializeBiByeLlista(m, nowSec = 0) {
   };
 }
 
+export function serializeDragOon(m, nowSec = 0) {
+  if (!m) return null;
+  return {
+    id: m.id,
+    class: DRAG_OON_ID,
+    kind: 'dragoon',
+    mode: m.mode,
+    retired: Boolean(m.retired),
+    team: m.team ?? null,
+    ownerId: m.ownerId ?? null,
+    operatorId: m.operatorId ?? null,
+    passengers: [...(m.passengers ?? [])],
+    passengerCapacity: m.passengerCapacity ?? 4,
+    crewTransitions: (m.crewTransitions ?? []).map(t => ({ ...t })),
+    x: m.x, y: m.y, z: m.z,
+    position: { x: m.x, y: m.y, z: m.z },
+    heading: m.heading ?? 0,
+    chassisPitch: m.chassisPitch ?? 0,
+    chassisRoll: m.chassisRoll ?? 0,
+    cannonYaw: m.cannonYaw ?? 0,
+    cannonPitch: m.cannonPitch ?? 0,
+    speed: m.speed ?? 0,
+    turnVel: m.turnVel ?? 0,
+    velocity: m.velocity ? { ...m.velocity } : { x: 0, y: 0, z: 0 },
+    grounded: Boolean(m.grounded),
+    wheelRolls: [...(m.wheelRolls ?? [])],
+    health: m.health,
+    maxHealth: m.maxHealth,
+    fuel: m.fuel,
+    fuelMax: m.fuelMax,
+    effectiveFuelMax: effectiveFuelCapacity(m),
+    heat: m.heat,
+    overheatPenalty: m.overheatPenalty ?? 0,
+    retainedOverpressureHeat: Boolean(m.retainedOverpressureHeat),
+    sprayHeld: Boolean(m.sprayHeld),
+    sprayPrepStartedAt: m.sprayPrepStartedAt ?? null,
+    sprayActiveAt: m.sprayActiveAt ?? null,
+    leap: m.leap ? { ...m.leap } : null,
+    leapReadyAt: m.leapReadyAt ?? 0,
+    steamReadyAt: m.steamReadyAt ?? 0,
+    raze: m.raze ? { ...m.raze, ...(m.raze.center ? { center: { ...m.raze.center } } : {}) } : null,
+    flightLikeHell: m.flightLikeHell ? { ...m.flightLikeHell } : null,
+    campFire: m.campFire ? { ...m.campFire } : null,
+    brimming: m.brimming ? { ...m.brimming } : null,
+    rite: m.rite ? { ...m.rite, frozenTiers: m.rite.frozenTiers ? { ...m.rite.frozenTiers } : null } : null,
+    riteCommitments: m.riteCommitments ? { ...m.riteCommitments } : {},
+    riteStatus: m.riteStatus ? {
+      ...m.riteStatus,
+      participants: (m.riteStatus.participants ?? []).map(p => ({ ...p })),
+    } : null,
+    skill: m.skill ? { ...m.skill } : null,
+    infusions: m.infusions ? { counts: { ...m.infusions.counts }, tiers: { ...m.infusions.tiers } } : null,
+    components: m.components ? Object.fromEntries(Object.entries(m.components).map(([k, v]) => [k, { ...v }])) : {},
+    siegeSteel: m.siegeSteel ? { ...m.siegeSteel, steel: { ...m.siegeSteel.steel } } : null,
+    destroyedAt: m.destroyedAt ?? null,
+    practiceOverrides: m.practiceOverrides ? {
+      simulatedPassengers: [...(m.practiceOverrides.simulatedPassengers ?? [])],
+      infusions: m.practiceOverrides.infusions ? { ...m.practiceOverrides.infusions } : null,
+    } : null,
+    serverNow: nowSec,
+  };
+}
+
 export function serializeMachine(m, nowSec = 0) {
   if (!m) return null;
   const kind = getMachineKind(m);
   if (kind === 'ram') return serializeSoFistication(m);
   if (kind === 'flight') return serializeFightFlight(m);
   if (kind === 'ballista') return serializeBiByeLlista(m, nowSec);
+  if (kind === 'dragoon') return serializeDragOon(m, nowSec);
   return null;
 }
 
@@ -291,6 +362,9 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       yaw: p.yaw,
       pitch: p.pitch,
       health: p.health,
+      maxHealth: p.maxHealth ?? 100,
+      dragOonMaxHealthLoss: p.dragOonMaxHealthLoss ?? 0,
+      dragOonFrostInterference: p.dragOonFrostInterference ? { ...p.dragOonFrostInterference } : null,
       guardStamina: p.guardStamina,
       guarding: p.guarding,
       sprinting: Boolean(p.sprinting),
@@ -412,6 +486,10 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       operatingBallistaId: p.operatingBallistaId ?? null,
       operatingRamId: p.operatingRamId ?? null,
       operatingFightFlightId: p.operatingFightFlightId ?? null,
+      operatingDragOonId: p.operatingDragOonId ?? null,
+      aboardDragOonId: p.aboardDragOonId ?? null,
+      dragOonStation: p.dragOonStation ?? null,
+      dragOonTransition: p.dragOonTransition ? { ...p.dragOonTransition } : null,
     })),
     oneHitWaves: (room.oneHitWaves ?? []).map(w => ({
       id:w.id, ownerId:w.ownerId, position:{...w.position}, direction:{...w.direction},
@@ -440,6 +518,28 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     fightFlightRevision:room.fightFlightRevision??0,
     flightBurnZones:room.flightBurnZones??[],
     fightFlight: serializeFightFlight(room.fightFlight),
+    dragOonRevision: room.dragOonRevision ?? 0,
+    dragOon: serializeDragOon(room.dragOon, nowSec),
+    dragOonFlames: (room.dragOonFlames ?? []).map(f => ({
+      id: f.id, machineId: f.machineId, ownerId: f.ownerId, team: f.team ?? null,
+      position: f.position, direction: f.direction, radius: f.radius,
+      barricade: Boolean(f.barricade), steelTier: f.steelTier ?? 0,
+      tiers: f.tiers ? { ...f.tiers } : null, bornAt: f.bornAt, expiresAt: f.expiresAt,
+    })),
+    dragOonSteamRings: (room.dragOonSteamRings ?? []).map(r => ({
+      id: r.id, machineId: r.machineId, ownerId: r.ownerId, team: r.team ?? null,
+      origin: r.origin, bornAt: r.bornAt, expiresAt: r.expiresAt, visualUntil: r.visualUntil,
+      maxRadius: r.maxRadius, speed: r.speed, thickness: r.thickness, height: r.height,
+      tiers: r.tiers ? { ...r.tiers } : null,
+    })),
+    dragOonRazeFields: (room.dragOonRazeFields ?? []).map(rf => ({
+      id: rf.id, machineId: rf.machineId, ownerId: rf.ownerId, team: rf.team ?? null,
+      center: rf.center, radius: rf.radius, bornAt: rf.bornAt, expiresAt: rf.expiresAt, burning: Boolean(rf.burning),
+    })),
+    dragOonSuppressionZones: (room.dragOonSuppressionZones ?? []).map(z => ({
+      id: z.id, machineId: z.machineId, ownerId: z.ownerId, team: z.team ?? null,
+      center: z.center, radius: z.radius, bornAt: z.bornAt, expiresAt: z.expiresAt,
+    })),
     soFistRevision:room.soFistRevision??0,
     soFistication: serializeSoFistication(room.soFistication),
     bibyeRevision: room.biByeRevision??0,
@@ -467,7 +567,7 @@ export function applyRoomCommand(room, player, message, time) {
     && !(message.type==='oneHitRelease'&&message.cancel===true)
     && ['input','attack','guard','cast','castPreparedSpell','castPreparedSlot',
       'castCurrentSpell','dash','gauntlet','ultimate','technique','oneHitRelease','oneHitFire','oneHitDetonate',
-      'flightDash','flightHop','flightUltimateHold','siegeOperate',
+      'flightDash','flightHop','flightUltimateHold','siegeOperate','dragOonLeap','dragOonSteam',
       'bibyeOperate','bibyeFire','bibyeHeavyFire','bibyeCombinedFire','bibyeSharpTurn'].includes(message.type)) return {};
   // During a round draft no combat actions are legal; even a forged client
   // message cannot attack, move, or operate a machine before the clock ends.
@@ -492,9 +592,11 @@ export function applyRoomCommand(room, player, message, time) {
      ['attack','guard','cast','castPreparedSlot','castPreparedSpell','castCurrentSpell',
       'dash','gauntlet','ultimate','oneHitRelease','technique'].includes(message.type) &&
       message.type!=='technique')return {};
-  const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
+  const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId||player?.operatingDragOonId);
   const flightSiege=Boolean(player?.operatingFightFlightId);
   const mounted=groundSiege||flightSiege;
+  const paxDrag=Boolean(player?.aboardDragOonId);
+  if(paxDrag&&message.down!==false&&['attack','guard','dash','gauntlet','ultimate','technique'].includes(message.type))return {};
   const preparedId=message.type==='castPreparedSlot'
     ?(Number.isInteger(message.slot)&&message.slot>=1&&message.slot<=3?player.preparedSpells?.[message.slot-1]:null)
     :message.spell??message.id;
@@ -539,13 +641,13 @@ export function applyRoomCommand(room, player, message, time) {
         siegeTarget:(player.operatingBallistaId||player.operatingFightFlightId)&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
-        // The ram never consumes generic Jump/Crouch input.
-        jump: Boolean(!player.operatingRamId&&!player.restlessCarrying&&message.jump),
+        // The ram and Drag-oon never consume generic Jump/Crouch as foot locomotion.
+        jump: Boolean(!player.operatingRamId&&!player.operatingDragOonId&&!player.aboardDragOonId&&!player.restlessCarrying&&message.jump),
         // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
         flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
         flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
         sprint: Boolean(message.sprint)&&!player.restlessCarrying,
-        crouch: Boolean(!player.operatingRamId&&message.crouch),
+        crouch: Boolean(!player.operatingRamId&&!player.operatingDragOonId&&!player.aboardDragOonId&&message.crouch),
         ramRaise: Boolean(player.operatingRamId&&message.ramRaise),
         ramLower: Boolean(player.operatingRamId&&message.ramLower),
         ramPitchUp: Boolean(player.operatingRamId&&message.ramPitchUp),
@@ -564,6 +666,11 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
+      const opDrag = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : null;
+      if (opDrag && opDrag.operatorId === player.id) {
+        triggerDesolationSpray(room, opDrag, player, Boolean(message.down), time);
+        return {};
+      }
       const opRam = player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : null;
       if(opRam && opRam.operatorId === player.id){if(message.down&&player.alive)fireSoFistication(room,opRam,time);return {};}
       const opBallista = player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : null;
@@ -733,6 +840,9 @@ export function applyRoomCommand(room, player, message, time) {
     case 'practiceSiege':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage siege machines.'};
       return practiceSiegeCommand(room,player,message.action,message.machine,time);
+    case 'practiceDragOon':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure DRAG-OON.'};
+      return configurePracticeDragOon(room,player,message,time);
     case 'practiceBuildBiBye':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may build siege machines.'};
       return practiceBiByeCommand(room,player,'build',time);
@@ -768,7 +878,43 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practicePerryDismiss':
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
+    case 'dragOonLeap': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = requestFiresTheLimit(room, d, player, time);
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonSteam': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = requestSteamTheTeam(room, d, player, time);
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteCommit': {
+      const dragId = player.operatingDragOonId || player.aboardDragOonId;
+      const d = dragId ? (room.machines?.get(dragId) || room.dragOon) : room.dragOon;
+      const committed = message.committed !== false;
+      const res = setDragOonRiteCommit(room, d, player, committed, time);
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteActivate': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = activateDragOonRite(room, d, player, time, {
+        onDetonate: (payload) => triggerAllAbortDestruction(room, d, time, payload),
+      });
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
+    case 'dragOonRiteDetonate': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      const res = detonateDragOonRite(room, d, player, time, 'manual', {
+        onDetonate: (payload) => triggerAllAbortDestruction(room, d, time, payload),
+      });
+      return res?.rejected ? { rejected: res.rejected } : {};
+    }
     case 'siegeSkill': {
+      const d = player.operatingDragOonId ? (room.machines?.get(player.operatingDragOonId) || room.dragOon) : room.dragOon;
+      if (player.operatingDragOonId && d?.operatorId === player.id) {
+        const reason = requestDragOonSkill(room, d, player, message, time);
+        return reason ? { rejected: reason } : {};
+      }
       const ram=player.operatingRamId ? (room.machines?.get(player.operatingRamId) || room.soFistication) : room.soFistication;
       const b=player.operatingBallistaId ? (room.machines?.get(player.operatingBallistaId) || room.biByeLlista) : room.biByeLlista;
       const f=player.operatingFightFlightId ? (room.machines?.get(player.operatingFightFlightId) || room.fightFlight) : room.fightFlight;
@@ -819,7 +965,7 @@ export function applyRoomCommand(room, player, message, time) {
       // suppress a legitimate boarding request by an unmounted player:
       // mobile focus transitions can leave the flag stale between packets.
       const mounted=Boolean(player.operatingFightFlightId||
-        player.operatingRamId||player.operatingBallistaId);
+        player.operatingRamId||player.operatingBallistaId||player.operatingDragOonId||player.aboardDragOonId);
       if(room.mode===GAME_MODES.PRACTICE&&player.practiceUiFocus&&mounted)return {};
       // The touch HUD offers a named MOUNT action. Honor that exact choice,
       // subject to the normal server-owned reach, occupancy and collision
@@ -849,6 +995,17 @@ export function applyRoomCommand(room, player, message, time) {
           if (room.biByeLlista && !room.machines.has(room.biByeLlista.id)) candidates.push(room.biByeLlista);
           const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 6) || candidates[0];
           boarded=Boolean(target&&mountBiByeLlista(target,player,time));
+        }else if(message.machine===DRAG_OON_ID){
+          const candidates = [...room.machines.values()].filter(m => getMachineKind(m) === 'dragoon' && m.health > 0);
+          if (room.dragOon && !room.machines.has(room.dragOon.id)) candidates.push(room.dragOon);
+          const target = candidates.find(m => Math.hypot(player.position.x - m.x, player.position.z - m.z) <= 7.5) || candidates[0];
+          if(!target)return {rejected:'No DRAG-OON is available nearby.'};
+          const res=requestDragOonBoard(room,target,player,time,{
+            role: message.role ?? 'auto',
+            station: Number.isInteger(message.station) ? message.station : null,
+          });
+          if(res.rejected)return {rejected:res.rejected};
+          boarded=true;
         }else return {rejected:'Unknown siege machine.'};
         if(!boarded)return {rejected:'The selected siege machine cannot be boarded from here.'};
         player.practiceUiFocus=false;
@@ -857,9 +1014,14 @@ export function applyRoomCommand(room, player, message, time) {
       if(room.soFistication && player.hellpingCarriedBy===room.soFistication.id)
        {exitHellpingHand(room,room.soFistication,player,time);return {}; }
       if(boardHellpingHand(room,room.soFistication,player,time))return {};
-      if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId
+      if(room.mode===GAME_MODES.RESTLESS_DAY&&!player.operatingFightFlightId&&!player.operatingRamId&&!player.operatingBallistaId&&!player.operatingDragOonId&&!player.aboardDragOonId
          && (player.restlessCarrying || room.restlessDay?.ladders.some(l=>l.state!=='broken'&&l.state!=='carrying'&&ladderReach(l,player)<=3.8)))
         return interactRestlessLadder(room,player,time);
+      if(player.operatingDragOonId||player.aboardDragOonId){
+        const d = room.machines?.get(player.operatingDragOonId || player.aboardDragOonId) || room.dragOon;
+        const res = requestDragOonDisembark(room, d, player, time);
+        return res.rejected ? { rejected: res.rejected } : {};
+      }
       if(player.operatingFightFlightId){
         const f = room.machines?.get(player.operatingFightFlightId) || room.fightFlight;
         return dismountFightFlight(room,f,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};
@@ -870,6 +1032,15 @@ export function applyRoomCommand(room, player, message, time) {
       }
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const fleet = getFleetMachines(room);
+      for(const d of fleet.filter(m => getMachineKind(m) === 'dragoon' && m.health > 0)) {
+        if(Math.hypot(player.position.x - d.x, player.position.z - d.z) <= 5.5){
+          const res = requestDragOonBoard(room, d, player, time, {
+            role: message.role ?? 'auto',
+            station: Number.isInteger(message.station) ? message.station : null,
+          });
+          if(!res.rejected){player.practiceUiFocus=false;return {};}
+        }
+      }
       for(const f of fleet.filter(m => getMachineKind(m) === 'flight' && !m.operatorId && m.health > 0)) {
         if(mountFightFlight(room,f,player,time)){player.practiceUiFocus=false;return {};}
       }

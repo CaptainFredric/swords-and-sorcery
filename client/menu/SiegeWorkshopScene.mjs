@@ -7,6 +7,7 @@ import { SO_FIST_SCALE } from '../../shared/sim/soFistGeometry.mjs';
 import {createFlickThumbRestraint,restrainFlickThumb,createHellpingThumbRestraint,restrainHellpingThumb} from '../worlds/soFistThumbRestraint.mjs';
 import { SiegeWorkshopPerformance } from './SiegeWorkshopPerformance.mjs';
 import { FLIGHT_CLIPS } from '../worlds/flightAnimationState.mjs';
+import { DragOonRenderer, DRAG_OON_ASSETS } from '../worlds/DragOonRenderer.mjs';
 
 export const WORKSHOP_POSITION = Object.freeze([14.0, 0, 0.0]);
 
@@ -15,6 +16,7 @@ const MACHINE_ASSETS = Object.freeze({
   soFist: '/client/assets/props/so-fist-ication/so-fist-ication-elevating-ram.glb?v=bab81d9861a80e83',
   biBye: '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',
   fightFlight: '/client/assets/props/fight-and-flight/fight-and-flight-v30-sim19p5-dash.glb',
+  dragOon: DRAG_OON_ASSETS.master,
 });
 
 // Match gameplay's native transforms. The two metre-based GLBs use unit scale.
@@ -44,13 +46,14 @@ function graftWorkshopArgonHand(base,donor){
  return handClips;
 }
 
-const AUTHORED_SCALE = { soFist: SO_FIST_SCALE, biBye: 1, fightFlight: 1 };
-const REST_YAW = { soFist: Math.PI - .28, biBye: Math.PI - .32, fightFlight: Math.PI - .35 };
+const AUTHORED_SCALE = { soFist: SO_FIST_SCALE, biBye: 1, fightFlight: 1, dragOon: 1 };
+const REST_YAW = { soFist: Math.PI - .28, biBye: Math.PI - .32, fightFlight: Math.PI - .35, dragOon: Math.PI - .34 };
 const IDLE_CLIP = { biBye: '01_BiBye_LoadedIdle', fightFlight: 'Posture_01_Grounded_Idle' };
 const BOUNDS_CLIPS = {
   soFist: ['01_Ram_Strike_Full_Cycle'],
   biBye: ['05_BiBye_Stabilizer_Deploy', '02_BiBye_TwoStage_Fire'],
   fightFlight: ['Rotor_Spin_Cycle_1Rev'],
+  dragOon: ['Val_05_Flight_Like_Hell_Airborne', 'Comp_Steam_Vents_Radial_Discharge'],
 };
 
 function motionBounds(model, clips, names) {
@@ -483,8 +486,33 @@ export class SiegeWorkshopScene {
     this.fallbacks.set('fightFlight', flightFallback);
   }
 
+  #ensureDragOonPrototype() {
+    if (this.fallbacks.has('dragOon')) return this.fallbacks.get('dragOon');
+    const holder = new THREE.Group();
+    const renderer = new DragOonRenderer(holder);
+    renderer.update(0, {
+      x: 0, y: 0, z: 0, heading: 0, health: 2200, maxHealth: 2200,
+      fuel: 100, fuelMax: 100, heat: 32, infusions: { tiers: { fire: 1 } },
+    }, 0);
+    const model = renderer.root;
+    model.name = 'Fallback_dragOon';
+    model.visible = false;
+    model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(model);
+    model.userData = {
+      isAuthored: false,
+      experimentalPrototype: true,
+      machineId: 'dragOon',
+      restingBounds: box,
+      motionBounds: box,
+    };
+    this.fallbacks.set('dragOon', model);
+    return model;
+  }
+
   selectMachine(id) {
-    if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return;
+    if (!['soFist', 'biBye', 'fightFlight', 'dragOon'].includes(id)) return;
+    if (id === 'dragOon') this.#ensureDragOonPrototype();
     const cached = this.cache.get(id);
     const alreadyReady = cached?.userData?.isAuthored && cached.userData.machineId === id;
     if (this.activeMachineId === id && this.machinePivot.children.length === 1 && this.machinePivot.children[0]?.userData?.machineId === id && (alreadyReady || this.inFlight.has(id) || this.loadStates.get(id) === 'error')) {
@@ -502,7 +530,7 @@ export class SiegeWorkshopScene {
     }
 
     // Attach cached authored GLTF if ready; otherwise keep hidden fallback bounds for camera framing
-    // while static transparent preview holds the viewport until first authored frame renders.
+    // while static preview holds the viewport until the first authored frame renders.
     if (alreadyReady) {
       this.machinePivot.add(cached);
       this.loadStates.set(id, 'ready');
@@ -642,6 +670,10 @@ export class SiegeWorkshopScene {
               child.receiveShadow = true;
               if (child.material) {
                 child.material.envMapIntensity = 0.8;
+                if (id === 'dragOon' && child.material.name === 'Mat_HeatZone_FurnaceInterior') {
+                  child.material.emissive?.setHex(0xff4210);
+                  child.material.emissiveIntensity = 0.45;
+                }
               }
             }
           });
@@ -660,6 +692,7 @@ export class SiegeWorkshopScene {
           const center = box.getCenter(new THREE.Vector3());
           model.userData = {
             isAuthored: true, machineId: id, argonHand: id==='soFist'&&Boolean(this.argonHandInstalled),
+            experimentalPrototype: id === 'dragOon',
             restingBounds: restingPoseBox, motionBounds: box,
             bounds: { size: { x: size.x, y: size.y, z: size.z }, center: center.toArray() },
           };
@@ -702,7 +735,7 @@ export class SiegeWorkshopScene {
   }
 
   retryLoad(id = this.activeMachineId) {
-    if (!['soFist', 'biBye', 'fightFlight'].includes(id)) return Promise.resolve(null);
+    if (!['soFist', 'biBye', 'fightFlight', 'dragOon'].includes(id)) return Promise.resolve(null);
     if (this.inFlight.has(id)) return this.inFlight.get(id);
     this.cache.delete(id);
     this.firstFrameRendered.delete(id);
@@ -739,10 +772,12 @@ export class SiegeWorkshopScene {
     const child = this.machinePivot.children[0];
     const id = this.activeMachineId;
     const isAuthored = this.isDisplayingAuthored(id);
-    const loadState = isAuthored ? 'ready' : (this.loadStates.get(id) ?? (this.inFlight.has(id) ? 'loading' : 'idle'));
+    const experimentalPrototype = Boolean(child?.userData?.experimentalPrototype);
+    const loadState = experimentalPrototype ? 'prototype' : isAuthored ? 'ready' : (this.loadStates.get(id) ?? (this.inFlight.has(id) ? 'loading' : 'idle'));
     return {
       id,
       isAuthored,
+      experimentalPrototype,
       loadState,
       firstFrameReady: isAuthored && this.firstFrameRendered.has(id),
       childName: child?.name ?? null,
@@ -780,6 +815,11 @@ export class SiegeWorkshopScene {
       return false;
     }
     this.stopPreview();
+    if (this.activeMachineId === 'dragOon' && ['razeThePasture', 'flightLikeHell', 'campFire', 'brimmingWithPotential'].includes(skill)) {
+      this.dragOonPreview = { skill, time: 0, duration: skill === 'flightLikeHell' ? 5.5 : 4.5 };
+      this.onPreviewChange?.(skill);
+      return true;
+    }
     const started=this.performance.play(skill);
     if(started)this.previewAnimation=null;
     this.onPreviewChange?.(started?skill:null);
@@ -787,6 +827,7 @@ export class SiegeWorkshopScene {
   }
 
   stopPreview() {
+    this.dragOonPreview = null;
     this.performance?.stop();
     this.#restorePreviewAnimation();
     this.#restoreFist();
@@ -909,6 +950,18 @@ export class SiegeWorkshopScene {
         if(time>=1.9 && time<=4.65||time>=5.25 && time<=7.9)
           layers.push({name:'Crossbow_Fire_Loop',age:time<5?time-1.9:time-5.25,loop:true});
       }
+    } else if(id==='dragOon') {
+      if(skill==='flightLikeHell') {
+        layers.push({name:'Val_05_Flight_Like_Hell_Airborne',age:time,loop:true});
+      } else if(skill==='campFire') {
+        layers.push({name:'Comp_CampFire_Suspension_Stance',age:Math.min(1,time)});
+        layers.push({name:'Comp_Visor_Shutter_Seal',age:Math.min(1,time)});
+        layers.push({name:'Comp_Cannons_Fortified_Tuck',age:Math.min(1,time)});
+      } else if(skill==='brimmingWithPotential') {
+        layers.push({name:'Comp_Brimming_Shutter_Flutter',age:time,loop:true});
+      } else if(skill==='razeThePasture') {
+        layers.push({name:'Val_07_Underside_Shutters_OpenClose',age:time,loop:true});
+      }
     }
     if(this.previewAnimation?.machine!==id) {
       mixer.stopAllAction();
@@ -964,15 +1017,28 @@ export class SiegeWorkshopScene {
     }
     this.#restoreFist();
     const mixer=this.mixers.get(this.activeMachineId);
-    if(mixer&&!reducedMotion&&!this.performance.active)mixer.update(dt);
-    const wasActive=this.performance.active;
+    if(mixer&&!reducedMotion&&!this.performance.active&&!this.dragOonPreview)mixer.update(dt);
+    const wasActive=this.performance.active||Boolean(this.dragOonPreview);
     const pose=this.performance.update(dt,reducedMotion);
+    if (this.dragOonPreview) {
+      if (!reducedMotion) this.dragOonPreview.time += dt;
+      if (this.dragOonPreview.time >= this.dragOonPreview.duration) {
+        this.dragOonPreview = null;
+        this.#restorePreviewAnimation();
+        this.onPreviewChange?.(null);
+      } else {
+        this.#samplePreviewAnimation(this.dragOonPreview.skill, this.dragOonPreview.time);
+      }
+    }
     if(pose)this.#samplePreviewAnimation(this.performance.skill,this.performance.time);
-    else if(this.previewAnimation)this.#restorePreviewAnimation();
-    if(wasActive&&!this.performance.active)this.onPreviewChange?.(null);
+    else if(this.previewAnimation && !this.dragOonPreview)this.#restorePreviewAnimation();
+    if(wasActive&&!this.performance.active&&!this.dragOonPreview)this.onPreviewChange?.(null);
+    const dragPoseY = this.dragOonPreview?.skill === 'flightLikeHell'
+      ? 2.2 * Math.sin(Math.min(1, this.dragOonPreview.time / this.dragOonPreview.duration) * Math.PI)
+      : 0;
     const ready = this.isDisplayingAuthored(this.activeMachineId);
     this.machinePivot.visible = ready && !(this.performance.skill==='doNotStopMyAscension'&&this.performance.time>=6.6);
-    this.machinePivot.position.set(pose?.x??0,pose?.y??0,pose?.z??0);
+    this.machinePivot.position.set(pose?.x??0,(pose?.y??0)+dragPoseY,pose?.z??0);
     this.inspectionPivot.rotation.y=this.currentYaw;
     this.machinePivot.rotation.set(pose?.pitch??0,pose?.yawOffset??0,pose?.roll??0);
     this.#poseFist(pose);

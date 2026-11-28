@@ -12,6 +12,7 @@ import {endSiegeSteel} from './siegeSteel.mjs';
 import {applyDamage,killPlayer} from './combat.mjs';
 import {blastBiByeLlista} from './biByeLlista.mjs';
 import {blastSoFistication} from './soFistication.mjs';
+import {blastFleet} from './fleetGeometry.mjs';
 import {structureWorld,damageStructureSolid} from './structures.mjs';
 export const TERMINAL=Object.freeze({holdSec:1,timeout:18,maxSpeed:31,
   gravity:18,burnPerSec:4,burnRampPerSec:1.7,chargeBurnPerSec:3.2,chargeBurnRamp:.65,
@@ -243,8 +244,9 @@ export function resolveTerminalFlight(room,m,now){
  // Use established per-component blast allocations for both siege engines;
  // destructible masonry is damaged at its actual nearest exposed surface.
  const blast={point,radius,damage};
- if(room.biByeLlista)blastBiByeLlista(room,room.biByeLlista,blast,d.operatorId,'fight-flight-terminal',now,room.world?.solids??[]);
- if(room.soFistication)blastSoFistication(room,room.soFistication,blast,d.operatorId,'fight-flight-terminal',now);
+ blastFleet(room,blast,d.operatorId,'fight-flight-terminal',now,[d.machineId]);
+ if(room.biByeLlista&&!room.machines?.has(room.biByeLlista.id))blastBiByeLlista(room,room.biByeLlista,blast,d.operatorId,'fight-flight-terminal',now,room.world?.solids??[]);
+ if(room.soFistication&&!room.machines?.has(room.soFistication.id))blastSoFistication(room,room.soFistication,blast,d.operatorId,'fight-flight-terminal',now);
  const usedStructures=new Set();
  for(const solid of structureWorld(room.world,room.structures).solids??[]){
    const id=String(solid.structureId??solid.id??'');

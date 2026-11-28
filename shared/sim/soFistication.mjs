@@ -1,5 +1,6 @@
 import {siegeDisasterImpairment} from './oneHitMachineDisruption.mjs';
-import { getFleetMachines, getFleetSolids, getFleetHitVolumes, getMachineKind } from './fleetGeometry.mjs';
+import { getFleetMachines, getFleetSolids, getFleetHitVolumes, getMachineHitVolumes, getMachineKind, damageFleetMachine } from './fleetGeometry.mjs';
+import { dragOonHitVolumes } from './dragOonGeometry.mjs';
 import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import {createSiegeSkill,primeSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS,integratedRamHazard,sampleRamFailure} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
@@ -342,6 +343,7 @@ const p=room.players.get(b.operatorId);
   if(!other||other.id===b.id||other.retired||other.health<=0||other.mode==='DESTROYED')continue;
   const oVols=getMachineKind(other)==='ram'?soFistVolumes(other,now)
     :getMachineKind(other)==='flight'?fightFlightHitVolumes(other)
+    :getMachineKind(other)==='dragoon'?dragOonHitVolumes(other)
     :biByeHitVolumes(other,now);
   if(curVolumes.some(v=>oVols.some(box=>machineryOverlap(v,box)))){
    overlapOtherIds.add(other.id);overlapOthers.push(other);
@@ -382,6 +384,7 @@ const p=room.players.get(b.operatorId);
       const otherKind=getMachineKind(other);
       const otherVols=otherKind==='ram'?soFistVolumes(other,now)
         :otherKind==='flight'?[...fightFlightHitVolumes(other),...fightFlightSolids(other)]
+        :otherKind==='dragoon'?dragOonHitVolumes(other,now)
         :biByeHitVolumes(other,now);
       const collided=soFistVolumes({...next,...pose}).some(v=>
         otherVols.some(box=>machineryOverlap(v,box)));
@@ -389,16 +392,12 @@ const p=room.players.get(b.operatorId);
         const intensity=impactMag;
         const point={x:other.x,y:other.y+1,z:other.z};
         const damage=Math.min(65,Math.round(Math.max(0,intensity-3.6)*8));
-        const kind=other.class??other.kind;
-        let damaged=false;
-        if(kind==='so-fist-ication'||kind==='ram'){
-          damaged=damageSoFistication(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
-        }else if(kind==='fight-and-flight'||kind==='flight'){
-          damaged=damageFightFlight(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'main',point,steelMinimum:5});
-        }else{
-          damaged=damageBiByeLlista(room,other,damage,b.operatorId,'ram-charge',now,{componentId:'hull',point});
- 
-        }
+        const componentId=otherKind==='flight'?'main':'hull';
+        const damaged=damageFleetMachine(room,other,damage,b.operatorId,'ram-charge',now,{
+          componentId,
+          point,
+          ...(otherKind==='flight'?{steelMinimum:5}:{}),
+        });
         if(damaged){
           const vx=(-Math.sin(b.heading)*travelSpeed)+extX,vz=(-Math.cos(b.heading)*travelSpeed)+extZ;
           const vLen=Math.hypot(vx,vz);
@@ -462,9 +461,7 @@ const p=room.players.get(b.operatorId);
   for(const other of getFleetMachines(room)){
    if(other.id===b.id||other.retired||other.health<=0||(b.strokeMachines??[]).includes(other.id))continue;
    if(b.strikeOperatorId&&other.operatorId&&areAllies(room,b.strikeOperatorId,other.operatorId))continue;
-   const otherVols=(other.class==='so-fist-ication'||other.kind==='ram')?soFistVolumes(other,now)
-     :(other.class==='fight-and-flight'||other.kind==='flight')?fightFlightHitVolumes(other)
-     :biByeHitVolumes(other,now);
+   const otherVols=getMachineHitVolumes(other,now);
    let first=null;
    for(const box of otherVols){
     const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
@@ -472,17 +469,8 @@ const p=room.players.get(b.operatorId);
    }
    if(first){
     const armored=hasFist(b),damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);
-    const kind=other.class??other.kind;
     const hitPoint={x:first.point[0],y:first.point[1],z:first.point[2]};
-    let struck=false;
-    if(kind==='so-fist-ication'||kind==='ram'){
-      struck=damageSoFistication(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
-    }else if(kind==='fight-and-flight'||kind==='flight'){
-      struck=damageFightFlight(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
-    }else{
-      struck=damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
- 
-    }
+    const struck=damageFleetMachine(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:hitPoint});
     if(struck){
       const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
       const strikeSpeed=Math.max(0,stroke.velocity)+Math.max(0,b.speed+(b.shuntVelocity??0))*.45;

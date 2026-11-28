@@ -84,12 +84,110 @@
 .drive-housing-track { height: 9px; margin-top: 4px; border: 1px solid #64553c; background: #10110e; position: relative; overflow: hidden; }
 .drive-housing-track::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 23%, #18181490 23% 25%); }
 .drive-housing-fill { width: var(--drive-pressure, 0%); height: 100%; background: linear-gradient(#f4d58b, #a98037); transition: width .12s linear; }
+.drive-housing[data-kind="dragoon"] .drive-housing-fill { background: linear-gradient(#ffb057, #d6551f); }
+.drive-housing[data-kind="dragoon"].overheated { border-color: #ef633c; box-shadow: inset 0 1px #ffb499, 0 0 10px rgba(239, 99, 60, .45); }
+.drive-housing[data-kind="dragoon"].overheated .drive-housing-fill { background: linear-gradient(#ffe08a, #e2381c); }
+.health-block.max-hp-reduced .health-value { color: #ffd4a6; }
 .hud.ram-mounted .bottom-hud { position: absolute; inset: 16px auto auto 22px; width: 250px; display: block; }
 .hud.ram-mounted .bottom-hud .health-block { width: 100%; }
 .hud.ram-mounted .guard-block { display: block !important; position: static; margin-top: 7px; width: 100%; transform: none; opacity: 1 !important; }
 .hud.ram-mounted .guard-track { height: 4px; margin-top: 2px; }
 .hud.ram-mounted .guard-block span { display: none; }
 .hud.ram-mounted .abilities { display: none; }
+.hud.dragoon-mounted.dragoon-passenger .abilities { display: flex; }
+.hud.dragoon-mounted .machine-gauge { width: min(560px, calc(100% - 40px)); }
+.machine-gauge[data-kind="dragoon"] .machine-health-assembly,
+.machine-gauge[data-kind="dragoon"] .machine-pitch,
+.machine-gauge[data-kind="dragoon"] .machine-piston,
+.machine-gauge[data-kind="dragoon"] .machine-gauge-context { display: none !important; }
+.machine-gauge[data-kind="dragoon"] { width: auto; max-width: min(720px, 95vw); background: transparent; border: none; box-shadow: none; padding: 0; }
+.dragoon-deck {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  padding: 6px 9px; border: 2px solid #927543; outline: 1px solid #1e1810;
+  background: linear-gradient(180deg, rgba(46, 40, 31, .94), rgba(20, 21, 18, .96));
+  box-shadow: inset 0 1px #cfaa5a88, 0 4px 14px #000b; pointer-events: auto;
+}
+.dragoon-deck[hidden] { display: none !important; }
+.dragoon-deck[data-role="passenger"] .dragoon-deck-actions .dragoon-act:not(.is-rite):not(.is-pax) { display: none; }
+.dragoon-deck.is-heat-danger { border-color: #ef633c; box-shadow: inset 0 1px #ffab8c88, 0 0 14px rgba(239, 99, 60, .4); }
+.dragoon-deck.is-rite-eligible { border-color: #ffd36a; box-shadow: inset 0 1px #fff1b8, 0 0 16px rgba(255, 198, 72, .45); }
+.dragoon-crew-pod { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.dragoon-crew-grid {
+  display: grid; grid-template-columns: repeat(3, 22px); grid-template-rows: 20px 20px; gap: 2px; align-items: center; justify-items: center;
+}
+.dragoon-seat {
+  position: relative; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #6b5b41;
+  background: rgba(16, 17, 15, .85); display: flex; align-items: center; justify-content: center; opacity: .42;
+}
+.dragoon-seat[data-seat="L1"] { grid-column: 1; grid-row: 1; }
+.dragoon-seat[data-seat="R1"] { grid-column: 3; grid-row: 1; }
+.dragoon-seat[data-seat="OP"] { grid-column: 2; grid-row: 1 / span 2; width: 24px; height: 24px; border-color: #a68649; }
+.dragoon-seat[data-seat="L2"] { grid-column: 1; grid-row: 2; }
+.dragoon-seat[data-seat="R2"] { grid-column: 3; grid-row: 2; }
+.dragoon-seat[data-occupied="true"] { opacity: 1; background: rgba(45, 42, 34, .95); border-color: #d0ad62; }
+.dragoon-seat[data-self="true"] { box-shadow: 0 0 6px #ffe39588; }
+.dragoon-seat i { width: 12px; height: 12px; display: flex; color: #efe4c8; }
+.dragoon-seat i svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 1.9; }
+.dragoon-seat b { position: absolute; font: 900 7px/1 'Alegreya Sans', sans-serif; color: #a7997a; }
+.dragoon-seat[data-occupied="true"] b { display: none; }
+.dragoon-seat.is-heat-trauma { border-color: #ff6234; background: rgba(105, 28, 16, .9); }
+.dragoon-seat.is-chivalry .dragoon-inf-ring .ring-bg { stroke: #d7ab46; opacity: .7; }
+.dragoon-seat.is-committed { border-color: #ffd86f; box-shadow: 0 0 8px #ffb93c; }
+.dragoon-inf-ring { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); pointer-events: none; transform: rotate(-90deg); }
+.dragoon-inf-ring circle { fill: none; stroke-width: 2; }
+.dragoon-inf-ring .ring-bg { stroke: transparent; }
+.dragoon-inf-ring .ring-arc { stroke: transparent; stroke-dasharray: 63; stroke-dashoffset: 63; }
+.dragoon-seat[data-element="fire"] i { color: #ff9c63; }
+.dragoon-seat[data-element="frost"] i { color: #9ce2ff; }
+.dragoon-seat[data-element="gale"] i { color: #a8f5be; }
+.dragoon-seat[data-element="lightning"] i { color: #ffe785; }
+.dragoon-seat[data-element="steel"] i { color: #cfdbe6; }
+.dragoon-inf-strip { display: flex; gap: 3px; min-height: 14px; }
+.dragoon-inf-pip {
+  position: relative; width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,.35); background: rgba(18, 18, 16, .85);
+}
+.dragoon-inf-pip svg { width: 9px; height: 9px; stroke: currentColor; fill: none; stroke-width: 2; }
+.dragoon-inf-pip.tier-1 { border-style: dashed; }
+.dragoon-inf-pip.tier-2 { border-width: 1.5px; box-shadow: 0 0 5px currentColor; }
+.dragoon-inf-pip.el-fire { color: #ff8e4f; } .dragoon-inf-pip.el-frost { color: #8ad8ff; } .dragoon-inf-pip.el-gale { color: #9cf2b2; } .dragoon-inf-pip.el-lightning { color: #ffe370; } .dragoon-inf-pip.el-steel { color: #d5e0ea; }
+.dragoon-bars { display: grid; gap: 3px; min-width: 170px; }
+.dragoon-bar-head { display: flex; justify-content: space-between; font: 900 9px/1 'Alegreya Sans', sans-serif; letter-spacing: .07em; color: #e2cfa1; }
+.dragoon-track { position: relative; height: 8px; margin-top: 2px; background: #12110d; border: 1px solid #59472b; overflow: hidden; }
+.dragoon-fill.is-hull { height: 100%; background: linear-gradient(#f7db70, #b18423); transition: width .12s linear; }
+.dragoon-fill.is-fuel { height: 100%; background: linear-gradient(#94c8e6, #3d7aa3); transition: width .1s linear; }
+.dragoon-fuel-disabled {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(135deg, rgba(168, 72, 46, .55) 0 4px, rgba(44, 22, 18, .78) 4px 8px);
+  border-left: 1px solid #d46b48;
+}
+.dragoon-heat-overzone { position: absolute; top: 0; right: 0; bottom: 0; background: rgba(120, 32, 18, .35); border-left: 1px solid #b55436; }
+.dragoon-fill.is-heat { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #e09a43, #e65922); transition: width .1s linear; }
+.dragoon-fill.is-heat-over { position: absolute; left: 64%; top: 0; bottom: 0; background: linear-gradient(90deg, #ff7a33, #ff2e18); box-shadow: 0 0 8px #ff3e1c; transition: width .1s linear; }
+.dragoon-heat-danger-tick { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffd47a; opacity: .85; }
+.dragoon-deck-actions { display: flex; gap: 4px; align-items: center; }
+.dragoon-act {
+  position: relative; width: 38px; height: 40px; border: 1px solid #7f6841; background: rgba(20, 19, 15, .92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; overflow: hidden;
+}
+.dragoon-act::after {
+  content: ''; position: absolute; inset: 0; background: rgba(8, 8, 8, .72); transform-origin: bottom;
+  transform: scaleY(var(--cd, 0)); pointer-events: none;
+}
+.dragoon-act em { width: 17px; height: 17px; display: flex; color: #e8d39f; z-index: 1; }
+.dragoon-act em svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.dragoon-act b { position: absolute; top: 1px; left: 2px; font: 900 7px/1 'Alegreya Sans', sans-serif; color: #c7b488; z-index: 1; }
+.dragoon-act small { font: 800 7px/1 'Alegreya Sans', sans-serif; color: #dfd4b8; z-index: 1; }
+.dragoon-act.is-active { border-color: #ffd368; box-shadow: inset 0 0 8px rgba(255, 194, 72, .45); }
+.dragoon-act.is-rite.is-active { border-color: #ff9c42; box-shadow: 0 0 10px rgba(255, 132, 46, .65); }
+.touch-ui .machine-gauge[data-kind="dragoon"] .machine-health-assembly,
+.machine-gauge[data-kind="dragoon"] .machine-pitch,
+.machine-gauge[data-kind="dragoon"] .machine-piston,
+.machine-gauge[data-kind="dragoon"] .machine-gauge-context { display: none !important; }
+.machine-gauge[data-kind="dragoon"] { width: auto; max-width: min(720px, 95vw); background: transparent; border: none; box-shadow: none; padding: 0; }
+.dragoon-deck { gap: 7px; padding: 4px 7px; }
+.touch-ui .dragoon-deck-actions { display: none; }
+.touch-ui .hud.dragoon-mounted .machine-gauge { width: min(295px, 46%); }
 .hud.ram-mounted .ballista-hud { display: none; }
 .hud.flight-mounted .flight-metric.hull { display: none; }
 @container app (max-width: 780px) {

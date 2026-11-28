@@ -13,6 +13,8 @@ import {areAllies} from '../src/teams.mjs';
 import {soFistVolumes} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
 import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
+import {dragOonHitVolumes} from './dragOonGeometry.mjs';
+import {getFleetMachines,getMachineKind,damageFleetMachine} from './fleetGeometry.mjs';
 
 export const BI_BYE_SWEEP=Object.freeze({
   single:1.65,opening:1.04,loop:1.20,settleClip:2.20,
@@ -222,25 +224,29 @@ function hitPlayer(room,b,s,player,point,normal,now,angle){
   revolution:s.revolution,sweepAngle:angle,at:now});
 }
 function hitMachines(room,b,s,oldBlades,newBlades,now,angle){
- for(const machine of [room.soFistication,room.fightFlight]){
-  if(!machine||machine.retired||machine.mode==='DESTROYED'||machine.health<=0||
+ for(const machine of getFleetMachines(room)){
+  if(!machine||machine.id===b.id||machine.retired||machine.mode==='DESTROYED'||machine.health<=0||
       machine.operatorId===s.ownerId||!biByeSweepAllowsContact(s.machines[machine.id],s.revolution,angle))continue;
   if(machine.team&&owner(room,b)?.team===machine.team&&room.mode!=='PRACTICE')continue;
-  const volumes=machine===room.soFistication?soFistVolumes(machine,now):fightFlightHitVolumes(machine);
+  const kind=getMachineKind(machine);
+  const volumes=kind==='ram'?soFistVolumes(machine,now)
+    :kind==='flight'?fightFlightHitVolumes(machine)
+    :kind==='dragoon'?dragOonHitVolumes(machine)
+    :null;
+  if(!volumes?.length)continue;
   const hit=contact(oldBlades,newBlades,volumes,.015);
   if(!hit)continue;
   s.machines[machine.id]={revolution:s.revolution,angle};
   const point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
-  const caused=machine===room.soFistication?
-   damageSoFistication(room,machine,BI_BYE_SWEEP.damage,s.ownerId,'bibye-sweep',now,{componentId:hit.target.componentId??'hull',point}):
-   damageFightFlight(room,machine,BI_BYE_SWEEP.damage,s.ownerId,'bibye-sweep',now,{componentId:hit.target.componentId??'main',point});
+  const caused=damageFleetMachine(room,machine,BI_BYE_SWEEP.damage,s.ownerId,'bibye-sweep',now,
+    {componentId:hit.target.componentId??(kind==='flight'?'main':'hull'),point});
   if(caused){
    const dx=machine.x-b.x,dz=machine.z-b.z,length=Math.hypot(dx,dz)||1;
-   if(machine===room.soFistication){
+   if(kind==='ram'){
     // Existing longitudinal recoil drive; no changes to the ram implementation.
     const projected=dx/length*(-Math.sin(machine.heading))+dz/length*(-Math.cos(machine.heading));
     machine.recoilVelocity=(machine.recoilVelocity??0)+projected*4;
-   }else if(machine.velocity){
+   }else if(kind==='flight'&&machine.velocity){
     machine.velocity.x+=dx/length*4;machine.velocity.z+=dz/length*4;
    }
    room.events?.push({type:'bibyeSweepMachineImpact',ballistaId:b.id,machineId:machine.id,componentId:hit.target.componentId,point,at:now});
