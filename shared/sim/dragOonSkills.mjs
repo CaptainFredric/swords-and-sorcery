@@ -13,6 +13,7 @@ import { applyDamage } from './combat.mjs';
 import { getFleetMachines, damageFleetMachine } from './fleetGeometry.mjs';
 import { addDragOonHeat, addDragOonOverheatPenalty, spendDragOonFuel } from './dragOonThermal.mjs';
 import { addSuppressionZone, createRazeField } from './dragOonFields.mjs';
+import { dragOonCannonRays } from './dragOonGeometry.mjs';
 import { dragOonOccupantIds, cancelCrewTransitionsForPlayer } from './dragOonCrew.mjs';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -55,6 +56,96 @@ export function applyDragOonMaxHealthDamage(room, victim, reductionAmount, now) 
     at: now,
   });
   return delta;
+}
+
+/**
+ * Shared downward/cannon-aligned inferno cone solver used by both Flight Like Hell
+ * and Rite of Ascension. Tracks articulated cannon direction, scorches suppression zones,
+ * and ticks damage/guard/maxHP on a single coherent cadence (never multiplied across nozzles).
+ */
+export function stepDragOonInfernoCone(room, m, tracker, now, world = room?.world, {
+  dps = DRAG_OON_TUNING.flightLikeHell.damagePerSec,
+  guardDrainPerSec = DRAG_OON_TUNING.flightLikeHell.guardDrainPerSec,
+  coneLength = DRAG_OON_TUNING.flightLikeHell.coneLength,
+  coneHalfAngleDeg = DRAG_OON_TUNING.flightLikeHell.coneHalfAngleDeg,
+  maxHealthShare = DRAG_OON_TUNING.flightLikeHell.maxHealthReductionShare,
+  source = 'dragoon-flight-like-hell',
+  tiers = m?.infusions?.tiers ?? {},
+  suppressGround = true,
+} = {}) {
+  if (!m || !tracker || m.retired || m.health <= 0 || m.mode === 'DESTROYED') return null;
+
+  // Derive downward/exhaust cone direction directly from articulated cannon rays so visual plume
+  // and authoritative hitbox always agree cleanly.
+  const rays = dragOonCannonRays(m);
+  let cx = 0, cy = 0, cz = 0;
+  for (const r of rays) {
+    cx += r.direction.x;
+    cy += r.direction.y;
+    cz += r.direction.z;
+  }
+  const len = Math.hypot(cx, cy, cz) || 1;
+  const coneDir = { x: cx / len, y: cy / len, z: cz / len };
+  const apex = { x: m.x, y: m.y + 0.55, z: m.z };
+
+  if (suppressGround && coneDir.y < -0.15) {
+    const reachT = Math.min(coneLength, Math.max(0.5, (m.y + 0.55) / Math.max(0.25, -coneDir.y)));
+    const probeX = apex.x + coneDir.x * Math.min(reachT, 5.0);
+    const probeZ = apex.z + coneDir.z * Math.min(reachT, 5.0);
+    const floorY = surfaceHeightAt(probeX, probeZ, m.y + 0.6, world);
+    if (floorY != null && m.y - floorY <= coneLength) {
+      const hitDist = Math.min(coneLength, Math.max(0.5, (apex.y - floorY) / Math.max(0.25, -coneDir.y)));
+      const scorchCenter = { x: apex.x + coneDir.x * hitDist, y: floorY, z: apex.z + coneDir.z * hitDist };
+      addSuppressionZone(room, m, scorchCenter, now);
+    }
+  }
+
+  const tickInterval = 0.25;
+  tracker.lastTickAt ??= now - tickInterval;
+  if (now - tracker.lastTickAt < tickInterval - 1e-6) return coneDir;
+  tracker.lastTickAt = now;
+
+  const rawDmg = dps * tickInterval * (m.brimmingBonusMult ?? 1);
+  const cosLimit = Math.cos((coneHalfAngleDeg * Math.PI) / 180);
+
+  for (const target of room.players?.values?.() ?? []) {
+    if (!target.alive || sameTeam(room, m.operatorId, m.team, target) || target.operatingDragOonId === m.id || target.aboardDragOonId === m.id) continue;
+    const chest = { x: target.position.x, y: target.position.y + postureOf(target).height * 0.5, z: target.position.z };
+    const dx = chest.x - apex.x, dy = chest.y - apex.y, dz = chest.z - apex.z;
+    const dist3 = Math.hypot(dx, dy, dz);
+    if (dist3 > coneLength || dist3 < 0.01) continue;
+    const dot = (dx * coneDir.x + dy * coneDir.y + dz * coneDir.z) / dist3;
+    if (dot < cosLimit) continue;
+    if ((world?.solids ?? []).some(s => !String(s.id ?? '').startsWith('dragoon-') && segmentAabbHit([apex.x, apex.y, apex.z], [chest.x, chest.y, chest.z], s))) continue;
+
+    if (target.guarding) {
+      target.guardStamina = Math.max(0, (target.guardStamina ?? 0) - guardDrainPerSec * tickInterval);
+      target.lastGuardDrainAt = now;
+    }
+    const actualDmg = rawDmg * (target.guarding && target.guardStamina > 0 ? 0.65 : 1);
+    const beforeHp = target.health;
+    const hitAccepted = applyDamage(room, m.operatorId, target.id, actualDmg, source, now, null, {
+      ongoing: true,
+      infusionTiers: tiers,
+    });
+    if (hitAccepted && target.alive && maxHealthShare > 0) {
+      const dealt = Math.max(0, beforeHp - target.health);
+      if (dealt > 0) {
+        applyDragOonMaxHealthDamage(room, target, dealt * maxHealthShare, now);
+      }
+    }
+  }
+
+  for (const other of getFleetMachines(room)) {
+    if (!other || other.id === m.id || other.retired || other.health <= 0) continue;
+    if (m.team && other.team && m.team === other.team) continue;
+    const dx = other.x - apex.x, dy = other.y - apex.y, dz = other.z - apex.z;
+    const dist3 = Math.hypot(dx, dy, dz);
+    if (dist3 <= coneLength && (dx * coneDir.x + dy * coneDir.y + dz * coneDir.z) / Math.max(0.1, dist3) >= cosLimit * 0.85) {
+      damageFleetMachine(room, other, rawDmg, m.operatorId, 'fireball', now, { point: { x: other.x, y: other.y, z: other.z } });
+    }
+  }
+  return coneDir;
 }
 
 /** Exposed predicate used by shared/sim/siegeSteel.mjs when Camp Fire protects Steel repairs. */
@@ -285,64 +376,21 @@ export function stepDragOonSkills(room, m, dt, now, world = room.world) {
         m.velocity.y = Math.max(-t.maxDescentSpeed, m.velocity.y + (t.hoverGravityCounter - 22.0) * dt);
       }
 
-      // Aimable downward cone origin -> scorch ground + concentrated inferno DPS + maxHP reduction
+      // Align downward cannons smoothly to operator look while Flight Like Hell fires
       const op = room?.players?.get?.(m.operatorId);
-      const aimOffsetYaw = clamp(m.cannonYaw ?? 0, -0.5, 0.5);
-      const forwardTilt = clamp((op?.pitch ?? -0.8) + 0.8, -0.35, 0.35);
-      const dirX = -Math.sin((m.heading ?? 0) + aimOffsetYaw) * forwardTilt;
-      const dirZ = -Math.cos((m.heading ?? 0) + aimOffsetYaw) * forwardTilt;
-      const dirLen = Math.hypot(dirX, -1, dirZ) || 1;
-      const coneDir = { x: dirX / dirLen, y: -1 / dirLen, z: dirZ / dirLen };
+      const yawDiff = op ? Math.atan2(Math.sin((op.input?.yaw ?? m.heading) - m.heading), Math.cos((op.input?.yaw ?? m.heading) - m.heading)) : 0;
+      m.cannonYaw = clamp(yawDiff * 0.55, -0.5, 0.5);
+      m.cannonPitch = clamp(-1.35 + ((op?.pitch ?? 0) * 0.35), -1.48, -1.02);
 
-      const floorY = surfaceHeightAt(m.x + dirX * 2.5, m.z + dirZ * 2.5, m.y + 0.5, world);
-      if (floorY != null && m.y - floorY <= t.coneLength) {
-        const scorchCenter = { x: m.x + coneDir.x * (m.y - floorY), y: floorY, z: m.z + coneDir.z * (m.y - floorY) };
-        addSuppressionZone(room, m, scorchCenter, now);
-      }
-
-      // Periodic cone DPS + shield/guard burn + maxHealth loss + structure burning
-      const tickInterval = 0.25;
-      m.flightLikeHell.lastTickAt ??= now - tickInterval;
-      if (now - m.flightLikeHell.lastTickAt >= tickInterval - 1e-6) {
-        m.flightLikeHell.lastTickAt = now;
-        const rawDmg = t.damagePerSec * tickInterval * (m.brimmingBonusMult ?? 1);
-        for (const target of room.players?.values?.() ?? []) {
-          if (!target.alive || sameTeam(room, m.operatorId, m.team, target) || target.operatingDragOonId === m.id || target.aboardDragOonId === m.id) continue;
-          const chest = { x: target.position.x, y: target.position.y + postureOf(target).height * 0.5, z: target.position.z };
-          const dx = chest.x - m.x, dy = chest.y - (m.y + 0.5), dz = chest.z - m.z;
-          const dist3 = Math.hypot(dx, dy, dz);
-          if (dist3 > t.coneLength || dist3 < 0.01) continue;
-          const dot = (dx * coneDir.x + dy * coneDir.y + dz * coneDir.z) / dist3;
-          if (dot < Math.cos((t.coneHalfAngleDeg * Math.PI) / 180)) continue;
-          if ((world?.solids ?? []).some(s => !String(s.id ?? '').startsWith('dragoon-') && segmentAabbHit([m.x, m.y + 0.4, m.z], [chest.x, chest.y, chest.z], s))) continue;
-
-          if (target.guarding) {
-            target.guardStamina = Math.max(0, (target.guardStamina ?? 0) - t.guardDrainPerSec * tickInterval);
-            target.lastGuardDrainAt = now;
-          }
-          // Burns cleanly through Guards/pavises; deal full DoT + reversible max-HP loss ONLY when damage actually lands!
-          const actualDmg = rawDmg * (target.guarding && target.guardStamina > 0 ? 0.65 : 1);
-          const beforeHp = target.health;
-          const hitAccepted = applyDamage(room, m.operatorId, target.id, actualDmg, 'dragoon-flight-like-hell', now, null, {
-            ongoing: true,
-            infusionTiers: tiers,
-          });
-          if (hitAccepted && target.alive) {
-            const dealt = Math.max(0, beforeHp - target.health);
-            if (dealt > 0) {
-              applyDragOonMaxHealthDamage(room, target, dealt * t.maxHealthReductionShare, now);
-            }
-          }
-        }
-        for (const other of getFleetMachines(room)) {
-          if (!other || other.id === m.id || other.retired || other.health <= 0) continue;
-          if (m.team && other.team && m.team === other.team) continue;
-          const dXZ = Math.hypot(other.x - m.x, other.z - m.z);
-          if (dXZ <= 5.2 && other.y <= m.y + 1.0 && m.y - other.y <= t.coneLength) {
-            damageFleetMachine(room, other, rawDmg, m.operatorId, 'fireball', now, { point: { x: other.x, y: other.y, z: other.z } });
-          }
-        }
-      }
+      stepDragOonInfernoCone(room, m, m.flightLikeHell, now, world, {
+        dps: t.damagePerSec,
+        guardDrainPerSec: t.guardDrainPerSec,
+        coneLength: t.coneLength,
+        coneHalfAngleDeg: t.coneHalfAngleDeg,
+        maxHealthShare: t.maxHealthReductionShare,
+        source: 'dragoon-flight-like-hell',
+        tiers,
+      });
     }
   }
 

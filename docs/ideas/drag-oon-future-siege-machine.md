@@ -54,7 +54,7 @@ DRAG-OON plays on *dragon*, *dragoon*, and *drag-on*. It is a slow, heavily armo
 2. **FLIGHT LIKE HELL** (`28s` cooldown — Midair Activation)
    - Triggered while airborne (typically after *Fuel's the Limit*): blasts all lower nozzles downward in a `14m`, `28°` half-angle aimable cone consuming `34` fuel/s, generating strong downward thrust (`hoverGravityCounter: 20.5` near-hover, capped descent `3.4 m/s`; Full Gale permits climbing at `5.2 m/s`).
    - Deals sustained intense beam/cone fire (`78` DPS vs players, `65/s` guard drain, `90` structure DPS), cushions the eventual landing slam (`0.52` factor, never harmless), rapidly drives up internal heat and `overheatPenalty` (temporarily locking max usable fuel down toward a `25` floor as penalty decays over time).
-   - **Frostfire synergy:** Inflicts server-authoritative **reversible maximum health reduction** (`42%` of damage dealt down to a `25` HP floor; restored on respawn/round reset).
+   - **Inherent Max-Health Suppression:** Directly inflicts server-authoritative **reversible maximum health reduction** (`42%` of actual damage dealt down to a `25` HP floor; restored on respawn/round reset, while spawn-protected or invulnerable targets take zero max-HP loss).
    - **Field-vs-Field Suppression:** Scorches hit ground (`5.2m` radius for `8.0s`), extinguishing overlapping persistent elemental fields (`dragOonFlames`, `dragOonRazeFields`, `oneHitFields`, Valkyrie flame pools) and blocking new persistent fields inside the scorched footprint while permitting direct spell/projectile combat.
 
 3. **CAMP FIRE** (`24s` cooldown)
@@ -91,7 +91,7 @@ All values live centrally in [`shared/src/dragOonConfig.mjs`](../../shared/src/d
 
 ### Open Design & Balance Decisions (Pending Playtesting)
 1. **Siege Blades Allocation Weight:** Currently `allocationWeight: 2`; decide whether DRAG-OON counts as 2 team slots or 1 heavy slot with passenger synergy caps in 2v2 / 3v3 competitive Siege Blades.
-2. **Passenger Max Health Cap Balance:** Confirm whether Flight Like Hell's Frostfire max-HP floor (`25` HP) and conversion fraction (`42%`) feel fair vs slow-healing objectives.
+2. **Passenger Max Health Cap Balance:** Confirm whether Flight Like Hell's reversible max-HP floor (`25` HP) and conversion fraction (`42%`) feel fair vs slow-healing objectives.
 3. **Passenger Prepared Spell Contributions:** `allowMultiPreparedSpells` is currently `false` (passengers contribute their primary equipped spell only); decide whether Chivalry multi-prepared cycling should contribute multiple infusions.
 4. **Raze Interrupt & Self-Thermal Punishment:** Confirm whether interrupted Raze casts should drop a smaller volatile puddle or strictly fizzle with partial fuel refund.
 

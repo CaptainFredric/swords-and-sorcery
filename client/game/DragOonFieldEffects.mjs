@@ -5,6 +5,8 @@
 // - Flight Like Hell scorch suppression markers
 // - Fire's the Limit launch/slam bursts & All Abort! detonation
 import * as THREE from 'three';
+import { DRAG_OON_TUNING } from '../../shared/src/dragOonConfig.mjs';
+import { dragOonCannonRays } from '../../shared/sim/dragOonGeometry.mjs';
 
 const ELEMENT_HEX = Object.freeze({
   fire: 0xff6224,
@@ -37,24 +39,28 @@ export class DragOonFieldEffects {
     this.discGeo = new THREE.RingGeometry(0.15, 1, 24);
     this.discGeo.rotateX(-Math.PI / 2);
     this.barricadeGeo = new THREE.CylinderGeometry(0.95, 1.05, 2.2, 10, 1, true);
+    // Open cone with apex at (0, 0, 0) pointing downward along -Y to wide base (radius 1 at y = -1)
+    this.coneGeo = new THREE.ConeGeometry(1, 1, 18, 1, true);
+    this.coneGeo.translate(0, -0.5, 0);
 
     this.flameMeshes = [];
     this.ringMeshes = [];
     this.razeMeshes = [];
     this.scorchMeshes = [];
+    this.coneMeshes = [];
     this.bursts = [];
   }
 
   onEvent(event) {
     if (!event) return;
     if (event.type === 'dragOonLeapPhase' && (event.phase === 'launch' || event.phase === 'landing') && (event.point || event.origin)) {
-      this.#spawnBurst(event.point ?? event.origin, event.steelRupture ? 0xc8d8e8 : 0xff6620, event.phase === 'landing' ? 5.6 : 4.2, 0.55);
+      this.#spawnBurst(event.point ?? event.origin, event.steelRupture ? 0xc8d8e8 : 0xff6620, event.phase === 'landing' ? 4.8 : 3.2, 0.48);
     } else if (event.type === 'dragOonRiteAscended' && event.point) {
-      this.#spawnBurst(event.point, 0xff5a18, 6.8, 0.75);
+      this.#spawnBurst(event.point, 0xff5a18, 3.4, 0.48);
     } else if (event.type === 'dragOonDestroyed' && event.point) {
-      const dur = event.isRiteOfAscension ? 1.45 : 0.9;
+      const dur = event.isRiteOfAscension ? 1.35 : 0.9;
       const hex = event.isRiteOfAscension ? 0xff4210 : (event.brimming ? 0xff3b18 : 0xff7728);
-      this.#spawnBurst(event.point, hex, event.radius ?? 8, dur);
+      this.#spawnBurst(event.point, hex, Math.min(12, event.radius ?? 8), dur);
     }
   }
 
@@ -184,7 +190,61 @@ export class DragOonFieldEffects {
       item.mat.opacity = e.prep ? 0.5 : 0.36 * e.frac;
     }
 
-    // 4. Flight Like Hell scorched suppression zones
+    // Oriented articulated downward inferno plumes matching authoritative cone direction/reach
+    const activeCones = [];
+    const coneDown = new THREE.Vector3(0, -1, 0);
+    const coneDirVec = new THREE.Vector3();
+    for (const m of snapshot.machines ?? []) {
+      if (!m || m.kind !== 'dragoon' || m.retired || m.health <= 0) continue;
+      const isRite = Boolean(m.rite?.active);
+      const isFlight = Boolean(m.flightLikeHell?.active);
+      if (!isRite && !isFlight) continue;
+      const rays = dragOonCannonRays(m);
+      coneDirVec.set(0, 0, 0);
+      for (const r of rays) {
+        coneDirVec.x += r.direction.x;
+        coneDirVec.y += r.direction.y;
+        coneDirVec.z += r.direction.z;
+      }
+      if (coneDirVec.lengthSq() < 1e-6) coneDirVec.set(0, -1, 0);
+      else coneDirVec.normalize();
+      const length = isRite ? DRAG_OON_TUNING.riteOfAscension.exhaustConeLength : DRAG_OON_TUNING.flightLikeHell.coneLength;
+      const halfAngle = (isRite ? DRAG_OON_TUNING.riteOfAscension.exhaustConeHalfAngleDeg : DRAG_OON_TUNING.flightLikeHell.coneHalfAngleDeg) * (Math.PI / 180);
+      const radius = Math.tan(halfAngle) * length;
+      const tiers = isRite ? (m.rite?.frozenTiers ?? m.infusions?.tiers ?? {}) : (m.infusions?.tiers ?? {});
+      const apex = [(m.x ?? 0), (m.y ?? 0) + 0.45, (m.z ?? 0)];
+      const quat = new THREE.Quaternion().setFromUnitVectors(coneDown, coneDirVec.clone());
+      activeCones.push({
+        apex,
+        quat,
+        radius: radius * 0.52,
+        length: length * 0.92,
+        color: isRite ? 0xffb347 : flameColorForSegment({ tiers }),
+        opacity: isRite ? 0.46 : 0.34,
+      });
+      activeCones.push({
+        apex,
+        quat,
+        radius,
+        length,
+        color: isRite ? 0xff4c12 : flameColorForSegment({ tiers }),
+        opacity: isRite ? 0.16 : 0.12,
+      });
+    }
+    this.#syncPool(this.coneMeshes, activeCones.length, () => {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff5a18, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
+      return { mesh: new THREE.Mesh(this.coneGeo, mat), mat };
+    });
+    for (let i = 0; i < activeCones.length; i++) {
+      const c = activeCones[i], item = this.coneMeshes[i];
+      item.mesh.position.set(c.apex[0], c.apex[1], c.apex[2]);
+      item.mesh.quaternion.copy(c.quat);
+      item.mesh.scale.set(c.radius, c.length, c.radius);
+      item.mat.color.setHex(c.color);
+      item.mat.opacity = c.opacity * (0.88 + 0.12 * Math.sin(serverNow * 24));
+    }
+
+    // 4. Flight Like Hell & Rite scorched suppression zones
     const scorches = (snapshot.dragOonSuppressionZones ?? []).filter(z => serverNow < z.expiresAt);
     this.#syncPool(this.scorchMeshes, scorches.length, () => {
       const mat = new THREE.MeshBasicMaterial({ color: 0x1a1518, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false });
@@ -205,7 +265,8 @@ export class DragOonFieldEffects {
     this.ringGeo.dispose();
     this.discGeo.dispose();
     this.barricadeGeo.dispose();
-    for (const p of [...this.flameMeshes, ...this.ringMeshes, ...this.razeMeshes, ...this.scorchMeshes]) {
+    this.coneGeo.dispose();
+    for (const p of [...this.flameMeshes, ...this.ringMeshes, ...this.razeMeshes, ...this.scorchMeshes, ...this.coneMeshes]) {
       p.mat.dispose();
       p.wallMat?.dispose();
     }

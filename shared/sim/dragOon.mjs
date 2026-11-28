@@ -29,6 +29,7 @@ import {
   dragOonOccupantIds,
   ejectDragOonSurvivors,
   cancelCrewTransitionsForPlayer,
+  removeDragOonOccupant,
   stepDragOonCrew,
 } from './dragOonCrew.mjs';
 import {
@@ -392,6 +393,9 @@ export function triggerAllAbortDestruction(room, m, now, {
 
   const origin = point ? { ...point } : { x: m.x, y: m.y + 1.0, z: m.z };
   const occupantIds = dragOonOccupantIds(m);
+  const terminalCrewIds = wasRite
+    ? [...new Set([...occupantIds, ...(m.rite?.participantIds ?? [])])]
+    : occupantIds;
   const survivors = [];
 
   // Cancel any in-progress boarding cleanly (players not aboard yet are NOT executed as occupants)
@@ -402,16 +406,25 @@ export function triggerAllAbortDestruction(room, m, now, {
     }
   }
 
-  // 1. Apply single authoritative All Abort! trauma to every occupant STILL aboard
-  //    (including anyone whose disembarkation has NOT completed!).
-  for (const oid of occupantIds) {
+  // 1. Deliberate internal machine-hazard trauma across occupants / terminal Rite participants:
+  //    - Bypasses hostile PvP areAllies blocking cleanly so team-mode All Abort! & Rite always resolve.
+  //    - Never awards kill credit to allied pilots.
+  //    - Terminal Rite bypasses spawnProtection / Steel / Last-HP protection floors so committed crew perish.
+  const crewAttackerId = wasRite ? null : attackerId;
+  for (const oid of terminalCrewIds) {
     const crewMember = room?.players?.get?.(oid);
     if (!crewMember || !crewMember.alive) continue;
-    // Attribute explosion kill credit fairly without inflated multi-credit
-    applyDamage(room, attackerId, crewMember.id, crewDamage, wasRite ? 'dragoon-rite-crew' : 'dragoon-all-abort-crew', now, null, {
+    const lethalRiteDmg = wasRite ? Math.max(crewDamage, (crewMember.health ?? 100) + 250) : crewDamage;
+    applyDamage(room, crewAttackerId, crewMember.id, lethalRiteDmg, wasRite ? 'dragoon-rite-crew' : 'dragoon-all-abort-crew', now, null, {
+      internalHazard: true,
+      bypassImmunity: wasRite,
       skipSteel: brimming || wasRite,
     });
-    if (crewMember.alive) survivors.push(crewMember);
+    if (!wasRite && crewMember.alive) {
+      survivors.push(crewMember);
+    } else if (wasRite) {
+      removeDragOonOccupant(room, m, crewMember, { at: now, reason: 'rite-detonation' });
+    }
   }
 
   // 2. Apply blast explosion to nearby enemies & enemy machines outside (excluding own occupants already resolved!)

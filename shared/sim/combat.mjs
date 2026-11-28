@@ -1607,10 +1607,15 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
   minDamage = null, skipSteel = false, ongoing = false, infusionCastKey = null,
   killVariant = null, guardWouldSave = false, infusionTiers = null,
+  internalHazard = false, bypassImmunity = false,
 } = {}) {
-  if (attackerId && areAllies(room, attackerId, victimId)) return false;
+  if (!internalHazard && attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
-  if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
+  if (!victim || !victim.alive || (!bypassImmunity && victim.spawnProtectionUntil > nowSec)) return false;
+  // Internal machine hazards must never award allied/self PvP kills to the pilot.
+  const creditAttackerId = internalHazard && attackerId && (attackerId === victimId || areAllies(room, attackerId, victimId))
+    ? null
+    : attackerId;
 
   // Sample the CURRENT authoritative field, not its next scheduled burn tick:
   // allied last-HP protection and hostile Prowess loss apply to any incoming
@@ -1621,7 +1626,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   let finalTurned = turned;
 
   // Apply centralized Steel mitigation if victim is Sheathed in Steel and not already mitigated
-  if (!skipSteel && !steel && victim.steel && finalAmount > 0) {
+  if (!skipSteel && !bypassImmunity && !steel && victim.steel && finalAmount > 0) {
     const mit = steelMitigate(victim.steel, finalAmount, source, nowSec, minDamage);
     if (mit.turned > 0) {
       if (source !== 'burn' && source !== 'rupture') {
@@ -1636,16 +1641,13 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const healthBefore = victim.health;
   // A repeater barrage must really have hit more than once to count as
   // pelting. This is per victim, per attacker and per uninterrupted burst.
-  if(source==='fight-flight-repeater'&&attackerId&&amount>0){
+  if(source==='fight-flight-repeater'&&creditAttackerId&&amount>0){
     const trail=victim.killfeedPelting;
-    victim.killfeedPelting=trail?.attackerId===attackerId&&nowSec-trail.at<=3
-      ?{attackerId,at:nowSec,hits:trail.hits+1}:{attackerId,at:nowSec,hits:1};
+    victim.killfeedPelting=trail?.attackerId===creditAttackerId&&nowSec-trail.at<=3
+      ?{attackerId:creditAttackerId,at:nowSec,hits:trail.hits+1}:{attackerId:creditAttackerId,at:nowSec,hits:1};
   }
-  // Full Steel temporarily makes the LAST HP invulnerable. This is damage
-  // prevention, NOT a deferred debt: it never kills the knight when the
-  // Ultimate, its Gale wave, or its protection expires.
-  // Ordinary damage/mitigation, knockback and stagger still work normally.
-  const steelFloor = finalAmount > Math.max(0, victim.health - 1) &&
+  // Full Steel temporarily makes the LAST HP invulnerable (bypassed ONLY by terminal self-sacrifice).
+  const steelFloor = !bypassImmunity && finalAmount > Math.max(0, victim.health - 1) &&
     oneHitSteelFloorActive(victim, nowSec);
   if (steelFloor) {
     finalAmount = Math.max(0, victim.health - 1);
@@ -1654,28 +1656,23 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       state.steelFloorAnnounced = true;
       // Retain the visible steel-on-impact sparks for both clients, but no
       // repeated explanatory screen text or future lethal settlement.
-      room.events.push({ type: 'oneHitLastStand', playerId: victimId, attackerId, source,
+      room.events.push({ type: 'oneHitLastStand', playerId: victimId, attackerId: creditAttackerId, source,
         until: state.until ?? null, at: nowSec });
     }
   }
-  // Valkyrie's sacrifice protects allies' LAST HP only while they are
-  // physically in its active ground fire. Existing Steel mitigation, damage
-  // events, knockback and other effects resolve normally before this floor.
-  // Feed the existing In Denial voice reaction only when the flames
-  // actually avert a lethal hit, not merely on entry or ordinary damage.
-  const inDenial=valkyrieFlames.allied&&finalAmount>0&&finalAmount>=victim.health;
-  if(valkyrieFlames.allied&&finalAmount>0)
-    finalAmount=Math.min(finalAmount,Math.max(0,victim.health-1));
+  // Valkyrie's sacrifice protects allies' LAST HP only while physically in ground fire
+  // (bypassed ONLY by terminal self-sacrifice).
+  const inDenial = !bypassImmunity && valkyrieFlames.allied && finalAmount > 0 && finalAmount >= victim.health;
+  if (!bypassImmunity && valkyrieFlames.allied && finalAmount > 0)
+    finalAmount = Math.min(finalAmount, Math.max(0, victim.health - 1));
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
   if (taken > 0) {
     victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + taken;
-    // True multiple-attacker finishers, including siege/Spellblade contributions.
-    // Record only actual post-mitigation HP damage and expire old contributors.
     const recent=(victim.killfeedDamageContributors??=[]).filter(
-      entry=>nowSec-entry.at<=6 && entry.id!==attackerId);
-    if(attackerId&&attackerId!==victimId&&room.players.has(attackerId))
-      recent.push({id:attackerId,at:nowSec});
+      entry=>nowSec-entry.at<=6 && entry.id!==creditAttackerId);
+    if(creditAttackerId&&creditAttackerId!==victimId&&room.players.has(creditAttackerId))
+      recent.push({id:creditAttackerId,at:nowSec});
     victim.killfeedDamageContributors=recent.slice(-12);
     const hitElements = killfeedElementsForDamage(source, infusionTiers);
     if (hitElements.length) {
@@ -1685,8 +1682,6 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       victim.killfeedElementalSources = recentEls.slice(-10);
     }
   }
-  // HP lost inside a hostile Disaster field takes Guard stamina with it, by what is left of the field (the field a
-  // knight stands in is read once a tick, stepOneHitFields: one field, one loss, however many overlap)
   const field = taken > 0 ? victim.oneHitField : null;
   if (field && field.strength > 0 && field.ownerId !== victimId) {
     const loss = fieldGuardLoss(taken, field.strength);
@@ -1695,12 +1690,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     if (victim.guardStamina <= 0 && victim.guarding) breakGuard(victim, 0.4, nowSec);
     room.events.push({ type: 'oneHitFieldGuard', playerId: victimId, fieldId: field.id, amount: Math.round(loss * 10) / 10, at: nowSec });
   }
-  // Only successfully applied ordinary elemental spell uses count. One source use
-  // counts once for each participant, regardless of AoE victims, burn or DoT ticks.
-  const element = !ultimate && !ongoing ? elementForSpell(source) : null;
+  const element = !ultimate && !ongoing && !internalHazard ? elementForSpell(source) : null;
   if (element && taken > 0) {
-    const key = infusionCastKey || `${source}:${attackerId}:${nowSec}`;
-    const caster = room.players.get(attackerId);
+    const key = infusionCastKey || `${source}:${creditAttackerId}:${nowSec}`;
+    const caster = room.players.get(creditAttackerId);
     for (const participant of [caster, victim]) {
       if (creditOneHitEncounter(participant, element, key)) {
         room.events.push({ type: 'oneHitInfusion', playerId: participant.id, element,
@@ -1708,16 +1701,11 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       }
     }
   }
-  // Only the locally staged Tutorial Rival survives until its final fight begins.
-  // Contact, damage events, afflictions and physical response still resolve normally.
-  if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
+  if (!bypassImmunity && room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
-  victim.lastAttackerId = attackerId;
-  // Do not first AWARD the usual damage-taken Prowess only to subtract it:
-  // the requested net penalty is exactly the HP actually lost, not .86 HP.
-  // Attackers still earn their ordinary dealt-damage Prowess.
+  if (creditAttackerId) victim.lastAttackerId = creditAttackerId;
   const valkyriePenalty=valkyrieFlames.hostile||source==='fight-flight-terminal';
-  if (!ongoing) prowessForDamage(room,room.players.get(attackerId),victim,taken,
+  if (!ongoing && !internalHazard) prowessForDamage(room,room.players.get(creditAttackerId),victim,taken,
     {ultimate,victimGains:!valkyriePenalty});
   if(valkyriePenalty&&taken>0){
     const before=victim.prowess??0;
@@ -1732,12 +1720,13 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     victim.lastKnockbackAt = nowSec;
     if (Math.hypot(knockback.x, knockback.y, knockback.z) > 1e-6) {
       victim.lastKnockbackSource = source;
-      victim.lastKnockbackBy = attackerId;
+      victim.lastKnockbackBy = creditAttackerId;
     }
   }
-  const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  const event = { type: 'damage', attackerId: creditAttackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
   if (inDenial) event.inDenial = true;
   if (ongoing) event.ongoing = true;
+  if (internalHazard) event.internalHazard = true;
   if (finalSteel > 0.005) {
     if (source !== 'burn') event.steel = finalSteel;
     event.turned = Math.max(0, Math.round(finalTurned));
@@ -1747,11 +1736,11 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (ultimate) event.ultimate = true;
   room.events.push(event);
   recordChallengeFact(room, {
-    ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
+    ...contactFacts, type: 'damage', attackerId: creditAttackerId, victimId, source, amount: taken, rawDamage,
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
-  recordPerryDamage(room, attackerId, victimId, source, nowSec, taken, healthBefore);
-  if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec, killVariant, {
+  recordPerryDamage(room, creditAttackerId, victimId, source, nowSec, taken, healthBefore);
+  if (victim.health <= 0) killPlayer(room, victimId, creditAttackerId, source, nowSec, killVariant, {
     excessDamage: Math.max(0, finalAmount-healthBefore),
     guardWouldSave: Boolean(guardWouldSave),
     pelted: source==='fight-flight-repeater'&&victim.killfeedPelting?.hits>=3,

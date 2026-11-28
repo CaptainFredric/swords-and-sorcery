@@ -4104,12 +4104,12 @@ export class GameRuntime {
           ];
           target.set(...clip(this.#reach, anchor, desired, .22));
         }else{
-          const pivot=[(b.x??0),(b.y??0)+(airborne?2.85:2.45),(b.z??0)];
-          const dist=airborne?8.8:8.0;
+          const pivot=[(b.x??0),(b.y??0)+(b.rite?.active?3.1:airborne?2.85:2.45),(b.z??0)];
+          const dist=b.rite?.active?10.6:airborne?8.8:8.0;
           const cp=Math.cos(Math.max(-0.6,Math.min(0.85,this.input.pitch)));
           const desired=[
             pivot[0]+Math.sin(this.input.yaw)*cp*dist,
-            pivot[1]+Math.sin(Math.max(-0.45,Math.min(0.85,-this.input.pitch)))*dist+(airborne?2.1:1.4),
+            pivot[1]+Math.sin(Math.max(-0.45,Math.min(0.85,-this.input.pitch)))*dist+(b.rite?.active?2.5:airborne?2.1:1.4),
             pivot[2]+Math.cos(this.input.yaw)*cp*dist,
           ];
           target.set(...clip(this.#reach,pivot,desired,.32));

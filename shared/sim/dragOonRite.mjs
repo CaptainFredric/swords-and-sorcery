@@ -14,6 +14,7 @@ import { edgeMachineProgressAllowed } from '../src/edgeBoundary.mjs';
 import { DRAG_OON_TUNING } from '../src/dragOonConfig.mjs';
 import { dragOonClear, dragOonSolids } from './dragOonGeometry.mjs';
 import { computeDragOonInfusions, cancelCrewTransitionsForPlayer, isDragOonOccupant } from './dragOonCrew.mjs';
+import { stepDragOonInfernoCone } from './dragOonSkills.mjs';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -216,12 +217,13 @@ export function activateDragOonRite(room, m, player, now = 0, { onDetonate } = {
   const fwdX = -Math.sin(yaw);
   const fwdZ = -Math.cos(yaw);
   m.grounded = false;
+  m.chassisPitch = -0.28;
   m.cannonPitch = -1.32;
   m.cannonYaw = 0;
   m.velocity = {
-    x: fwdX * t.ascentForwardSpeed * 0.55 * speedScale,
+    x: fwdX * t.initialForwardSpeed * speedScale,
     y: t.ascentUpSpeed * speedScale,
-    z: fwdZ * t.ascentForwardSpeed * 0.55 * speedScale,
+    z: fwdZ * t.initialForwardSpeed * speedScale,
   };
 
   m.rite = {
@@ -234,6 +236,7 @@ export function activateDragOonRite(room, m, player, now = 0, { onDetonate } = {
     participantIds,
     frozenTiers,
     speedScale,
+    lastTickAt: now - 0.25,
     detonated: false,
   };
   m.skill = { ...(m.skill ?? {}), phase: 'rite' };
@@ -304,32 +307,49 @@ export function stepDragOonRite(room, m, dt, now, world = room?.world, { onDeton
     return true;
   }
 
-  // Guide skyward rocket arc using operator steering inputs
+  // Guide skyward rocket arc with accelerating thrust beyond normal chassis limits
   const input = op.input ?? {};
   const steerYaw = clamp(input.right ?? 0, -1, 1);
-  const pitchIn = clamp(input.pitch ?? 0.15, t.steerPitchMin, t.steerPitchMax);
-  const thrustIn = clamp(input.forward ?? 1, -0.35, 1);
+  const pitchIn = clamp(input.pitch ?? 0.22, t.steerPitchMin, t.steerPitchMax);
+  const thrustIn = clamp(input.forward ?? 1, -0.25, 1);
   m.heading = (m.heading ?? 0) - steerYaw * t.steerTurnRate * dt;
   const targetYaw = Number.isFinite(input.yaw) ? input.yaw : m.heading;
   const yawDiff = Math.atan2(Math.sin(targetYaw - m.heading), Math.cos(targetYaw - m.heading));
-  m.heading += clamp(yawDiff, -t.steerTurnRate * 0.7 * dt, t.steerTurnRate * 0.7 * dt);
+  m.heading += clamp(yawDiff, -t.steerTurnRate * 0.85 * dt, t.steerTurnRate * 0.85 * dt);
 
   const age = Math.max(0, now - rite.startedAt);
-  const speed = t.ascentForwardSpeed * (rite.speedScale ?? 1) * (0.65 + 0.35 * clamp(thrustIn, 0, 1));
-  const climbPhase = age < 0.85;
-  const aimPitch = climbPhase ? Math.max(0.32, pitchIn) : pitchIn;
+  const ramp = clamp(age / Math.max(0.1, t.rocketRampSec), 0, 1);
+  const baseRocketSpeed = t.ascentCruiseMinSpeed + (t.ascentMaxSpeed - t.ascentCruiseMinSpeed) * (ramp * ramp * (3 - 2 * ramp));
+  const speed = baseRocketSpeed * (rite.speedScale ?? 1) * (0.78 + 0.22 * clamp(thrustIn, 0, 1));
+  const climbPhase = age < 0.72;
+  const aimPitch = climbPhase ? Math.max(0.36, pitchIn) : pitchIn;
   const fwd = { x: -Math.sin(m.heading) * Math.cos(aimPitch), y: Math.sin(aimPitch), z: -Math.cos(m.heading) * Math.cos(aimPitch) };
 
   const targetVx = fwd.x * speed;
-  const targetVy = climbPhase ? Math.max(fwd.y * speed, t.ascentUpSpeed * 0.75) : fwd.y * speed;
+  const targetVy = climbPhase ? Math.max(fwd.y * speed, t.ascentUpSpeed * (0.95 - age * 0.4)) : fwd.y * speed;
   const targetVz = fwd.z * speed;
-  const blend = clamp(dt * 4.5, 0, 1);
+  const blend = clamp(dt * 6.5, 0, 1);
   m.velocity.x += (targetVx - m.velocity.x) * blend;
   m.velocity.y += (targetVy - m.velocity.y) * blend;
   m.velocity.z += (targetVz - m.velocity.z) * blend;
 
   m.chassisPitch = clamp(-aimPitch * 0.55, -0.45, 0.45);
-  m.chassisRoll = clamp(steerYaw * 0.25, -0.32, 0.32);
+  m.chassisRoll = clamp(steerYaw * 0.28, -0.32, 0.32);
+
+  // Align articulated cannons downward & trailing exhaust along steered trajectory
+  m.cannonYaw = clamp(yawDiff * 0.65, -0.48, 0.48);
+  m.cannonPitch = clamp(-1.38 + (aimPitch * 0.35), -1.48, -1.04);
+
+  // Sustained damaging downward inferno exhaust while ascending (stops immediately if detonated)
+  stepDragOonInfernoCone(room, m, rite, now, world, {
+    dps: t.exhaustDps,
+    guardDrainPerSec: t.exhaustGuardDrainPerSec,
+    coneLength: t.exhaustConeLength,
+    coneHalfAngleDeg: t.exhaustConeHalfAngleDeg,
+    source: 'dragoon-rite-exhaust',
+    tiers: rite.frozenTiers,
+    suppressGround: true,
+  });
 
   const nextX = m.x + m.velocity.x * dt;
   const nextY = m.y + m.velocity.y * dt;

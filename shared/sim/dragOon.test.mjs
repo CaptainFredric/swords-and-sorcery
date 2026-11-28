@@ -572,4 +572,96 @@ test('10. V4.1 geometry, 4-station limits, outward aperture aiming, staggered ev
   assert.equal(riteBlasts.length, 1, 'Rite resolves through a single atomic All Abort! blast');
   assert.equal(riteBlasts[0].isRiteOfAscension, true);
   assert.ok(foe.health < 100 || !foe.alive, 'Catastrophic Rite explosion strikes nearby enemy');
+  assert.equal(rOp.alive, false, 'Rite operator dies on terminal detonation');
+  assert.equal(rP1.alive, false, 'Rite passenger 1 dies on terminal detonation');
+  assert.equal(rP2.alive, false, 'Rite passenger 2 dies on terminal detonation');
+});
+
+test('11. Team-room All Abort! internal hazard & Rite of Ascension damaging rocket exhaust + mandatory crew deaths', () => {
+  // Part A: Team-based room ordinary All Abort! damages remaining occupants (never skips via areAllies, never awards pilot teamkill)
+  const abortRoom = makeRoom(GAME_MODES.SIEGE_BLADES, makeFlatWorld(), { isPrivate: true });
+  abortRoom.policy = { teamMode: true, respawnSec: 5 };
+  const tOp = addActor(abortRoom, 'tOp', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'fireball' }, 1);
+  const tPax = addActor(abortRoom, 'tPax', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'steel' }, 1);
+  const tMat = createDragOon({ id: 'd-team-abort', x: 0, y: 0, z: 0, heading: 0, team: TEAMS.ATTACKERS, heat: 50, health: 25 });
+  abortRoom.addMachine(tMat);
+  assignDragOonCrewInstant(abortRoom, tMat, tOp, { role: 'operator', now: 1 });
+  assignDragOonCrewInstant(abortRoom, tMat, tPax, { role: 'passenger', station: 0, now: 1 });
+  triggerAllAbortDestruction(abortRoom, tMat, 2.0, { attackerId: tOp.id, source: 'overheat' });
+  assert.ok(tOp.health < 100, 'Ordinary team All Abort! damages remaining operator');
+  assert.ok(tPax.health < 100, 'Ordinary team All Abort! damages remaining allied passenger');
+  assert.equal(tOp.alive, true, 'Moderate heat leaves ordinary All Abort! survivors alive to eject');
+  assert.equal(tOp.kills ?? 0, 0, 'Pilot receives zero teamkill credit');
+
+  // Part B: Team-based Siege Blades room Rite of Ascension with spawnProtection, Steel ward, Full Steel 1-HP floor, and Valkyrie AoD immunity tests
+  const room = makeRoom(GAME_MODES.SIEGE_BLADES, makeFlatWorld(), { isPrivate: true, teamSize: 3 });
+  room.policy = { teamMode: true, respawnSec: 5 };
+  const op = addActor(room, 'op', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'fireball' }, 1);
+  op.ultimate = 'chivalry'; op.prowess = 100;
+  const pax1 = addActor(room, 'pax1', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  pax1.ultimate = 'chivalry'; pax1.prowess = 100;
+  const pax2 = addActor(room, 'pax2', { x: 0, z: 0, team: TEAMS.ATTACKERS, spell: 'gale' }, 1);
+  pax2.ultimate = 'chivalry'; pax2.prowess = 100;
+
+  // Apply every ordinary survival defense on crew to prove terminal Rite cannot be cheesed!
+  pax1.spawnProtectionUntil = 99;
+  pax2.steel = { calledAt: 1, fullUntil: 99, fadeUntil: 105, damagedAt: -Infinity };
+  op.ultimateState = { id: 'one_hit_of_wonders', phase: 'active', until: 99, preparedTiers: { steel: 2 } };
+  room.flightBurnZones.push({ id: 'valk-denial', team: TEAMS.ATTACKERS, ownerId: op.id, x: 0, y: 0, z: 0, radius: 30, bornAt: 0, expiresAt: 99 });
+
+  const underEnemy = addActor(room, 'underEnemy', { x: 0, z: -2.2, team: TEAMS.DEFENDERS }, 1);
+  underEnemy.guarding = true; underEnemy.guardStamina = 40;
+  const defHelper = addActor(room, 'defHelper', { x: 40, z: -30, team: TEAMS.DEFENDERS }, 1);
+  const farEnemy = addActor(room, 'farEnemy', { x: 0, z: -28, team: TEAMS.DEFENDERS }, 1);
+
+  // Give DEFENDERS active siege machines so Siege Blades elimination rules keep combatants live while standing beneath m
+  const defMachine = createDragOon({ id: 'd-def-anchor', x: 40, y: 0, z: -30, heading: 0, team: TEAMS.DEFENDERS });
+  const underAnchor = createDragOon({ id: 'd-under-anchor', x: 25, y: 0, z: -22, heading: 0, team: TEAMS.DEFENDERS });
+  const farAnchor = createDragOon({ id: 'd-far-anchor', x: 35, y: 0, z: -28, heading: 0, team: TEAMS.DEFENDERS });
+  room.addMachine(defMachine);
+  room.addMachine(underAnchor);
+  room.addMachine(farAnchor);
+  assignDragOonCrewInstant(room, defMachine, defHelper, { role: 'operator', now: 1 });
+  room.siegeBlades?.spawnAssignments?.set(defHelper.id, { machineId: defMachine.id, kind: 'dragoon' });
+  room.siegeBlades?.spawnAssignments?.set(underEnemy.id, { machineId: underAnchor.id, kind: 'dragoon' });
+  room.siegeBlades?.spawnAssignments?.set(farEnemy.id, { machineId: farAnchor.id, kind: 'dragoon' });
+
+  const m = createDragOon({
+    id: 'd-team-rite', x: 0, y: 0, z: 0, heading: 0, team: TEAMS.ATTACKERS,
+    skill: { id: 'flightLikeHell', phase: 'idle', readyAt: 0 },
+  });
+  room.addMachine(m);
+  assignDragOonCrewInstant(room, m, op, { role: 'operator', now: 1 });
+  assignDragOonCrewInstant(room, m, pax1, { role: 'passenger', station: 0, now: 1 });
+  assignDragOonCrewInstant(room, m, pax2, { role: 'passenger', station: 1, now: 1 });
+
+  assert.deepEqual(applyRoomCommand(room, op, { type: 'dragOonRiteCommit', committed: true }, 2), {});
+  assert.deepEqual(applyRoomCommand(room, pax1, { type: 'dragOonRiteCommit', committed: true }, 2), {});
+  assert.deepEqual(applyRoomCommand(room, pax2, { type: 'dragOonRiteCommit', committed: true }, 2), {});
+  assert.deepEqual(applyRoomCommand(room, op, { type: 'dragOonRiteActivate' }, 2.1), {});
+
+  // Ascend with steering input and verify sustained downward exhaust damages enemy beneath + speeds past ordinary cruise!
+  op.input = { forward: 1, right: 0.45, yaw: -0.35, pitch: 0.20 };
+  let t = advance(room, 0.85, 1 / 60, 2.1);
+  assert.ok(underEnemy.health < 100 && underEnemy.alive, 'Damaging Rite rocket exhaust burns enemies beneath departing machine');
+  assert.ok(underEnemy.dragOonMaxHealthLoss > 0, 'Rite exhaust inflicts reversible maxHealth loss');
+  assert.ok(room.events.some(e => e.type === 'damage' && e.victimId === 'underEnemy' && e.source === 'dragoon-rite-exhaust'));
+  assert.ok(isPointSuppressedByDragOon(room, { x: 0, y: 0, z: -1.5 }, t), 'Rite exhaust scorches suppression zone beneath');
+  const speedMag = Math.hypot(m.velocity.x, m.velocity.y, m.velocity.z);
+  assert.ok(speedMag > 16.5, `Rite rocket velocity (${speedMag.toFixed(1)} m/s) accelerates significantly beyond ordinary mobility`);
+
+  // Steer and trigger manual detonation in team room -> EVERY committed member must perish cleanly with ZERO pilot teamkills!
+  room.events.length = 0;
+  assert.deepEqual(applyRoomCommand(room, op, { type: 'dragOonRiteDetonate' }, t), {});
+  const detEvents = room.events.filter(e => e.type === 'dragOonDestroyed');
+  assert.equal(detEvents.length, 1);
+  assert.equal(detEvents[0].survivorsEjected, 0);
+  assert.equal(op.alive, false, 'Operator perishes on Rite detonation in team room');
+  assert.equal(pax1.alive, false, 'Spawn-protected passenger still perishes on committed Rite detonation');
+  assert.equal(pax2.alive, false, 'Steeled/Valkyrie-sheltered passenger still perishes on committed Rite detonation');
+  assert.equal(op.kills ?? 0, 0, 'Pilot is NOT awarded ally kill credits for Rite crew deaths');
+  assert.equal(op.deaths, 1);
+  assert.equal(pax1.deaths, 1);
+  assert.equal(pax2.deaths, 1);
+  assert.equal(farEnemy.alive, true, 'Out-of-range enemy outside explosion stays alive');
 });
